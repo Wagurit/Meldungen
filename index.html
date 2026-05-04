@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen & Angebote v6</title>
+<title>Meldungen & Angebote v7</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -163,7 +163,7 @@ textarea{resize:vertical;min-height:68px;}
 .v2-body{padding:10px 12px 10px 16px;display:flex;flex-direction:column;gap:7px;}
 .v2-text{font-size:14px;color:var(--tx);line-height:1.5;font-weight:500;}
 .v2-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:#94a3b8;}
-.v2-kz{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px;letter-spacing:.07em;}
+.v2-kz{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px;letter-spacing:.07em;background:#475569;color:#fff;}
 .v2-status-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding-top:7px;border-top:1px solid #f0f0f0;}
 .v2-slabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);}
 .gs-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;}
@@ -304,14 +304,16 @@ textarea{resize:vertical;min-height:68px;}
 .ptr-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;}
 .ptr-spin.go{animation:spin .6s linear infinite;}
 
+
+
 /* ── KÜRZEL-FARBEN ── */
-.kzf-IS{background:#0369a1;color:#fff;}
-.kzf-AG{background:#15803d;color:#fff;}
-.kzf-RG{background:#4f46e5;color:#fff;}
-.kzf-SB{background:#0891b2;color:#fff;}
-.kzf-BT{background:#be185d;color:#fff;}
-.kzf-JN{background:#b45309;color:#fff;}
-.kzf-default{background:#475569;color:#fff;}
+.kzf-IS{background:#0369a1!important;color:#fff!important;}
+.kzf-AG{background:#15803d!important;color:#fff!important;}
+.kzf-RG{background:#4f46e5!important;color:#fff!important;}
+.kzf-SB{background:#0891b2!important;color:#fff!important;}
+.kzf-BT{background:#be185d!important;color:#fff!important;}
+.kzf-JN{background:#b45309!important;color:#fff!important;}
+.kzf-default{background:#475569!important;color:#fff!important;}
 </style>
 </head>
 <body>
@@ -358,7 +360,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v6</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v7</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1220,14 +1222,53 @@ function setF(tab,f,el){
 }
 
 
-// Kürzel-Farbe: gibt CSS-Klasse zurück
+
+// Kürzel → CSS-Klasse für Farbzuweisung
 function kzClass(k){
-  const map={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BT:'kzf-BT',JN:'kzf-JN'};
-  return map[k]||'kzf-default';
+  const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BT:'kzf-BT',JN:'kzf-JN'};
+  return m[k]||'kzf-default';
 }
+// Kürzel als farbiges Badge
 function kzBadge(k){
   return '<span class="v2-kz '+kzClass(k)+'">'+esc(k)+'</span>';
 }
+
+function toggleMgx(eid, btn){
+  const box=document.getElementById('mgx-'+eid);
+  if(!box)return;
+  const open=box.style.display==='flex';
+  box.style.display=open?'none':'flex';
+  box.style.flexDirection='column';
+  box.style.gap='6px';
+  btn.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
+}
+
+function toggleMeldEdit(eid, btn){
+  const box=document.getElementById('meditbox-'+eid);
+  if(!box)return;
+  const open=box.style.display==='flex';
+  box.style.display=open?'none':'flex';
+  box.style.flexDirection='column';
+  box.style.gap='6px';
+  btn.textContent=open?'✏️ Bearbeiten':'✏️ Schließen';
+}
+
+async function saveMeldEdit(eid, btn){
+  const ta=document.getElementById('medit-ta-'+eid);
+  if(!ta)return;
+  const newText=ta.value.trim();
+  if(!newText){alert('Text darf nicht leer sein.');return;}
+  const now=new Date().toISOString();
+  btn.disabled=true;btn.textContent='Speichert…';
+  const {error}=await _sb.from('meldungen').update({text:newText,bearbeitet_am:now}).eq('id',eid);
+  btn.disabled=false;btn.textContent='Speichern';
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const e=MD.find(x=>x.id===eid);
+  if(e){e.text=newText;e.bearbeitet_am=now;}
+  toast('✓ Meldung bearbeitet');
+  renderM();
+}
+
 // ══════════════════════════════════════════════════════════
 // RENDER MELDUNGEN
 // ══════════════════════════════════════════════════════════
@@ -1261,7 +1302,7 @@ function buildMeldChip(e){
 
   // Ersteller + Datum im Header unter Firmenname
   const metaHeader='<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;display:flex;gap:6px;align-items:center">'+
-    '<span class="v2-kz '+kzClass(e.kuerzel)+'" style="opacity:.9">'+esc(e.kuerzel)+'</span>'+
+    kzBadge(e.kuerzel)+
     '<span>'+fd(e.ts)+'</span></div>';
 
   const statusChips=zeigeKZ.map(k2=>{
