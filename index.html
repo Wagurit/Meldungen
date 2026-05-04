@@ -1309,6 +1309,64 @@ function buildMeldChip(e){
 }
 
 // ══════════════════════════════════════════════════════════
+// RENDER CHEMIE
+// ══════════════════════════════════════════════════════════
+function renderC(){
+  const c=G('ec');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const q=V('sc').toLowerCase();
+  let d=CH.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
+  if(fil.c==='offen')    d=d.filter(e=>!e.erledigt);
+  if(fil.c==='erledigt') d=d.filter(e=>e.erledigt);
+  G('ec0').style.display=d.length?'none':'';
+  d.forEach(e=>{
+    const eid=e.id;
+    const el=document.createElement('div');
+    el.className='v2-chip'+(e.erledigt?' erl':'');
+    const statusBadge=e.erledigt?'<span class="v2-badge b-erl">✓ Erledigt</span>':'<span class="v2-badge b-neu">Offen</span>';
+    const produkteHtml=(e.produkte||[]).map(p=>'• '+esc(p)).join('  ');
+    const notizHtml=e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'';
+    const metaHtml='<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>';
+    let aktionHtml='';
+    if(e.erledigt){
+      aktionHtml='<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>';
+    } else {
+      const anrInput='<input class="ani" id="anr-c-'+eid+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'">';
+      const erlBtn=document.createElement('button');
+      erlBtn.className='berl';erlBtn.textContent='✓ Erledigt';
+      erlBtn.onclick=()=>setErlC(eid);
+      const anrDiv=document.createElement('div');anrDiv.className='anr';
+      anrDiv.appendChild(document.createRange().createContextualFragment(anrInput));
+      anrDiv.appendChild(erlBtn);
+      aktionHtml=anrDiv;
+    }
+    const delBtn=(userRolle==='admin')?(()=>{const b=document.createElement('button');b.className='edel';b.textContent='🗑 Löschen';b.onclick=(ev)=>delWithConfirm(ev.target,eid,'c');return b;})():null;
+    el.innerHTML=
+      '<div class="v2-header"><div class="v2-stripe"></div>'+
+      '<div class="v2-header-inner">'+
+        '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
+        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+
+          '<span class="v2-kz">'+esc(e.kuerzel)+'</span>'+
+          '<span>'+fd(e.ts)+'</span>'+
+        '</div></div>'+
+        '<div class="v2-badges">'+statusBadge+'</div>'+
+      '</div></div>'+
+      '<div class="v2-body">'+
+        '<div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+
+        notizHtml+metaHtml+
+      '</div>';
+    // Aktion-Elemente per DOM einfügen (vermeidet Quote-Escaping)
+    const body=el.querySelector('.v2-body');
+    if(e.erledigt){
+      const div=document.createElement('div');div.innerHTML=aktionHtml;body.appendChild(div);
+    } else {
+      body.appendChild(aktionHtml);
+    }
+    if(delBtn) body.appendChild(delBtn);
+    c.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
 // RENDER FREI
 // ══════════════════════════════════════════════════════════
 function renderF(){
