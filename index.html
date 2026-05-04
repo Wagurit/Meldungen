@@ -868,7 +868,11 @@ function swTab(n){
 // ══════════════════════════════════════════════════════════
 // LOGIK-HILFSFUNKTIONEN
 // ══════════════════════════════════════════════════════════
-function ichHabGelesen(e){return !!(e.gelesen_von&&e.gelesen_von[kz]);}
+function ichHabGelesen(e){
+  // Ersteller gilt immer als "gelesen" – er hat die Meldung ja selbst erstellt
+  if(e.kuerzel===kz) return true;
+  return !!(e.gelesen_von&&e.gelesen_von[kz]);
+}
 function relevanFuerMich(e){
   if(!e.zugewiesen_an||!e.zugewiesen_an.length)return true;
   if(e.zugewiesen_an.includes(kz))return true;
@@ -1046,14 +1050,20 @@ function toggleNgz(btn){btn.classList.toggle('sel');}
 async function setErlC(id){
   const e=CH.find(x=>x.id===id);if(!e)return;
   const an=G('anr-c-'+id)?G('anr-c-'+id).value.trim():'';
-  await _sb.from('chemie').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:new Date().toISOString()}).eq('id',id);
-  toast('✓ Erledigt');
+  const now=new Date().toISOString();
+  await _sb.from('chemie').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:now}).eq('id',id);
+  // Lokal sofort updaten
+  e.erledigt=true;e.angebotsnr=an;e.erledigt_von=kz;e.erledigt_ts=now;
+  toast('✓ Erledigt');renderC();updB();
 }
 async function setErlF(id){
   const e=FR.find(x=>x.id===id);if(!e)return;
   const an=G('anr-f-'+id)?G('anr-f-'+id).value.trim():'';
-  await _sb.from('freie_angebote').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:new Date().toISOString()}).eq('id',id);
-  toast('✓ Erledigt');
+  const now=new Date().toISOString();
+  await _sb.from('freie_angebote').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:now}).eq('id',id);
+  // Lokal sofort updaten
+  e.erledigt=true;e.angebotsnr=an;e.erledigt_von=kz;e.erledigt_ts=now;
+  toast('✓ Erledigt');renderF();updB();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1118,11 +1128,21 @@ async function doDelete(id,typ){
   const typLabel={'meldungen':'Meldung','chemie':'Chemie','freie_angebote':'Frei','kbe_kunden':'KBE'}[tabelle];
 
   // Soft-Delete (geloescht=true)
-  await _sb.from(tabelle).update({geloescht:true}).eq('id',id);
+  const {error:delErr}=await _sb.from(tabelle).update({geloescht:true}).eq('id',id);
+  if(delErr){toast('⚠️ Fehler beim Löschen: '+delErr.message);return;}
   // Log-Eintrag
   await _sb.from('loeschlog').insert({typ:typLabel,firma:firmaStr,original_id:id,kurzinfo:kurzinfoStr,geloescht_von:kz});
-  if(typ==='k'&&selKbeKunde===id){selKbeKunde=null;G('kbe-bestehend-form').style.display='none';}
+  // Lokal sofort entfernen → kein Warten auf Realtime
+  if(typ==='m'){MD=MD.filter(x=>x.id!==id);renderM();}
+  else if(typ==='c'){CH=CH.filter(x=>x.id!==id);renderC();}
+  else if(typ==='f'){FR=FR.filter(x=>x.id!==id);renderF();}
+  else if(typ==='k'){
+    KBE=KBE.filter(x=>x.id!==id);
+    if(selKbeKunde===id){selKbeKunde=null;G('kbe-bestehend-form').style.display='none';}
+    renderKbeListe();renderKbeKunden();
+  }
   toast('✓ Gelöscht & im Log gespeichert');
+  updB();
 }
 function kbeDelBtn(btn){const kid=btn.dataset.kid;delWithConfirm(btn,kid,'k');}
 
@@ -1530,8 +1550,13 @@ async function saveBestKunde(){
   // Neue RKWs mergen
   const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
   await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
-  await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz});
+  const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
+  // Lokal sofort updaten
+  k.rkws=neueRkws;
+  const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte});
   toast('✓ KBE-Werte gespeichert');
+  renderKbeListe();renderKbeKunden();updB();
 }
 function addRkwRow(containerId){
   const c=G(containerId);const row=document.createElement('div');row.className='rkw-row';
