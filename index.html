@@ -864,6 +864,8 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
+    // Daten beim Tab-Wechsel neu laden (hält Counter und Listen aktuell)
+    if(kz) loadAll();
   });
 });
 function swTab(n){
@@ -871,6 +873,8 @@ function swTab(n){
   document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
   const tab=document.querySelector('.tab[data-tab="'+n+'"]');
   if(tab){tab.classList.add('active');G('panel-'+n).classList.add('active');}
+  // Daten ebenfalls neu laden
+  if(kz) loadAll();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1462,16 +1466,70 @@ function renderKbeInListe(kbeArr,container){
   kbeArr.forEach(k=>{
     const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
     const el=document.createElement('div');el.className='v2-chip kbe-meld';
+    const karteId='kbem-'+k.id;
+
+    // Neuester Eintrag – immer sichtbar
     let vorschauHtml='';
     if(letzter){
-      vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">';
-      k.rkws.forEach(r=>{const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px"><span style="font-size:11px;color:var(--mu)">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span></div>';});
+      vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">';
+      k.rkws.forEach(r=>{
+        const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';
+        vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px">'+
+          '<span style="font-size:11px;color:var(--mu)">'+esc(r.name)+'</span>'+
+          '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span>'+
+          '</div>';
+      });
       vorschauHtml+='</div>';
     }
-    el.innerHTML='<div class="v2-header"><div class="v2-stripe" style="background:#0891b2"></div><div class="v2-header-inner"><div class="v2-firma">'+esc(k.firma)+'</div><div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
-      '<div class="v2-body"><div class="v2-meta"><span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+(letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+'</div>'+vorschauHtml+'</div>';
+
+    // Ältere Einträge – eingeklappt
+    let aelterHtml='';
+    if(k.eintraege.length>1){
+      aelterHtml='<div id="'+karteId+'" style="display:none;border-top:1px solid var(--bo);margin-top:8px;padding-top:8px">';
+      k.eintraege.slice(1).forEach(e=>{
+        aelterHtml+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px">'+esc(e.datum)+'</div>';
+        k.rkws.forEach(r=>{
+          const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';
+          aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+
+            '<span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span>'+
+            '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span>'+
+            '</div>';
+        });
+        aelterHtml+='</div>';
+      });
+      aelterHtml+='</div>';
+    }
+
+    el.innerHTML=
+      '<div class="v2-header"><div class="v2-stripe" style="background:#0891b2"></div>'+
+      '<div class="v2-header-inner"><div class="v2-firma">'+esc(k.firma)+'</div>'+
+      '<div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
+      '<div class="v2-body">'+
+        '<div class="v2-meta">'+
+          '<span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+
+          (letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+
+          (k.eintraege.length>1?'<span>'+k.eintraege.length+' Einträge</span>':'')+
+        '</div>'+
+        vorschauHtml+aelterHtml+
+      '</div>';
+    // Toggle-Button per DOM einfügen (kein Quote-Escaping Problem)
+    if(k.eintraege.length>1){
+      const tBtn=document.createElement('button');
+      tBtn.textContent=(k.eintraege.length-1)+' ältere anzeigen';
+      tBtn.style.fontSize='11px';tBtn.style.padding='3px 9px';tBtn.style.border='1px solid var(--bo)';tBtn.style.background='var(--bg)';tBtn.style.borderRadius='6px';tBtn.style.cursor='pointer';tBtn.style.color='var(--mu)';tBtn.style.fontFamily='"Barlow Condensed",sans-serif';tBtn.style.fontWeight='700';tBtn.style.marginTop='5px';
+      tBtn.onclick=(ev)=>{ev.stopPropagation();toggleKbeMeld(karteId,tBtn);};
+      el.querySelector('.v2-body').appendChild(tBtn);
+    }
     container.appendChild(el);
   });
+}
+
+function toggleKbeMeld(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  const cnt=el.querySelectorAll('[style*="margin-bottom:8px"]').length||'';
+  btn.textContent=open?(cnt+' ältere anzeigen'):'▲ Weniger';
 }
 
 function renderKbeKunden(){
