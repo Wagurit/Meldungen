@@ -813,7 +813,8 @@ async function loadAll(){
     }));
     LOG_DATA = (l.data||[]).map(x=>({
       id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
-      typ:x.typ, firma:x.firma, original_id:x.original_id, kurzinfo:x.kurzinfo
+      typ:x.typ, firma:x.firma, original_id:x.original_id, kurzinfo:x.kurzinfo,
+      payload:x.payload||null
     }));
     setSyncing('ok');
     renderAll(); updB();
@@ -845,7 +846,7 @@ async function reloadTable(tbl){
   else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
   else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
   else if(tbl==='kbe'){loadAll();}
-  else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo}));renderLog();updB();}
+  else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
 }
 
 // ══════════════════════════════════════════════════════════
