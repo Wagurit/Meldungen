@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0369a1">
+<title>RKW Meldungen & Angebote</title>
+<link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;RKW Meldungen %26 Angebote&quot;,&quot;short_name&quot;:&quot;RKW Meldungen&quot;,&quot;start_url&quot;:&quot;./&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#0369a1&quot;,&quot;theme_color&quot;:&quot;#0369a1&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;icon-192.png&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;},{&quot;src&quot;:&quot;icon-512.png&quot;,&quot;sizes&quot;:&quot;512x512&quot;,&quot;type&quot;:&quot;image/png&quot;}]}">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bd:#0369a1;--bm:#0284c7;--bl:#0ea5e9;--bp:#e0f2fe;--bg:#f0f9ff;--bo:#bae6fd;
+  --tx:#0f172a;--mu:#475569;--wh:#fff;--rd:#dc2626;--rdb:#fee2e2;
+  --gn:#15803d;--gb:#dcfce7;--gl:#bbf7d0;
+  --am:#b45309;--ab:#fef3c7;--or:#ea580c;--orb:#fff3ed;
+  --vi:#7c3aed;--vb:#ede9fe;--vbo:#c4b5fd;
+  --yw:#ca8a04;--ywb:#fef9c3;
+  --log:#6b21a8;--logb:#f3e8ff;--logbo:#d8b4fe;
+  --hh:54px;--th:44px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Barlow',sans-serif;background:var(--bl);color:var(--tx);font-size:14px;min-height:100dvh;display:flex;flex-direction:column;}
+
+/* ── LOADING OVERLAY ── */
+#loading{position:fixed;inset:0;background:var(--bd);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;}
+.spin{width:36px;height:36px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{color:rgba(255,255,255,.7);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;}
+
+/* ── LOGIN ── */
+#ls{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:24px;background:var(--bd);}
+.lb{background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.25);}
+.ll{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:var(--bd);text-align:center;margin-bottom:16px;}
+.ll span{color:var(--bl);font-weight:400;}
+.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:6px;margin-top:14px;}
+.lbl:first-of-type{margin-top:0;}
+.kchips{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;}
+.kchip{padding:9px 0;border-radius:10px;border:2px solid var(--bo);background:var(--bg);color:var(--bd);font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.08em;cursor:pointer;transition:all .15s;flex:1;text-align:center;min-width:50px;max-width:68px;}
+.kchip.sel{background:var(--bp);border-color:var(--bl);box-shadow:0 0 0 2px var(--bl);}
+.lpw{width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px;font-family:'Barlow',sans-serif;padding:10px 12px;outline:none;-webkit-appearance:none;margin-top:2px;}
+.lpw:focus{border-color:var(--bl);background:#fff;}
+.lbtn{width:100%;margin-top:18px;padding:13px;border:none;border-radius:10px;background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.lerr{color:var(--rd);font-size:13px;text-align:center;margin-top:10px;display:none;}
+
+/* ── APP ── */
+#ap{display:none;flex-direction:column;min-height:100dvh;}
+.hdr{position:sticky;top:0;z-index:200;background:var(--bd);height:var(--hh);display:flex;align-items:center;padding:0 14px;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:#fff;}
+.logo span{color:#bae6fd;font-weight:400;}
+.hkz{margin-left:auto;background:rgba(255,255,255,.18);border-radius:8px;padding:4px 12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.1em;color:#fff;}
+.hadmin{background:rgba(255,193,7,.25);border-radius:7px;padding:3px 8px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;color:#fbbf24;letter-spacing:.06em;display:none;}
+.hadmin.v{display:block;}
+.blout{background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:7px;color:rgba(255,255,255,.7);font-size:12px;padding:4px 9px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:600;}
+
+/* ── TABS ── */
+.tabs{background:var(--bm);border-bottom:1px solid var(--bd);display:flex;overflow-x:auto;scrollbar-width:none;position:sticky;top:var(--hh);z-index:190;flex-shrink:0;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;padding:0 10px;height:var(--th);border:none;background:transparent;color:#bae6fd;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:4px;}
+.tab.active{color:#fff;border-bottom-color:#fff;background:rgba(255,255,255,.08);}
+.tab-badges{display:flex;gap:3px;align-items:center;}
+.tbg{border-radius:10px;font-size:10px;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;display:none;}
+.tbg.v{display:inline-block;}
+.tbg.ug{background:var(--or);color:#fff;}
+.tbg.fm{background:var(--vi);color:#fff;}
+.tbg.of{background:#f59e0b;color:#fff;}
+.tbg.rq{background:var(--rd);color:#fff;}
+.tbg.kbe{background:#0891b2;color:#fff;}
+.tbg.lg{background:var(--log);color:#fff;}
+.tbg.adm{background:#fbbf24;color:#78350f;}
+
+/* ── CONTENT ── */
+.cnt{flex:1;overflow-y:auto;padding:12px;}
+.pnl{display:none;}.pnl.active{display:block;}
+.card{background:var(--wh);border-radius:12px;border:1px solid var(--bo);padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.sl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:5px;margin-top:13px;}
+.sl:first-child{margin-top:0;}
+input[type=text],input[type=number],input[type=date],input[type=password],input[type=email],textarea,select{width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px;font-family:'Barlow',sans-serif;padding:10px 12px;outline:none;-webkit-appearance:none;}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23475569' d='M5 7L0 2h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;appearance:none;cursor:pointer;}
+input:focus,textarea:focus,select:focus{border-color:var(--bl);background:#fff;}
+textarea{resize:vertical;min-height:68px;}
+
+/* Autocomplete */
+.acw{position:relative;}
+.acl{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:300;background:#fff;border:1.5px solid var(--bo);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);overflow:hidden;display:none;}
+.acl.open{display:block;}
+.aci{padding:9px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid var(--bg);}
+.aci:last-child{border-bottom:none;}
+.aci:hover{background:var(--bp);}
+
+/* Zuweisung */
+.zuw-box{background:var(--vb);border:1.5px solid var(--vbo);border-radius:10px;padding:10px 12px;margin-top:4px;}
+.zuw-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--vi);margin-bottom:8px;}
+.kz-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.kz-pill{padding:6px 10px;border-radius:9px;border:1.5px solid var(--vbo);background:#fff;color:var(--vi);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;cursor:pointer;transition:all .14s;text-align:center;min-width:40px;}
+.kz-pill.sel{background:var(--vi);color:#fff;border-color:var(--vi);}
+.kz-none{width:100%;margin-top:6px;padding:7px;border-radius:9px;border:1.5px solid #cbd5e1;background:#f8fafc;color:var(--mu);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .14s;}
+.kz-none.sel{background:#e2e8f0;border-color:#94a3b8;}
+
+/* Accordion Buttons */
+.abts{display:flex;gap:7px;margin-top:12px;}
+.abt{flex:1;padding:10px 3px;border:1.5px solid var(--bo);border-radius:10px;background:var(--bg);color:var(--bd);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.abt .ic{font-size:18px;}
+.abt.active{background:var(--bp);border-color:var(--bl);}
+.acc{overflow:hidden;max-height:0;transition:max-height .32s ease,opacity .25s ease;opacity:0;}
+.acc.open{max-height:3000px;opacity:1;}
+.fc{background:var(--bg);border:1.5px solid var(--bo);border-radius:10px;padding:13px;margin-top:10px;}
+.fct{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px;}
+
+/* Chemie Pills */
+.cg{display:flex;flex-wrap:wrap;gap:5px;}
+.cp{padding:5px 10px;border-radius:20px;border:1.5px solid var(--bo);background:#fff;color:var(--mu);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;user-select:none;letter-spacing:.04em;}
+.cp.sel{background:var(--bp);border-color:var(--bl);color:var(--bd);}
+.acr2{display:flex;gap:7px;margin-top:7px;}
+.acr2 input{flex:1;}
+.badd{padding:0 12px;height:40px;border:1.5px solid var(--bm);background:transparent;color:var(--bm);border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
+/* Material Toggle */
+.mat-toggle{display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1.5px solid var(--gl);border-radius:9px;padding:9px 12px;margin-top:4px;cursor:pointer;}
+.mat-toggle input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--gn);flex-shrink:0;}
+.mat-toggle-label{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--gn);letter-spacing:.04em;cursor:pointer;}
+.mat-toggle-sub{font-size:11px;color:#6b7280;margin-top:1px;}
+
+/* Stepper */
+.str{display:flex;align-items:center;gap:10px;}
+.stp{display:flex;align-items:stretch;background:#fff;border:1.5px solid var(--bo);border-radius:8px;overflow:hidden;}
+.stb{width:40px;height:40px;border:none;background:transparent;color:var(--bd);font-size:21px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.stb:active{background:var(--bp);}
+.stv{min-width:48px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:var(--bd);border-left:1.5px solid var(--bo);border-right:1.5px solid var(--bo);display:flex;align-items:center;justify-content:center;}
+.stl{font-size:13px;color:var(--mu);}
+.hur{display:flex;align-items:center;gap:9px;}
+.hur input{width:75px;flex-shrink:0;text-align:center;}
+.huu{font-size:14px;color:var(--mu);}
+.h-stp{display:flex;align-items:stretch;background:#fff;border:1.5px solid var(--bo);border-radius:8px;overflow:hidden;flex-shrink:0;}
+.h-stb{width:36px;height:40px;border:none;background:transparent;color:var(--bd);font-size:19px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.h-stb:active{background:var(--bp);}
+.bsend{width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.bsend:active{opacity:.85;}
+.bsend:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ── VARIANTE 2 CHIP (Klar & Blockig) ── */
+.v2-chip{background:#fff;border-radius:10px;margin-bottom:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.08);animation:fu .22s ease;}
+.v2-chip.ung{box-shadow:0 2px 6px rgba(234,88,12,.15);}
+.v2-chip.erl{opacity:.6;}
+.v2-header{display:flex;align-items:stretch;min-height:48px;}
+.v2-stripe{width:6px;flex-shrink:0;background:var(--bo);}
+.v2-chip.ung .v2-stripe{background:var(--or);}
+.v2-chip.fm .v2-stripe{background:var(--vi);}
+.v2-chip.erl .v2-stripe{background:var(--gn);}
+.v2-chip.rueckfrage .v2-stripe{background:var(--rd);}
+.v2-header-inner{flex:1;padding:10px 12px 10px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border-bottom:1px solid var(--bo);}
+.v2-firma{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:var(--tx);line-height:1.1;letter-spacing:.01em;}
+.v2-badges{display:flex;gap:3px;flex-wrap:wrap;flex-shrink:0;}
+.v2-badge{padding:3px 9px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;}
+.b-neu{background:var(--orb);color:var(--or);}
+.b-gel{background:var(--bp);color:var(--bd);}
+.b-zuw{background:var(--vb);color:var(--vi);}
+.b-erl{background:var(--gb);color:var(--gn);}
+.b-mat{background:var(--gb);color:var(--gn);}
+.b-rq{background:var(--rdb);color:var(--rd);}
+.b-kbe{background:#cffafe;color:#0e7490;}
+.v2-body{padding:10px 12px 10px 16px;display:flex;flex-direction:column;gap:7px;}
+.v2-text{font-size:14px;color:var(--tx);line-height:1.5;font-weight:500;}
+.v2-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:#94a3b8;}
+.v2-kz{background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px;letter-spacing:.07em;}
+.v2-status-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding-top:7px;border-top:1px solid #f0f0f0;}
+.v2-slabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);}
+.gs-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;}
+.gs-done{background:var(--gb);color:var(--gn);border:1px solid var(--gl);}
+.gs-offen{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;}
+@keyframes fu{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Frei-Meta */
+.frei-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px;}
+.frei-meta-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.04em;}
+.frei-meta-chip.mann{background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;}
+.frei-meta-chip.std{background:#fef9c3;color:#854d0e;border:1px solid #fde047;}
+.frei-meta-chip.matonly{background:var(--gb);color:var(--gn);border:1px solid var(--gl);}
+
+/* Gelesen-Block */
+.gelesen-block{border-top:1px solid var(--bo);margin-top:4px;padding-top:8px;display:flex;flex-direction:column;gap:6px;}
+.mein-gel-box{display:flex;flex-direction:column;gap:6px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:9px;padding:9px;}
+.mein-gel-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--or);}
+.gta{width:100%;background:#fff;border:1.5px solid var(--bo);border-radius:7px;color:var(--tx);font-size:13px;font-family:'Barlow',sans-serif;padding:7px 9px;outline:none;resize:vertical;min-height:46px;-webkit-appearance:none;}
+.gta:focus{border-color:var(--bl);}
+.gta::placeholder{color:#94a3b8;}
+.kom-zuw-box{margin-top:4px;}
+.kom-zuw-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:5px;}
+.bgel{padding:7px 13px;background:var(--or);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.kom-zeile{font-size:12px;color:var(--mu);background:var(--bg);border-radius:7px;padding:6px 9px;border:1px solid var(--bo);}
+.kom-zeile strong{color:var(--bd);}
+.kom-zuw-badge{display:inline-flex;align-items:center;gap:2px;background:var(--vb);color:var(--vi);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;margin-left:4px;}
+
+/* Rückfragen */
+.rq-block{border-top:1px solid #fecaca;margin-top:4px;padding-top:8px;display:flex;flex-direction:column;gap:7px;}
+.rq-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rd);}
+.rq-item{background:#fff8f8;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;}
+.rq-kz{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;background:var(--rdb);color:var(--rd);padding:1px 7px;border-radius:5px;}
+.rq-text{font-size:13px;color:var(--tx);line-height:1.45;}
+.rq-answer{background:#f0fdf4;border:1px solid var(--gl);border-radius:7px;padding:5px 8px;font-size:12px;color:var(--gn);}
+.rq-input-box{background:#fff;border:1.5px solid #fecaca;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;}
+.rq-input-title{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rd);}
+.brq-send{padding:6px 12px;background:var(--rd);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start;}
+.rq-inline-box{background:#fff3f3;border:1.5px solid #fca5a5;border-radius:9px;padding:10px;margin-top:4px;display:none;flex-direction:column;gap:6px;}
+
+/* Erledigt-Zeile */
+.anr{display:flex;gap:6px;align-items:center;padding-top:7px;border-top:1px solid var(--bo);margin-top:3px;flex-wrap:wrap;}
+.ani{flex:1;min-width:100px;padding:6px 9px;background:var(--bg);border:1.5px solid var(--bo);border-radius:7px;color:var(--tx);font-size:12px;font-family:'Barlow',sans-serif;outline:none;-webkit-appearance:none;}
+.ani:focus{border-color:var(--bl);background:#fff;}
+.ani::placeholder{color:#94a3b8;}
+.berl{padding:6px 10px;background:var(--gn);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.brq{padding:6px 10px;background:var(--am);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.erlinfo{font-size:11px;color:var(--gn);background:var(--gb);padding:5px 8px;border-radius:7px;border:1px solid var(--gl);display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:3px;}
+.edel{background:transparent;border:none;color:var(--rd);font-size:11px;cursor:pointer;opacity:.35;padding:2px 0;font-family:'Barlow',sans-serif;align-self:flex-end;}
+.edel:hover{opacity:1;}
+.edel.pending{opacity:1;background:#fee2e2!important;color:#dc2626!important;border-radius:6px;padding:3px 8px;}
+
+/* KBE */
+.rkw-row{display:flex;gap:7px;align-items:stretch;margin-bottom:6px;}
+.rkw-row input[type=text]{flex:1;}
+.rkw-val-select{width:110px;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;}
+.rkw-del-btn{padding:0 10px;height:40px;background:var(--rdb);border:1.5px solid #fca5a5;border-radius:8px;color:var(--rd);font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.add-rkw-btn{width:100%;margin-top:4px;padding:8px;border:1.5px dashed var(--bo);background:transparent;border-radius:8px;color:var(--bm);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.kunde-chip{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:10px;border:1.5px solid var(--bo);background:var(--bg);color:var(--bd);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .14s;margin:0 5px 5px 0;}
+.kunde-chip.sel{background:var(--bp);border-color:var(--bl);box-shadow:0 0 0 2px var(--bl);}
+.kunden-grid{display:flex;flex-wrap:wrap;margin-top:6px;}
+.kbe-karte{background:var(--wh);border:1px solid var(--bo);border-radius:10px;padding:12px 13px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.kbe-karte-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;}
+.kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--bd);}
+.kbe-karte-toggle{font-size:18px;color:var(--mu);transition:transform .2s;}
+.kbe-karte.open .kbe-karte-toggle{transform:rotate(180deg);}
+.kbe-karte-body{display:none;margin-top:10px;border-top:1px solid var(--bo);padding-top:10px;}
+.kbe-karte.open .kbe-karte-body{display:block;}
+.kbe-eintrag{padding:7px 0;border-bottom:1px solid var(--bg);display:flex;flex-direction:column;gap:4px;}
+.kbe-eintrag:last-child{border-bottom:none;}
+.kbe-datum{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.04em;}
+.kbe-rwk-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.kbe-rkw-name{font-size:13px;color:var(--tx);font-weight:500;min-width:80px;}
+.kbe-val{display:inline-block;padding:3px 10px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.04em;}
+.kbe-val.v0{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
+.kbe-val.v2,.kbe-val.v3{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
+.kbe-val.v4{background:#fef9c3;color:#854d0e;border:1px solid #fde047;}
+.kbe-val.v5,.kbe-val.v6{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;}
+.kbe-edit-btn{font-size:12px;padding:4px 10px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);border-radius:7px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+.kbe-rkw-edit-panel{background:var(--bg);border:1.5px solid var(--bo);border-radius:9px;padding:11px;margin:8px 0;display:none;flex-direction:column;gap:7px;}
+.kbe-rkw-edit-panel.open{display:flex;}
+
+/* LOG */
+.log-karte{background:var(--wh);border:1px solid var(--logbo);border-left:3px solid var(--log);border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;flex-direction:column;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.log-typ{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:inline-block;padding:2px 8px;border-radius:6px;background:var(--logb);color:var(--log);}
+.log-meta{font-size:11px;color:#94a3b8;display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+
+/* ADMIN TAB */
+.admin-section{background:#fff;border-radius:12px;border:1px solid var(--bo);padding:14px;margin-bottom:12px;}
+.admin-section-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--bd);margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--bo);}
+.nutzer-liste{display:flex;flex-direction:column;gap:7px;margin-top:8px;}
+.nutzer-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border:1px solid var(--bo);border-radius:9px;}
+.nutzer-kz{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:var(--bd);width:36px;flex-shrink:0;}
+.nutzer-email{font-size:12px;color:var(--mu);flex:1;}
+.nutzer-rolle{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;}
+.rolle-admin{background:#fef9c3;color:#92400e;}
+.rolle-tech{background:var(--bg);color:var(--mu);border:1px solid var(--bo);}
+.nutzer-del{padding:4px 8px;background:var(--rdb);border:1px solid #fca5a5;border-radius:6px;color:var(--rd);font-size:12px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+.pw-reset{padding:4px 8px;background:var(--ab);border:1px solid #fde68a;border-radius:6px;color:var(--am);font-size:11px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
+
+/* Listen Filter */
+.lhdr{margin-bottom:10px;}
+.ltit{color:rgba(255,255,255,.85);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;padding:0 2px;}
+.sin{width:100%;background:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;color:var(--tx);font-size:14px;font-family:'Barlow',sans-serif;padding:9px 12px;outline:none;margin-bottom:7px;-webkit-appearance:none;}
+.sin:focus{background:#fff;}
+.fts{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap;}
+.ft{padding:6px 13px;border-radius:20px;border:1.5px solid var(--bd);background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.ft.active{background:#fff;color:var(--bd);border-color:#fff;}
+.ftbg{border-radius:9px;font-size:10px;font-weight:800;padding:1px 7px;background:var(--or);color:#fff;}
+.ftbg.vi{background:var(--vi);}
+.ftbg.rd{background:var(--rd);}
+.ftbg.kbe{background:#0891b2;}
+
+/* Sync-Indicator */
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s;}
+.sync-dot.syncing{background:#fbbf24;animation:pulse .8s ease-in-out infinite;}
+.sync-dot.err{background:var(--rd);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.empty{text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:20px 0;font-style:italic;}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:10px 20px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;}
+.toast.on{opacity:1;}
+
+/* Update-Banner */
+.update-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#0369a1;color:#fff;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.update-banner.v{display:block;}
+</style>
+</head>
+<body>
+
+<!-- Update Banner -->
+<div class="update-banner" id="update-banner" onclick="applyUpdate()">
+  🔄 Neue Version verfügbar – Antippen zum Aktualisieren
+</div>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spin"></div>
+  <div class="load-txt">Verbinde…</div>
+</div>
+
+<!-- LOGIN -->
+<div id="ls">
+  <div class="lb">
+    <div class="ll">RKW <span>Meldungen</span></div>
+    <div class="lbl">E-Mail</div>
+    <input type="email" class="lpw" id="lemail" placeholder="z. B. is@rkw.intern"
+      autocomplete="email"
+      onkeydown="if(event.key==='Enter')G('lpw').focus()">
+    <div class="lbl">Passwort</div>
+    <input type="password" class="lpw" id="lpw" placeholder="Passwort eingeben…"
+      autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="lbtn" onclick="doLogin()">Einloggen</button>
+    <div class="lerr" id="lerr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="ap">
+  <div class="hdr">
+    <div class="logo">RKW <span>Meldungen &amp; Angebote</span></div>
+    <div class="hadmin" id="hadmin">ADMIN</div>
+    <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
+    <div class="hkz" id="hkz">–</div>
+    <button class="blout" onclick="doLogout()">Abmelden</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="e">✏️ Eingabe</button>
+    <button class="tab" data-tab="m">
+      📋 Meldungen
+      <span class="tab-badges">
+        <span class="tbg" id="tbm-ug"></span>
+        <span class="tbg" id="tbm-fm"></span>
+      </span>
+    </button>
+    <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
+    <button class="tab" data-tab="f">🔧 Frei <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
+    <button class="tab" data-tab="k">🔬 KBE <span class="tab-badges"><span class="tbg" id="tbk"></span></span></button>
+    <button class="tab" data-tab="l">📝 Log <span class="tab-badges"><span class="tbg" id="tbl"></span></span></button>
+    <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
+      ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
+    </button>
+  </div>
+
+  <div class="cnt">
+
+    <!-- EINGABE -->
+    <div class="pnl active" id="panel-e">
+      <div class="card">
+        <div class="sl">Kundenname</div>
+        <div class="acw">
+          <input type="text" id="ink" placeholder="Kundenname eingeben…" autocomplete="off"
+            oninput="onKI(this.value)" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
+          <div class="acl" id="acl"></div>
+        </div>
+        <div class="abts">
+          <button class="abt" id="abt-m" onclick="tog('m')"><span class="ic">📋</span>Meldung</button>
+          <button class="abt" id="abt-c" onclick="tog('c')"><span class="ic">🧪</span>Chemie</button>
+          <button class="abt" id="abt-f" onclick="tog('f')"><span class="ic">🔧</span>Frei</button>
+        </div>
+
+        <div class="acc" id="acc-m">
+          <div class="fc">
+            <div class="fct">📋 Meldung erfassen</div>
+            <div class="sl">Meldungstext</div>
+            <textarea id="mtx" placeholder="z. B. Chemie mitnehmen – BZ 300 und KT Konzentrat"></textarea>
+            <div class="sl">Zuweisen an (optional, Mehrfachauswahl)</div>
+            <div class="zuw-box">
+              <div class="zuw-title">👤 Empfänger wählen</div>
+              <div class="kz-pills" id="zuw-pills"></div>
+              <button class="kz-none sel" id="zuw-none" onclick="toggleZuwNone()">Alle – kein bestimmter Empfänger</button>
+            </div>
+            <button class="bsend" onclick="saveMeld()" id="btn-meld">Meldung speichern</button>
+          </div>
+        </div>
+
+        <div class="acc" id="acc-c">
+          <div class="fc">
+            <div class="fct">🧪 Chemie-Angebot</div>
+            <div class="sl">Produkte</div>
+            <div class="cg" id="cg"></div>
+            <div class="acr2">
+              <input type="text" id="ccu" placeholder="Sonstiges…">
+              <button class="badd" onclick="addChem()">+ Add</button>
+            </div>
+            <div class="sl">Anmerkung (optional)</div>
+            <textarea id="cno" placeholder="Menge, Preisinfos…" style="min-height:50px"></textarea>
+            <button class="bsend" onclick="saveChem()" id="btn-chem">Chemie-Angebot speichern</button>
+          </div>
+        </div>
+
+        <div class="acc" id="acc-f">
+          <div class="fc">
+            <div class="fct">🔧 Freies Angebot</div>
+            <div class="sl">Leistungsbeschreibung</div>
+            <textarea id="ftx" placeholder="z. B. Austausch Steuerkopf Fleck, Inbetriebnahme"></textarea>
+            <div class="sl">Art</div>
+            <label class="mat-toggle">
+              <input type="checkbox" id="nur-mat" onchange="toggleNurMat()">
+              <div>
+                <div class="mat-toggle-label">📦 Nur Material / Ersatzteil</div>
+                <div class="mat-toggle-sub">Keine Arbeitszeit</div>
+              </div>
+            </label>
+            <div id="mann-stunden-block">
+              <div class="sl">Anzahl Monteure</div>
+              <div class="str">
+                <div class="stp">
+                  <button class="stb" onclick="stepM(-0.5)">−</button>
+                  <div class="stv" id="mv">1</div>
+                  <button class="stb" onclick="stepM(0.5)">+</button>
+                </div>
+                <div class="stl" id="ml">Monteur</div>
+              </div>
+              <div class="sl">Geschätzte Stunden</div>
+              <div class="hur">
+                <div class="h-stp"><button class="h-stb" onclick="stepH(-1)">−</button></div>
+                <input type="number" id="fh" value="1" min="0.5" step="0.5" oninput="validateH(this)">
+                <div class="h-stp"><button class="h-stb" onclick="stepH(1)">+</button></div>
+                <span class="huu">Stunden</span>
+              </div>
+            </div>
+            <button class="bsend" onclick="saveFrei()" id="btn-frei">Angebot speichern</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MELDUNGEN -->
+    <div class="pnl" id="panel-m">
+      <div class="lhdr">
+        <div class="ltit">Alle Meldungen</div>
+        <input type="text" class="sin" id="sm" placeholder="🔍 Firma oder Kürzel…" oninput="renderM()">
+        <div class="fts">
+          <button class="ft active" onclick="setF('m','alle',this)">Alle</button>
+          <button class="ft" onclick="setF('m','offen',this)">Offen <span class="ftbg" id="ft-m-of-cnt"></span></button>
+          <button class="ft" onclick="setF('m','fuerMich',this)">Für mich <span class="ftbg vi" id="fm-cnt"></span></button>
+          <button class="ft" onclick="setF('m','kbe',this)">🔬 KBE <span class="ftbg kbe" id="ft-kbe-cnt"></span></button>
+          <button class="ft" onclick="setF('m','gelesen',this)">Gelesen</button>
+          <button class="ft" onclick="setF('m','kommentar',this)">Kommentar</button>
+        </div>
+      </div>
+      <div id="em"><div class="empty" id="em0">Noch keine Meldungen</div></div>
+    </div>
+
+    <!-- CHEMIE -->
+    <div class="pnl" id="panel-c">
+      <div class="lhdr">
+        <div class="ltit">Chemie-Angebote</div>
+        <input type="text" class="sin" id="sc" placeholder="🔍 Firma oder Ersteller…" oninput="renderC()">
+        <div class="fts">
+          <button class="ft active" onclick="setF('c','alle',this)">Alle</button>
+          <button class="ft" onclick="setF('c','offen',this)">Offen</button>
+          <button class="ft" onclick="setF('c','erledigt',this)">Erledigt</button>
+        </div>
+      </div>
+      <div id="ec"><div class="empty" id="ec0">Keine Chemie-Angebote</div></div>
+    </div>
+
+    <!-- FREI -->
+    <div class="pnl" id="panel-f">
+      <div class="lhdr">
+        <div class="ltit">Freie Angebote</div>
+        <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF()">
+        <div class="fts">
+          <button class="ft active" onclick="setF('f','alle',this)">Alle</button>
+          <button class="ft" onclick="setF('f','offen',this)">Offen</button>
+          <button class="ft" onclick="setF('f','erledigt',this)">Erledigt</button>
+          <button class="ft" onclick="setF('f','rq-offen',this)">Offene Rückfragen <span class="ftbg rd" id="ft-rq-cnt"></span></button>
+          <button class="ft" onclick="setF('f','rq-antwort',this)">Antworten <span class="ftbg" id="ft-ant-cnt"></span></button>
+        </div>
+      </div>
+      <div id="ef"><div class="empty" id="ef0">Keine freien Angebote</div></div>
+    </div>
+
+    <!-- KBE -->
+    <div class="pnl" id="panel-k">
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+        <div onclick="toggleKbeEingabe()" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer;background:var(--bg);border-bottom:1.5px solid var(--bo)">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">
+            🔬 KBE Wert erfassen
+          </div>
+          <span id="kbe-eingabe-arrow" style="font-size:18px;color:var(--mu)">⌄</span>
+        </div>
+        <div id="kbe-eingabe-body" style="display:none;padding:14px">
+          <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1.5px solid var(--bo)">
+            <div class="sl" style="margin-top:0">Neuen Kunden anlegen</div>
+            <input type="text" id="kbe-neukunde" placeholder="Kundenname…" style="margin-bottom:6px">
+            <div class="sl">RKW-Anlage(n)</div>
+            <div id="kbe-neu-rkws">
+              <div class="rkw-row">
+                <input type="text" placeholder="RKW-Name z. B. RH, Umformung…">
+                <select class="rkw-val-select"><option value="">–</option><option>10⁰</option><option>10²</option><option>10³</option><option>10⁴</option><option>10⁵</option><option>10⁶</option></select>
+                <button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>
+              </div>
+            </div>
+            <button class="add-rkw-btn" onclick="addRkwRow('kbe-neu-rkws')">+ RKW hinzufügen</button>
+            <div class="sl">Datum der Probenahme</div>
+            <input type="date" id="kbe-neu-datum">
+            <button class="bsend" onclick="saveNeuerKunde()" style="margin-top:10px">Kunden anlegen &amp; speichern</button>
+          </div>
+          <div>
+            <div class="sl" style="margin-top:0">Wert für bestehenden Kunden</div>
+            <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="renderKbeKunden()">
+            <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
+            <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
+              <div class="sl" id="kbe-selkunde-label"></div>
+              <div id="kbe-best-rkws"></div>
+              <div class="sl">Datum der Probenahme</div>
+              <input type="date" id="kbe-best-datum">
+              <button class="bsend" onclick="saveBestKunde()" style="margin-top:10px">KBE-Werte speichern</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lhdr">
+        <div class="ltit">KBE-Übersicht</div>
+        <input type="text" class="sin" id="sk" placeholder="🔍 Firma suchen…" oninput="renderKbeListe()">
+      </div>
+      <div id="ek"><div class="empty" id="ek0">Noch keine KBE-Einträge</div></div>
+    </div>
+
+    <!-- LOG -->
+    <div class="pnl" id="panel-l">
+      <div class="lhdr">
+        <div class="ltit">📝 Lösch-Log</div>
+        <input type="text" class="sin" id="sl-search" placeholder="🔍 Firma, Typ oder Kürzel…" oninput="renderLog()">
+        <div class="fts">
+          <button class="ft active" onclick="setF('l','alle',this)">Alle</button>
+          <button class="ft" onclick="setF('l','meldung',this)">Meldungen</button>
+          <button class="ft" onclick="setF('l','chemie',this)">Chemie</button>
+          <button class="ft" onclick="setF('l','frei',this)">Frei</button>
+          <button class="ft" onclick="setF('l','kbe',this)">KBE</button>
+        </div>
+      </div>
+      <div id="el"><div class="empty" id="el0">Noch keine gelöschten Einträge</div></div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="pnl" id="panel-a">
+      <div class="admin-section">
+        <div class="admin-section-title">👤 Nutzer verwalten</div>
+        <div class="sl" style="margin-top:0">Neuer Nutzer anlegen</div>
+        <div style="display:flex;gap:7px;margin-bottom:6px">
+          <input type="text" id="new-kz" placeholder="Kürzel (z.B. RG)" style="width:90px;flex-shrink:0;text-transform:uppercase">
+          <input type="email" id="new-email" placeholder="E-Mail (z.B. rg@rkw.intern)" style="flex:1">
+        </div>
+        <div style="display:flex;gap:7px;margin-bottom:6px">
+          <input type="password" id="new-pw" placeholder="Passwort" style="flex:1">
+          <select id="new-rolle" style="width:110px;flex-shrink:0">
+            <option value="tech">Techniker</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button class="bsend" onclick="createNutzer()" style="margin-top:4px">Nutzer anlegen</button>
+        <div class="sl">Bestehende Nutzer</div>
+        <div class="nutzer-liste" id="nutzer-liste">
+          <div style="color:#94a3b8;font-size:13px">Lade…</div>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-title">🔑 Passwort zurücksetzen</div>
+        <div style="display:flex;gap:7px">
+          <select id="pw-reset-kz" style="flex:1">
+            <option value="">Nutzer wählen…</option>
+          </select>
+          <input type="password" id="pw-reset-new" placeholder="Neues Passwort" style="flex:1">
+        </div>
+        <button class="bsend" onclick="resetPw()" style="margin-top:8px">Passwort setzen</button>
+      </div>
+    </div>
+
+  </div><!-- /cnt -->
+</div><!-- /ap -->
+
+<div class="toast" id="toast"></div>
+<script>
+// ══════════════════════════════════════════════════════════
+// KONFIGURATION – ANPASSEN VOR DEPLOY
+// ══════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://loekjdetgppmxnwnwxkm.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_tvSCErTdFX0L1HKb2h9HPw_7Xid0a0A';
+const IS_KZ = 'IS'; // Admin-Kürzel – bekommt immer alle Rückfragen zu sehen
+
+const CHEM_STD = [
+  'BZ','KT','BZ 219S','BZ 300','BZ 385','BZ 650',
+  'BZ 401','BZ 500','W23','BZ 900',
+  'KT 100K','KT 200K','KT 300K','KT 500K','GK','TP','KP','KS'
+];
+const KBE_WERTE = ['10⁰','10²','10³','10⁴','10⁵','10⁶'];
+
+// ── SUPABASE INIT ──
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── STATE ──
+let kz = '', userRolle = '', userId = '';
+let allNutzer = []; // [{id, kuerzel, rolle, email}]
+let selZuwSet = new Set();
+let mw = 1, af = null, nurMat = false;
+let fil = {m:'alle', c:'alle', f:'alle', l:'alle'};
+let selKbeKunde = null;
+let inkDirty = false;
+let delPending = null;
+
+// Lokale Datenpuffer (werden aus Supabase geladen)
+let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [];
+
+let cL = [...CHEM_STD], cS = new Set();
+
+// ── HELPERS ──
+const G = id => document.getElementById(id);
+const V = id => (G(id) ? G(id).value || '' : '').trim();
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fd(ts){if(!ts)return'–';return new Date(ts).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function toast(msg){const t=G('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600);}
+function setSyncing(state){const d=G('sync-dot');if(!d)return;d.className='sync-dot'+(state==='ok'?'':state==='err'?' err':' syncing');}
+function kbeValClass(val){
+  if(!val)return '';
+  const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6'};
+  return m[val]||'';
+}
+
+// ══════════════════════════════════════════════════════════
+// SERVICE WORKER
+// ══════════════════════════════════════════════════════════
+let swReg = null;
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw_rkw_meldungen.js').then(reg=>{
+    swReg = reg;
+    reg.addEventListener('updatefound',()=>{
+      const nw = reg.installing;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          G('update-banner').classList.add('v');
+        }
+      });
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
+}
+function applyUpdate(){
+  if(swReg&&swReg.waiting){swReg.waiting.postMessage('SKIP_WAITING');}
+}
+
+// ══════════════════════════════════════════════════════════
+// INIT – Nutzerliste laden & Login-Screen zeigen
+// ══════════════════════════════════════════════════════════
+async function init(){
+  // Session wiederherstellen falls vorhanden
+  const {data:{session}} = await _sb.auth.getSession();
+  if(session){
+    await afterLogin(session.user);
+    return;
+  }
+  G('loading').style.display = 'none';
+  G('ls').style.display = 'flex';
+}
+
+function buildLoginChips(kzArr){
+  const c = G('login-chips'); c.innerHTML = '';
+  kzArr.forEach(k=>{
+    const b = document.createElement('button');
+    b.className = 'kchip'; b.textContent = k;
+    b.onclick = ()=>pickKz(k);
+    c.appendChild(b);
+  });
+}
+
+let selKzLogin = '';
+function pickKz(k){
+  selKzLogin = k;
+  document.querySelectorAll('.kchip').forEach(c=>c.classList.toggle('sel', c.textContent===k));
+}
+
+async function doLogin(){
+  const email = V('lemail');
+  const pw = V('lpw');
+  if(!email){showErr('Bitte E-Mail eingeben.');return;}
+  if(!pw){showErr('Bitte Passwort eingeben.');return;}
+  showErr('');
+  G('loading').style.display = 'flex';
+
+  const {data, error} = await _sb.auth.signInWithPassword({email, password:pw});
+
+  if(error || !data.user){
+    G('loading').style.display = 'none';
+    showErr('Login fehlgeschlagen. E-Mail oder Passwort falsch.');
+    return;
+  }
+  await afterLogin(data.user);
+}
+
+function showErr(msg){const e=G('lerr');e.textContent=msg;e.style.display=msg?'block':'none';}
+
+async function afterLogin(user){
+  userId = user.id;
+  // Eigenes Profil laden
+  const {data:profil} = await _sb.from('nutzer').select('kuerzel,rolle').eq('id',user.id).single();
+  if(!profil){
+    await _sb.auth.signOut();
+    G('loading').style.display='none';
+    G('ls').style.display='flex';
+    showErr('Nutzer nicht in Datenbank gefunden.');
+    return;
+  }
+  kz = profil.kuerzel;
+  userRolle = profil.rolle;
+
+  G('hkz').textContent = kz;
+  if(userRolle==='admin'){G('hadmin').classList.add('v');G('admin-tab').style.display='flex';}
+
+  // Zuw-Pills aufbauen (andere Kürzel)
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+  allNutzer = alleN || [];
+  buildZuwPills();
+
+  G('loading').style.display='none';
+  G('ls').style.display='none';
+  G('ap').style.display='flex';
+
+  // Datum-Felder
+  const heute = new Date().toISOString().split('T')[0];
+  ['kbe-neu-datum','kbe-best-datum'].forEach(id=>{const el=G(id);if(el)el.value=heute;});
+
+  await loadAll();
+  setupRealtime();
+  if(userRolle==='admin') loadNutzerAdmin();
+}
+
+async function doLogout(){
+  await _sb.auth.signOut();
+  kz='';userId='';userRolle='';
+  selKzLogin='';selZuwSet.clear();
+  inkDirty=false;
+  G('ink').value='';
+  G('hadmin').classList.remove('v');
+  G('admin-tab').style.display='none';
+  document.querySelectorAll('.kchip').forEach(c=>c.classList.remove('sel'));
+  G('ap').style.display='none';
+  // Chips neu laden
+  const {data:nutzer} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+  buildLoginChips((nutzer||[]).map(n=>n.kuerzel));
+  G('ls').style.display='flex';
+}
+
+// ══════════════════════════════════════════════════════════
+// DATEN LADEN
+// ══════════════════════════════════════════════════════════
+async function loadAll(){
+  setSyncing('syncing');
+  try {
+    const [m,c,f,k,ke,l] = await Promise.all([
+      _sb.from('meldungen').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
+      _sb.from('chemie').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
+      _sb.from('freie_angebote').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
+      _sb.from('kbe_kunden').select('*').eq('geloescht',false).order('firma'),
+      _sb.from('kbe_eintraege').select('*').order('datum',{ascending:false}),
+      _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200),
+    ]);
+    MD = (m.data||[]).map(mapMeld);
+    CH = (c.data||[]).map(mapChem);
+    FR = (f.data||[]).map(mapFrei);
+    const kunden = k.data||[];
+    const eintr  = ke.data||[];
+    KBE = kunden.map(k2=>({
+      id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
+      rkws: k2.rkws||[],
+      eintraege: eintr.filter(e=>e.kunde_id===k2.id).map(e=>({
+        id:e.id, ts:e.datum, datum:new Date(e.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
+        werte:e.werte||{}
+      }))
+    }));
+    LOG_DATA = (l.data||[]).map(x=>({
+      id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
+      typ:x.typ, firma:x.firma, original_id:x.original_id, kurzinfo:x.kurzinfo
+    }));
+    setSyncing('ok');
+    renderAll(); updB();
+  } catch(e){
+    setSyncing('err');
+    toast('⚠️ Ladefehler – bitte Seite neu laden');
+  }
+}
+
+function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[]};}
+function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts};}
+function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[]};}
+
+// ══════════════════════════════════════════════════════════
+// REALTIME
+// ══════════════════════════════════════════════════════════
+function setupRealtime(){
+  _sb.channel('rkw-changes')
+    .on('postgres_changes',{event:'*',schema:'public',table:'meldungen'},()=>reloadTable('meldungen'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'chemie'},()=>reloadTable('chemie'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'freie_angebote'},()=>reloadTable('freie_angebote'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'kbe_kunden'},()=>reloadTable('kbe'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'kbe_eintraege'},()=>reloadTable('kbe'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
+    .subscribe();
+}
+async function reloadTable(tbl){
+  if(tbl==='meldungen'){const {data}=await _sb.from('meldungen').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});MD=(data||[]).map(mapMeld);renderM();updB();}
+  else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
+  else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
+  else if(tbl==='kbe'){loadAll();}
+  else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo}));renderLog();updB();}
+}
+
+// ══════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+function swTab(n){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
+  const tab=document.querySelector('.tab[data-tab="'+n+'"]');
+  if(tab){tab.classList.add('active');G('panel-'+n).classList.add('active');}
+}
+
+// ══════════════════════════════════════════════════════════
+// LOGIK-HILFSFUNKTIONEN
+// ══════════════════════════════════════════════════════════
+function ichHabGelesen(e){return !!(e.gelesen_von&&e.gelesen_von[kz]);}
+function relevanFuerMich(e){
+  if(!e.zugewiesen_an||!e.zugewiesen_an.length)return true;
+  if(e.zugewiesen_an.includes(kz))return true;
+  const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
+  if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
+  return false;
+}
+function offenFuerMich(e){return relevanFuerMich(e)&&!ichHabGelesen(e);}
+function istExplizitFuerMich(e){
+  if(ichHabGelesen(e))return false;
+  if(e.zugewiesen_an&&e.zugewiesen_an.includes(kz))return true;
+  const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
+  if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
+  return false;
+}
+function freiHatOffeneRQ(e){return(e.rueckfragen||[]).some(r=>r.offen);}
+function freiHatAntwort(e){return(e.rueckfragen||[]).some(r=>!r.offen&&!r.bestaetigt&&r.antworten&&r.antworten.length>0);}
+// IS bekommt IMMER alle Rückfragen zu sehen
+function rqIstFuerMich(e){return freiHatOffeneRQ(e)&&(e.kuerzel===kz||kz===IS_KZ);}
+function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS_KZ);}
+
+// ══════════════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ══════════════════════════════════════════════════════════
+function allK(){const s=new Set();[...MD,...CH,...FR].forEach(e=>s.add(e.firma));return[...s].sort((a,b)=>a.localeCompare(b,'de'));}
+function onKI(v){
+  const l=G('acl'),k2=allK().filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x!==v);
+  if(!k2.length||!v){l.classList.remove('open');return;}
+  l.innerHTML=k2.slice(0,7).map(x=>'<div class="aci" onmousedown="pickK(\''+esc(x)+'\')">'+esc(x)+'</div>').join('');
+  l.classList.add('open');
+}
+function pickK(k2){G('ink').value=k2;inkDirty=false;closeAc();}
+function closeAc(){G('acl').classList.remove('open');}
+function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;}onKI(inp.value);}
+
+// ══════════════════════════════════════════════════════════
+// ZUWEISUNG
+// ══════════════════════════════════════════════════════════
+function buildZuwPills(){
+  const pp=G('zuw-pills');pp.innerHTML='';
+  allNutzer.filter(n=>n.kuerzel!==kz).forEach(n=>{
+    const b=document.createElement('button');b.className='kz-pill';b.textContent=n.kuerzel;
+    b.onclick=()=>toggleZuw(n.kuerzel);pp.appendChild(b);
+  });
+  selZuwSet.clear();updateZuwNone();
+}
+function toggleZuw(k2){
+  if(selZuwSet.has(k2))selZuwSet.delete(k2);else selZuwSet.add(k2);
+  document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.toggle('sel',selZuwSet.has(b.textContent)));
+  updateZuwNone();
+}
+function toggleZuwNone(){selZuwSet.clear();document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));updateZuwNone();}
+function updateZuwNone(){G('zuw-none').classList.toggle('sel',selZuwSet.size===0);}
+
+// ══════════════════════════════════════════════════════════
+// ACCORDION / STEPPER
+// ══════════════════════════════════════════════════════════
+function tog(w){
+  if(af===w){G('acc-'+w).classList.remove('open');G('abt-'+w).classList.remove('active');af=null;return;}
+  ['m','c','f'].forEach(id=>{G('acc-'+id).classList.remove('open');G('abt-'+id).classList.remove('active');});
+  G('acc-'+w).classList.add('open');G('abt-'+w).classList.add('active');af=w;
+  if(w==='c')renderPills();
+}
+function toggleNurMat(){nurMat=G('nur-mat').checked;G('mann-stunden-block').style.display=nurMat?'none':'';}
+function stepM(d){const n=Math.round((mw+d)*2)/2;if(n<0.5||n>10)return;mw=n;G('mv').textContent=n%1?n.toFixed(1):n;if(n===0.5)G('ml').textContent='½ Monteur';else if(n===1)G('ml').textContent='Monteur';else G('ml').textContent=n+' Monteure';}
+function stepH(d){const inp=G('fh');let v=parseFloat(inp.value)||1;v=Math.round((v+d)*2)/2;if(v<0.5)v=0.5;inp.value=v;}
+function validateH(inp){const v=parseFloat(inp.value);if(isNaN(v)||v<=0)inp.value=1;}
+function renderPills(){
+  const g=G('cg');g.innerHTML='';
+  cL.forEach(name=>{const b=document.createElement('button');b.className='cp'+(cS.has(name)?' sel':'');b.textContent=name;b.onclick=()=>{cS.has(name)?cS.delete(name):cS.add(name);renderPills();};g.appendChild(b);});
+}
+function addChem(){const i=G('ccu');const v=i.value.trim();if(!v)return;if(!cL.includes(v))cL.push(v);cS.add(v);i.value='';renderPills();}
+G('ccu').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addChem();}});
+
+// ══════════════════════════════════════════════════════════
+// SPEICHERN
+// ══════════════════════════════════════════════════════════
+function setSaving(btnId, saving){const b=G(btnId);if(b){b.disabled=saving;b.textContent=saving?'Speichert…':b.dataset.orig||b.textContent;}}
+
+async function saveMeld(){
+  const firma=V('ink'),text=V('mtx');
+  if(!firma){alert('Bitte Kundenname eingeben.');return;}
+  if(!text){alert('Bitte Meldungstext eingeben.');return;}
+  G('btn-meld').disabled=true;
+  const {error}=await _sb.from('meldungen').insert({firma,text,kuerzel:kz,zugewiesen_an:[...selZuwSet],gelesen_von:{},verlauf:[]});
+  G('btn-meld').disabled=false;
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  G('mtx').value='';selZuwSet.clear();updateZuwNone();
+  document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));
+  toast('✓ Meldung gespeichert');resetE(true);swTab('m');
+}
+
+async function saveChem(){
+  const firma=V('ink');
+  if(!firma){alert('Bitte Kundenname eingeben.');return;}
+  if(!cS.size){alert('Bitte mindestens ein Produkt wählen.');return;}
+  G('btn-chem').disabled=true;
+  const {error}=await _sb.from('chemie').insert({firma,produkte:[...cS],notiz:V('cno'),kuerzel:kz});
+  G('btn-chem').disabled=false;
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  G('cno').value='';cS.clear();renderPills();
+  toast('✓ Chemie-Angebot gespeichert');resetE(true);swTab('c');
+}
+
+async function saveFrei(){
+  const firma=V('ink'),text=V('ftx');
+  if(!firma){alert('Bitte Kundenname eingeben.');return;}
+  if(!text){alert('Bitte Leistungsbeschreibung eingeben.');return;}
+  const nm=G('nur-mat').checked;
+  let h=parseFloat(G('fh').value)||1;if(h<=0)h=1;
+  G('btn-frei').disabled=true;
+  const {error}=await _sb.from('freie_angebote').insert({firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[]});
+  G('btn-frei').disabled=false;
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  G('ftx').value='';G('fh').value=1;mw=1;G('mv').textContent='1';G('ml').textContent='Monteur';
+  G('nur-mat').checked=false;toggleNurMat();
+  toast('✓ Angebot gespeichert');resetE(true);swTab('f');
+}
+
+function resetE(keepInk){
+  if(!keepInk)G('ink').value='';
+  inkDirty=!!keepInk;
+  ['m','c','f'].forEach(id=>{G('acc-'+id).classList.remove('open');G('abt-'+id).classList.remove('active');});
+  af=null;
+}
+
+// ══════════════════════════════════════════════════════════
+// GELESEN / KOMMENTAR
+// ══════════════════════════════════════════════════════════
+async function setGel(id){
+  const e=MD.find(x=>x.id===id);if(!e)return;
+  const ta=G('gta-'+id);const kommentar=ta?ta.value.trim():'';
+  const neuZuw=[];
+  document.querySelectorAll('.ngz-pill[data-eid="'+id+'"]').forEach(b=>{if(b.classList.contains('sel'))neuZuw.push(b.dataset.kz);});
+  const newGV={...e.gelesen_von};
+  newGV[kz]={ts:new Date().toISOString(),kommentar:kommentar||null};
+  const newVerlauf=[...e.verlauf];
+  if(kommentar||neuZuw.length){
+    newVerlauf.push({kuerzel:kz,text:kommentar,ts:new Date().toISOString(),neu_zuw:neuZuw});
+    if(neuZuw.length){neuZuw.forEach(k2=>{if(newGV[k2])delete newGV[k2];});}
+  }
+  await _sb.from('meldungen').update({gelesen_von:newGV,verlauf:newVerlauf}).eq('id',id);
+  toast('✓ Bestätigt'+(neuZuw.length?' → '+neuZuw.join(', '):''));
+}
+function toggleNgz(btn){btn.classList.toggle('sel');}
+
+// ══════════════════════════════════════════════════════════
+// ERLEDIGT
+// ══════════════════════════════════════════════════════════
+async function setErlC(id){
+  const e=CH.find(x=>x.id===id);if(!e)return;
+  const an=G('anr-c-'+id)?G('anr-c-'+id).value.trim():'';
+  await _sb.from('chemie').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:new Date().toISOString()}).eq('id',id);
+  toast('✓ Erledigt');
+}
+async function setErlF(id){
+  const e=FR.find(x=>x.id===id);if(!e)return;
+  const an=G('anr-f-'+id)?G('anr-f-'+id).value.trim():'';
+  await _sb.from('freie_angebote').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:new Date().toISOString()}).eq('id',id);
+  toast('✓ Erledigt');
+}
+
+// ══════════════════════════════════════════════════════════
+// RÜCKFRAGEN
+// ══════════════════════════════════════════════════════════
+function showRqBox(id){const b=G('rq-box-'+id);if(b)b.style.display='flex';}
+async function saveRq(id){
+  const e=FR.find(x=>x.id===id);if(!e)return;
+  const ta=G('rq-ta-'+id);const text=ta?ta.value.trim():'';
+  if(!text){alert('Bitte Rückfrage eingeben.');return;}
+  const newRQ=[...(e.rueckfragen||[])];
+  newRQ.forEach(rq=>{if(!rq.offen&&!rq.bestaetigt)rq.bestaetigt=true;});
+  newRQ.push({id:'rq'+Date.now(),kuerzel:kz,kommentar:text,ts:new Date().toISOString(),antworten:[],offen:true});
+  await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',id);
+  if(ta)ta.value='';
+  const b=G('rq-box-'+id);if(b)b.style.display='none';
+  toast('✓ Rückfrage gesendet');
+}
+async function saveRqAntwort(freiId,rqId){
+  const e=FR.find(x=>x.id===freiId);if(!e)return;
+  const rq=(e.rueckfragen||[]).find(r=>r.id===rqId);if(!rq)return;
+  const ta=G('rqa-ta-'+rqId);const text=ta?ta.value.trim():'';
+  if(!text&&kz!==IS_KZ){alert('Bitte eine Antwort eingeben.');return;}
+  const newRQ=e.rueckfragen.map(r=>{
+    if(r.id!==rqId)return r;
+    const updated={...r};
+    if(text){updated.antworten=[...(r.antworten||[]),{kuerzel:kz,text,ts:new Date().toISOString()}];updated.offen=false;}
+    else if(kz===IS_KZ){updated.bestaetigt=true;}
+    return updated;
+  });
+  await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',freiId);
+  if(ta)ta.value='';
+  toast('✓ Antwort gespeichert');
+}
+
+// ══════════════════════════════════════════════════════════
+// LÖSCHEN
+// ══════════════════════════════════════════════════════════
+let delPendingTimer=null;
+function delPendingClear(){
+  if(delPendingTimer)clearTimeout(delPendingTimer);
+  delPendingTimer=null; delPending=null;
+  document.querySelectorAll('.edel.pending').forEach(b=>{b.textContent='🗑 Löschen';b.classList.remove('pending');});
+}
+function delWithConfirm(btn,id,typ){
+  if(delPending&&delPending.id===id){delPendingClear();doDelete(id,typ);}
+  else{
+    delPendingClear();
+    delPending={id,typ};
+    delPendingTimer=setTimeout(()=>{delPendingClear();renderAll();},4000);
+    btn.textContent='⚠️ Sicher?';btn.classList.add('pending');
+  }
+}
+async function doDelete(id,typ){
+  let tabelle='',firmaStr='',kurzinfoStr='';
+  if(typ==='m'){const e=MD.find(x=>x.id===id);tabelle='meldungen';firmaStr=e?.firma||'';kurzinfoStr=(e?.text||'').substring(0,60);}
+  else if(typ==='c'){const e=CH.find(x=>x.id===id);tabelle='chemie';firmaStr=e?.firma||'';kurzinfoStr=(e?.produkte||[]).join(', ');}
+  else if(typ==='f'){const e=FR.find(x=>x.id===id);tabelle='freie_angebote';firmaStr=e?.firma||'';kurzinfoStr=(e?.text||'').substring(0,60);}
+  else if(typ==='k'){const e=KBE.find(x=>x.id===id);tabelle='kbe_kunden';firmaStr=e?.firma||'';kurzinfoStr=(e?.rkws||[]).map(r=>r.name).join(', ');}
+
+  if(!tabelle)return;
+  const typLabel={'meldungen':'Meldung','chemie':'Chemie','freie_angebote':'Frei','kbe_kunden':'KBE'}[tabelle];
+
+  // Soft-Delete (geloescht=true)
+  await _sb.from(tabelle).update({geloescht:true}).eq('id',id);
+  // Log-Eintrag
+  await _sb.from('loeschlog').insert({typ:typLabel,firma:firmaStr,original_id:id,kurzinfo:kurzinfoStr,geloescht_von:kz});
+  if(typ==='k'&&selKbeKunde===id){selKbeKunde=null;G('kbe-bestehend-form').style.display='none';}
+  toast('✓ Gelöscht & im Log gespeichert');
+}
+function kbeDelBtn(btn){const kid=btn.dataset.kid;delWithConfirm(btn,kid,'k');}
+
+// ══════════════════════════════════════════════════════════
+// FILTER
+// ══════════════════════════════════════════════════════════
+function setF(tab,f,el){
+  fil[tab]=f;
+  el.closest('.fts').querySelectorAll('.ft').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  if(tab==='m')renderM();
+  if(tab==='c')renderC();
+  if(tab==='f')renderF();
+  if(tab==='l')renderLog();
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER MELDUNGEN
+// ══════════════════════════════════════════════════════════
+function renderM(){
+  const c=G('em');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const q=V('sm').toLowerCase();
+  let d=MD.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
+  if(fil.m==='offen')    d=d.filter(e=>offenFuerMich(e));
+  if(fil.m==='gelesen')  d=d.filter(e=>ichHabGelesen(e));
+  if(fil.m==='kommentar')d=d.filter(e=>e.verlauf&&e.verlauf.some(v=>v.text));
+  if(fil.m==='fuerMich') d=d.filter(e=>istExplizitFuerMich(e));
+  if(fil.m==='kbe'){
+    let kbeArr=[...KBE];if(q)kbeArr=kbeArr.filter(k=>k.firma.toLowerCase().includes(q));
+    G('em0').style.display=kbeArr.length?'none':'';
+    renderKbeInListe(kbeArr,c);return;
+  }
+  G('em0').style.display=d.length?'none':'';
+  d.forEach(e=>c.appendChild(buildMeldChip(e)));
+}
+
+function buildMeldChip(e){
+  const ichGel=ichHabGelesen(e);
+  const explizit=istExplizitFuerMich(e);
+  const offen=offenFuerMich(e);
+  const zuwArr=e.zugewiesen_an||[];
+  const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
+
+  const bStatus=offen?'<span class="v2-badge b-neu">● Neu</span>':'<span class="v2-badge b-gel">Gelesen</span>';
+  const bZuw=zuwArr.length?'<span class="v2-badge b-zuw">→ '+zuwArr.map(esc).join(', ')+'</span>':'';
+
+  const statusChips=zeigeKZ.map(k2=>{
+    const g=e.gelesen_von&&e.gelesen_von[k2];
+    return g?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
+  }).join('');
+
+  const verlaufHtml=(e.verlauf||[]).map(v=>{
+    const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
+    return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: '+esc(v.text)+nz+'</div>';
+  }).join('');
+
+  const kannBest=relevanFuerMich(e)&&!ichGel;
+  let meinBlock='';
+  if(kannBest){
+    const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+e.id+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
+    meinBlock='<div class="mein-gel-box"><div class="mein-gel-title">👁 Meine Bestätigung</div>'+
+      '<textarea class="gta" id="gta-'+e.id+'" placeholder="Kommentar (optional)…"></textarea>'+
+      '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
+      '<button class="bgel" onclick="setGel(\''+e.id+'\')">Bestätigen</button></div>';
+  }
+
+  const el=document.createElement('div');
+  el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
+  el.innerHTML=
+    '<div class="v2-header"><div class="v2-stripe"></div>'+
+    '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
+    '<div class="v2-badges">'+bStatus+bZuw+'</div></div></div>'+
+    '<div class="v2-body">'+
+    '<div class="v2-text">'+esc(e.text)+'</div>'+
+    '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
+    '<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>'+statusChips+'</div>'+
+    verlaufHtml+meinBlock+
+    ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'m\')">🗑 Löschen</button>':'')+
+    '</div>';
+  return el;
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER CHEMIE
+// ══════════════════════════════════════════════════════════
+function renderC(){
+  const c=G('ec');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const q=V('sc').toLowerCase();
+  let d=CH.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
+  if(fil.c==='offen')    d=d.filter(e=>!e.erledigt);
+  if(fil.c==='erledigt') d=d.filter(e=>e.erledigt);
+  G('ec0').style.display=d.length?'none':'';
+  d.forEach(e=>{
+    const el=document.createElement('div');
+    el.className='v2-chip'+(e.erledigt?' erl':'');
+    el.innerHTML=
+      '<div class="v2-header"><div class="v2-stripe"></div>'+
+      '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
+      '<div class="v2-badges"><span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span></div></div></div>'+
+      '<div class="v2-body">'+
+      '<div class="v2-text">'+(e.produkte||[]).map(p=>'• '+esc(p)).join('  ')+'</div>'+
+      (e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'')+
+      '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
+      (e.erledigt
+        ?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>'
+        :'<div class="anr"><input class="ani" id="anr-c-'+e.id+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'"><button class="berl" onclick="setErlC(\''+e.id+'\')">✓ Erledigt</button></div>'
+      )+
+      ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'c\')">🗑 Löschen</button>':'')+
+      '</div>';
+    c.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER FREI
+// ══════════════════════════════════════════════════════════
+function renderF(){
+  const c=G('ef');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const q=V('sff').toLowerCase();
+  let d=FR.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
+  if(fil.f==='offen')      d=d.filter(e=>!e.erledigt);
+  if(fil.f==='erledigt')   d=d.filter(e=>e.erledigt);
+  if(fil.f==='rq-offen')   d=d.filter(e=>rqIstFuerMich(e));
+  if(fil.f==='rq-antwort') d=d.filter(e=>rqAntwortFuerMich(e));
+  G('ef0').style.display=d.length?'none':'';
+  d.forEach(e=>{
+    const hatRQ=freiHatOffeneRQ(e);
+    let monteurText='';
+    if(e.mann===0.5)monteurText='½ Monteur';
+    else if(e.mann===1)monteurText='1 Monteur';
+    else monteurText=(e.mann||'?')+' Monteure';
+    const meta=e.nurMat
+      ?'<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>'
+      :'<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+monteurText+'</span><span class="frei-meta-chip std">⏱ '+e.stunden+' h</span></div>';
+
+    let rqHtml='';
+    if((e.rueckfragen||[]).length){
+      rqHtml='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';
+      e.rueckfragen.forEach(rq=>{
+        const antHtml=(rq.antworten||[]).map(a=>'<div class="rq-answer"><strong>'+esc(a.kuerzel)+':</strong> '+esc(a.text)+'</div>').join('');
+        const kannAntw=rq.offen&&(e.kuerzel===kz||kz===IS_KZ)&&rq.kuerzel!==kz;
+        const antwBox=kannAntw?'<div class="rq-input-box"><div class="rq-input-title">Antwort'+(kz===IS_KZ?' / Bestätigung':'')+'</div><textarea class="gta" id="rqa-ta-'+rq.id+'" placeholder="'+(kz===IS_KZ?'Kommentar (optional)…':'Deine Antwort…')+'"></textarea><button class="brq-send" onclick="saveRqAntwort(\''+e.id+'\',\''+rq.id+'\')">Senden</button></div>':'';
+        rqHtml+='<div class="rq-item"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="rq-kz">'+esc(rq.kuerzel)+'</span>'+(rq.offen?'<span style="font-size:10px;color:var(--rd);font-weight:700">Offen</span>':'<span style="font-size:10px;color:var(--gn);font-weight:700">✓ Beantwortet</span>')+'<span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div><div class="rq-text">'+esc(rq.kommentar)+'</div>'+antHtml+antwBox+'</div>';
+      });
+      rqHtml+='</div>';
+    }
+    const rqBoxHtml=!e.erledigt?'<div class="rq-inline-box" id="rq-box-'+e.id+'" style="display:none;flex-direction:column;gap:6px"><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rd)">❓ Rückfrage stellen</div><textarea class="gta" id="rq-ta-'+e.id+'" placeholder="Deine Frage…"></textarea><button class="brq-send" onclick="saveRq(\''+e.id+'\')">Senden</button></div>':'';
+    const el=document.createElement('div');
+    el.className='v2-chip'+(e.erledigt?' erl':hatRQ?' rueckfrage':'');
+    el.innerHTML=
+      '<div class="v2-header"><div class="v2-stripe"></div>'+
+      '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
+      '<div class="v2-badges">'+(e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+(hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+'<span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span></div></div></div>'+
+      '<div class="v2-body"><div class="v2-text">'+esc(e.text)+'</div>'+meta+
+      '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
+      rqHtml+rqBoxHtml+
+      (!e.erledigt?'<div class="anr"><input class="ani" id="anr-f-'+e.id+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'"><button class="berl" onclick="setErlF(\''+e.id+'\')">✓ Erledigt</button><button class="brq" onclick="showRqBox(\''+e.id+'\')">❓ Rückfrage</button></div>':'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>')+
+      ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'f\')">🗑 Löschen</button>':'')+
+      '</div>';
+    c.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER KBE LISTE
+// ══════════════════════════════════════════════════════════
+function renderKbeListe(){
+  const c=G('ek');c.querySelectorAll('.kbe-karte').forEach(e=>e.remove());
+  const q=V('sk').toLowerCase();
+  const d=KBE.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  G('ek0').style.display=d.length?'none':'';
+  d.forEach(k=>{
+    const karte=document.createElement('div');karte.className='kbe-karte';
+    const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
+    const infoText=letzter?letzter.datum+'  •  '+k.eintraege.length+' Einträge':'Keine Einträge';
+    karte.innerHTML=
+      '<div class="kbe-karte-header" onclick="toggleKbeKarte(this)">'+
+      '<div style="flex:1;min-width:0"><div class="kbe-karte-firma">'+esc(k.firma)+'</div>'+
+      '<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+infoText+'</div></div>'+
+      '<div style="display:flex;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">'+
+      ((userRolle==='admin')?'<button class="kbe-edit-btn" style="color:var(--rd);border-color:#fca5a5" data-kid="'+k.id+'" onclick="kbeDelBtn(this)">🗑</button>':'')+
+      '</div><span class="kbe-karte-toggle">⌄</span></div>'+
+      '<div class="kbe-karte-body">'+buildKbeBody(k)+'</div>';
+    c.appendChild(karte);
+  });
+}
+function toggleKbeKarte(hdr){hdr.parentElement.classList.toggle('open');}
+function buildKbeBody(k){
+  if(!k.eintraege||!k.eintraege.length)return'<div style="color:#94a3b8;font-size:13px;font-style:italic;padding:4px 0">Noch keine Werte</div>';
+  let h='';
+  k.eintraege.forEach((e,i)=>{
+    const eid='kbee-'+k.id+'-'+i;
+    h+='<div class="kbe-eintrag"><div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleKbeEintrag(\''+eid+'\')"><div class="kbe-datum">'+esc(e.datum)+'</div><span id="arr-'+eid+'" style="font-size:13px;color:var(--mu)">'+(i===0?'▲':'▼')+'</span></div>';
+    h+='<div id="'+eid+'" style="display:'+(i===0?'block':'none')+'">';
+    k.rkws.forEach(r=>{
+      const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';
+      h+='<div class="kbe-rwk-row"><span class="kbe-rkw-name">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'">'+esc(val)+'</span></div>';
+    });
+    h+='</div></div>';
+  });
+  return h;
+}
+function toggleKbeEintrag(id){const el=document.getElementById(id);if(!el)return;const open=el.style.display!=='none';el.style.display=open?'none':'block';const arr=document.getElementById('arr-'+id);if(arr)arr.innerHTML=open?'▼':'▲';}
+
+function renderKbeInListe(kbeArr,container){
+  container.querySelectorAll('.v2-chip.kbe-meld').forEach(e=>e.remove());
+  kbeArr.forEach(k=>{
+    const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
+    const el=document.createElement('div');el.className='v2-chip kbe-meld';
+    let vorschauHtml='';
+    if(letzter){
+      vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">';
+      k.rkws.forEach(r=>{const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px"><span style="font-size:11px;color:var(--mu)">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span></div>';});
+      vorschauHtml+='</div>';
+    }
+    el.innerHTML='<div class="v2-header"><div class="v2-stripe" style="background:#0891b2"></div><div class="v2-header-inner"><div class="v2-firma">'+esc(k.firma)+'</div><div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
+      '<div class="v2-body"><div class="v2-meta"><span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+(letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+'</div>'+vorschauHtml+'</div>';
+    container.appendChild(el);
+  });
+}
+
+function renderKbeKunden(){
+  const q=V('kbe-suche').toLowerCase();
+  const g=G('kbe-kunden-grid');g.innerHTML='';
+  KBE.filter(k=>!q||k.firma.toLowerCase().includes(q)).forEach(k=>{
+    const b=document.createElement('button');b.className='kunde-chip'+(selKbeKunde===k.id?' sel':'');b.textContent=k.firma;b.onclick=()=>selectKbeKunde(k.id);g.appendChild(b);
+  });
+}
+function selectKbeKunde(kid){
+  selKbeKunde=kid;renderKbeKunden();
+  const k=KBE.find(x=>x.id===kid);if(!k){G('kbe-bestehend-form').style.display='none';return;}
+  G('kbe-selkunde-label').textContent=k.firma+' – KBE-Werte eintragen';
+  const c=G('kbe-best-rkws');c.innerHTML='';
+  k.rkws.forEach(r=>{
+    const row=document.createElement('div');row.className='rkw-row';
+    row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
+    c.appendChild(row);
+  });
+  G('kbe-bestehend-form').style.display='block';
+}
+
+async function saveNeuerKunde(){
+  const firma=V('kbe-neukunde');if(!firma){alert('Bitte Kundenname eingeben.');return;}
+  if(KBE.find(k=>k.firma.toLowerCase()===firma.toLowerCase())){alert('Kunde existiert bereits.');return;}
+  const rows=G('kbe-neu-rkws').querySelectorAll('.rkw-row');
+  const rkws=[],werte={};let ok=true;
+  rows.forEach(row=>{const name=(row.querySelector('input[type=text]').value||'').trim();const val=row.querySelector('select').value;if(!name){ok=false;return;}rkws.push({name});if(val)werte[name]=val;});
+  if(!ok||!rkws.length){alert('Bitte mindestens eine RKW mit Name eintragen.');return;}
+  const datum=G('kbe-neu-datum').value;if(!datum){alert('Bitte Datum wählen.');return;}
+  const {data:neuerK,error}=await _sb.from('kbe_kunden').insert({firma,kuerzel_erstellt:kz,rkws}).select().single();
+  if(error||!neuerK){toast('⚠️ Fehler: '+(error?.message||''));return;}
+  await _sb.from('kbe_eintraege').insert({kunde_id:neuerK.id,datum,werte,kuerzel:kz});
+  G('kbe-neukunde').value='';
+  toast('✓ Kunde angelegt & KBE gespeichert');
+}
+async function saveBestKunde(){
+  const k=KBE.find(x=>x.id===selKbeKunde);if(!k){alert('Kein Kunde gewählt.');return;}
+  const rows=G('kbe-best-rkws').querySelectorAll('.rkw-row');
+  const rkws=[],werte={};let ok=true;
+  rows.forEach(row=>{const name=(row.querySelector('input[type=text]').value||'').trim();const val=row.querySelector('select').value;if(!name){ok=false;return;}rkws.push({name});if(val)werte[name]=val;});
+  if(!ok){alert('Alle RKW brauchen einen Namen.');return;}
+  const datum=G('kbe-best-datum').value;if(!datum){alert('Bitte Datum wählen.');return;}
+  // Neue RKWs mergen
+  const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
+  await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
+  await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz});
+  toast('✓ KBE-Werte gespeichert');
+}
+function addRkwRow(containerId){
+  const c=G(containerId);const row=document.createElement('div');row.className='rkw-row';
+  row.innerHTML='<input type="text" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
+  c.appendChild(row);
+}
+function toggleKbeEingabe(){const body=G('kbe-eingabe-body');const arrow=G('kbe-eingabe-arrow');const open=body.style.display!=='none';body.style.display=open?'none':'block';if(arrow)arrow.innerHTML=open?'⌄':'▲';}
+
+// ══════════════════════════════════════════════════════════
+// RENDER LOG
+// ══════════════════════════════════════════════════════════
+function renderLog(){
+  const c=G('el');c.querySelectorAll('.log-karte').forEach(e=>e.remove());
+  const q=(V('sl-search')||'').toLowerCase();
+  let d=LOG_DATA.filter(e=>{
+    if(q&&!(e.firma.toLowerCase().includes(q)||e.typ.toLowerCase().includes(q)||(e.geloescht_von||'').toLowerCase().includes(q)||(e.kurzinfo||'').toLowerCase().includes(q)))return false;
+    if(fil.l!=='alle'&&e.typ.toLowerCase()!==fil.l)return false;
+    return true;
+  });
+  G('el0').style.display=d.length?'none':'';
+  d.forEach(e=>{
+    const karte=document.createElement('div');karte.className='log-karte';
+    karte.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:7px"><div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:15px;color:var(--bd)">'+esc(e.firma||'–')+'</div><span class="log-typ">'+esc(e.typ)+'</span></div>'+(e.kurzinfo?'<div style="font-size:12px;color:#6b7280;font-style:italic">'+esc(e.kurzinfo)+'</div>':'')+'<div class="log-meta"><span style="background:#fee2e2;color:#dc2626;font-size:11px;padding:1px 6px;border-radius:5px;font-weight:700">🗑 gelöscht</span><span style="background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px">'+esc(e.geloescht_von)+'</span><span>'+fd(e.ts)+'</span></div>';
+    c.appendChild(karte);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// BADGES
+// ══════════════════════════════════════════════════════════
+function updB(){
+  const ug=MD.filter(e=>offenFuerMich(e)).length;
+  const rqFuerMich=FR.filter(e=>rqIstFuerMich(e)).length;
+  const fm=MD.filter(e=>istExplizitFuerMich(e)).length+rqFuerMich;
+  const bUg=G('tbm-ug'),bFm=G('tbm-fm');
+  if(ug>0){bUg.textContent=ug;bUg.className='tbg v ug';}else bUg.className='tbg';
+  if(fm>0){bFm.textContent=fm;bFm.className='tbg v fm';}else bFm.className='tbg';
+  const ftOf=G('ft-m-of-cnt');if(ftOf)ftOf.textContent=ug||'';
+  const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
+  const ftKbe=G('ft-kbe-cnt');if(ftKbe)ftKbe.textContent=KBE.length||'';
+  const oc=CH.filter(e=>!e.erledigt).length;
+  const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
+  const of2=FR.filter(e=>!e.erledigt).length;
+  const rqOf=FR.filter(e=>rqIstFuerMich(e)).length;
+  const rqAnt=FR.filter(e=>rqAntwortFuerMich(e)).length;
+  const bOf=G('tbf-of'),bRq=G('tbf-rq');
+  if(of2>0){bOf.textContent=of2;bOf.className='tbg v of';}else bOf.className='tbg';
+  if(rqOf>0){bRq.textContent=rqOf;bRq.className='tbg v rq';}else bRq.className='tbg';
+  const ftRq=G('ft-rq-cnt');if(ftRq)ftRq.textContent=rqOf||'';
+  const ftAnt=G('ft-ant-cnt');if(ftAnt)ftAnt.textContent=rqAnt||'';
+  const bL=G('tbl');if(bL){if(LOG_DATA.length>0){bL.textContent=LOG_DATA.length;bL.className='tbg v lg';}else bL.className='tbg';}
+}
+
+function renderAll(){renderM();renderC();renderF();renderKbeListe();}
+
+// ══════════════════════════════════════════════════════════
+// ADMIN: NUTZERVERWALTUNG
+// ══════════════════════════════════════════════════════════
+async function loadNutzerAdmin(){
+  const {data}=await _sb.from('nutzer').select('id,kuerzel,rolle,aktiv').order('kuerzel');
+  const liste=G('nutzer-liste');const pwSel=G('pw-reset-kz');
+  liste.innerHTML='';pwSel.innerHTML='<option value="">Nutzer wählen…</option>';
+  (data||[]).forEach(n=>{
+    const item=document.createElement('div');item.className='nutzer-item';
+    item.innerHTML='<div class="nutzer-kz">'+esc(n.kuerzel)+'</div>'+
+      '<div class="nutzer-email" style="color:var(--mu)">'+esc(n.rolle)+'</div>'+
+      '<span class="nutzer-rolle '+(n.rolle==='admin'?'rolle-admin':'rolle-tech')+'">'+esc(n.rolle)+'</span>'+
+      (n.kuerzel!==kz?'<button class="nutzer-del" onclick="deaktivNutzer(\''+n.id+'\',\''+esc(n.kuerzel)+'\')">Deaktiv.</button>':'<span style="font-size:11px;color:#94a3b8">(Du)</span>');
+    liste.appendChild(item);
+    const opt=document.createElement('option');opt.value=n.id;opt.textContent=n.kuerzel;pwSel.appendChild(opt);
+  });
+}
+
+async function createNutzer(){
+  const newKz=V('new-kz').toUpperCase();
+  const email=V('new-email');
+  const pw=V('new-pw');
+  const rolle=V('new-rolle');
+  if(!newKz||!email||!pw){alert('Bitte alle Felder ausfüllen.');return;}
+  if(newKz.length>4){alert('Kürzel max. 4 Zeichen.');return;}
+  // Supabase Admin-API ist nur im Backend verfügbar.
+  // Daher: Nutzer meldet sich selbst registrieren – wir nutzen signUp
+  // In der Praxis: Admin erstellt Nutzer über Supabase Dashboard oder Edge Function
+  // Hier vereinfachte Variante: signUp + nutzer-Eintrag
+  const {data,error}=await _sb.auth.admin?.createUser?.({email,password:pw,email_confirm:true})||{data:null,error:{message:'Admin-API nicht verfügbar. Bitte Nutzer im Supabase Dashboard anlegen.'}};
+  if(error||!data?.user){
+    // Fallback: Info anzeigen
+    toast('ℹ️ Nutzer im Supabase Dashboard anlegen: '+email+' / '+pw);
+    toast('Dann SQL: INSERT INTO nutzer (id, kuerzel, rolle) VALUES (\'<UUID>\', \''+newKz+'\', \''+rolle+'\')');
+    return;
+  }
+  await _sb.from('nutzer').insert({id:data.user.id,kuerzel:newKz,rolle});
+  G('new-kz').value='';G('new-email').value='';G('new-pw').value='';
+  toast('✓ Nutzer '+newKz+' angelegt');
+  loadNutzerAdmin();
+}
+
+async function deaktivNutzer(id,nkz){
+  if(!confirm('Nutzer '+nkz+' deaktivieren?'))return;
+  await _sb.from('nutzer').update({aktiv:false}).eq('id',id);
+  toast('✓ '+nkz+' deaktiviert');
+  loadNutzerAdmin();
+}
+
+async function resetPw(){
+  const uid2=V('pw-reset-kz');const pw=V('pw-reset-new');
+  if(!uid2||!pw){alert('Bitte Nutzer und neues Passwort wählen.');return;}
+  // Passwort-Reset ebenfalls Admin-API – Hinweis ausgeben
+  toast('ℹ️ Passwort-Reset im Supabase Dashboard: Authentication → Users → Edit');
+}
+
+// ══════════════════════════════════════════════════════════
+// START
+// ══════════════════════════════════════════════════════════
+renderPills();
+init();
+</script>
+</body>
+</html>
