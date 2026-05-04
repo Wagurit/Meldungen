@@ -76,7 +76,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bl);color:var(--tx);font-s
 .card{background:var(--wh);border-radius:12px;border:1px solid var(--bo);padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
 .sl{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:5px;margin-top:13px;}
 .sl:first-child{margin-top:0;}
-input[type=text],input[type=number],input[type=date],input[type=password],input[type=email],textarea,select{width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px;font-family:'Barlow',sans-serif;padding:10px 12px;outline:none;-webkit-appearance:none;}
+input[type=text],input[type=number],input[type=date],input[type=password],input[type=email],textarea,select{width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px;font-family:'Barlow',sans-serif;padding:10px 12px;outline:none;-webkit-appearance:none;}textarea{font-size:16px!important;}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23475569' d='M5 7L0 2h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;appearance:none;cursor:pointer;}
 input:focus,textarea:focus,select:focus{border-color:var(--bl);background:#fff;}
 textarea{resize:vertical;min-height:68px;}
@@ -965,7 +965,7 @@ async function saveMeld(){
   }
   G('mtx').value='';selZuwSet.clear();updateZuwNone();
   document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));
-  toast('✓ Meldung gespeichert');resetE(true);swTab('m');
+  toast('✓ Meldung gespeichert');resetE(false);inkDirty=false;
 }
 
 async function saveChem(){
@@ -984,7 +984,7 @@ async function saveChem(){
     if(error){toast('⚠️ Fehler: '+error.message);return;}
   }
   G('cno').value='';cS.clear();renderPills();
-  toast('✓ Chemie-Angebot gespeichert');resetE(true);swTab('c');
+  toast('✓ Chemie-Angebot gespeichert');resetE(false);inkDirty=false;
 }
 
 async function saveFrei(){
@@ -1006,7 +1006,7 @@ async function saveFrei(){
   }
   G('ftx').value='';G('fh').value=1;mw=1;G('mv').textContent='1';G('ml').textContent='Monteur';
   G('nur-mat').checked=false;toggleNurMat();
-  toast('✓ Angebot gespeichert');resetE(true);swTab('f');
+  toast('✓ Angebot gespeichert');resetE(false);inkDirty=false;
 }
 
 function resetE(keepInk){
@@ -1165,44 +1165,71 @@ function buildMeldChip(e){
   const offen=offenFuerMich(e);
   const zuwArr=e.zugewiesen_an||[];
   const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
+  const eid=e.id;
 
   const bStatus=offen?'<span class="v2-badge b-neu">● Neu</span>':'<span class="v2-badge b-gel">Gelesen</span>';
   const bZuw=zuwArr.length?'<span class="v2-badge b-zuw">→ '+zuwArr.map(esc).join(', ')+'</span>':'';
+
+  // Ersteller + Datum im Header unter Firmenname
+  const metaHeader='<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;display:flex;gap:6px;align-items:center">'+
+    '<span style="background:rgba(255,255,255,.2);font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.kuerzel)+'</span>'+
+    '<span>'+fd(e.ts)+'</span></div>';
 
   const statusChips=zeigeKZ.map(k2=>{
     const g=e.gelesen_von&&e.gelesen_von[k2];
     return g?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
   }).join('');
 
-  const verlaufHtml=(e.verlauf||[]).map(v=>{
+  // Verlauf – fetter Text für bessere Lesbarkeit
+  const verlaufHtml=(e.verlauf||[]).filter(v=>v.text).map(v=>{
     const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-    return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: '+esc(v.text)+nz+'</div>';
+    return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
   }).join('');
 
   const kannBest=relevanFuerMich(e)&&!ichGel;
   let meinBlock='';
   if(kannBest){
-    const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+e.id+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
-    meinBlock='<div class="mein-gel-box"><div class="mein-gel-title">👁 Meine Bestätigung</div>'+
-      '<textarea class="gta" id="gta-'+e.id+'" placeholder="Kommentar (optional)…"></textarea>'+
-      '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
-      '<button class="bgel" onclick="setGel(\''+e.id+'\')">Bestätigen</button></div>';
+    const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+eid+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
+    // Bestätigen-Button direkt sichtbar, Kommentar/Zuweisung eingeklappt
+    meinBlock='<div class="mein-gel-box">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+        '<div class="mein-gel-title">👁 Bestätigung</div>'+
+        '<button class="bgel" onclick="setGel(\''+eid+'\')">✓ Bestätigen</button>'+
+      '</div>'+
+      '<button onclick="toggleMgx(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:\'Barlow\',sans-serif;text-align:left">▸ Kommentar / Weiterleiten</button>'+
+      '<div id="mgx-'+eid+'" style="display:none;flex-direction:column;gap:6px">'+
+        '<textarea class="gta" id="gta-'+eid+'" placeholder="Kommentar (optional)…" style="font-size:16px!important;min-height:52px"></textarea>'+
+        '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
+      '</div>'+
+    '</div>';
   }
 
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
+  // Header: Firma + Meta (Kürzel+Datum) im blauen Header-Bereich
+  const headerInner = offen||explizit
+    ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges">'+bStatus+bZuw+'</div></div>'
+    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center"><span style="background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div></div><div class="v2-badges">'+bStatus+bZuw+'</div></div>';
+
   el.innerHTML=
-    '<div class="v2-header"><div class="v2-stripe"></div>'+
-    '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
-    '<div class="v2-badges">'+bStatus+bZuw+'</div></div></div>'+
+    '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
-    '<div class="v2-text">'+esc(e.text)+'</div>'+
-    '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
+    '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+
     '<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>'+statusChips+'</div>'+
     verlaufHtml+meinBlock+
-    ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'m\')">🗑 Löschen</button>':'')+
+    ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+eid+'\',\'m\')">🗑 Löschen</button>':'')+
     '</div>';
   return el;
+}
+
+function toggleMgx(eid, btn){
+  const box=document.getElementById('mgx-'+eid);
+  if(!box)return;
+  const open=box.style.display==='flex';
+  box.style.display=open?'none':'flex';
+  box.style.flexDirection='column';
+  box.style.gap='6px';
+  btn.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1348,8 +1375,77 @@ function renderKbeKunden(){
   const q=V('kbe-suche').toLowerCase();
   const g=G('kbe-kunden-grid');g.innerHTML='';
   KBE.filter(k=>!q||k.firma.toLowerCase().includes(q)).forEach(k=>{
-    const b=document.createElement('button');b.className='kunde-chip'+(selKbeKunde===k.id?' sel':'');b.textContent=k.firma;b.onclick=()=>selectKbeKunde(k.id);g.appendChild(b);
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:inline-flex;align-items:center;margin:0 5px 5px 0;gap:3px';
+    const b=document.createElement('button');
+    b.className='kunde-chip'+(selKbeKunde===k.id?' sel':'');
+    b.style.margin='0';
+    b.textContent=k.firma;
+    b.onclick=()=>selectKbeKunde(k.id);
+    // Edit-Button für KBE-Einträge
+    const eb=document.createElement('button');
+    eb.title='Einträge bearbeiten';
+    eb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0';
+    eb.textContent='✏️';
+    eb.onclick=(ev)=>{ev.stopPropagation();openKbeEdit(k.id);};
+    wrap.appendChild(b);wrap.appendChild(eb);
+    g.appendChild(wrap);
   });
+}
+
+function openKbeEdit(kid){
+  const k=KBE.find(x=>x.id===kid);if(!k)return;
+  // Bestehende Edit-Box entfernen
+  document.querySelectorAll('.kbe-edit-box').forEach(x=>x.remove());
+  const box=document.createElement('div');
+  box.className='kbe-edit-box';
+  box.style.cssText='background:#fff;border:1.5px solid var(--bo);border-radius:10px;padding:12px;margin-top:8px';
+  let html='<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:8px">✏️ '+esc(k.firma)+' – Einträge bearbeiten</div>';
+  html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:6px">KBE-Einträge</div>';
+  k.eintraege.forEach((e,ei)=>{
+    html+='<div style="background:var(--bg);border:1px solid var(--bo);border-radius:8px;padding:8px 10px;margin-bottom:6px">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    html+='<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu)">'+esc(e.datum)+'</span>';
+    html+='<button onclick="delKbeEintrag(\''+kid+'\',\''+e.id+'\',this)" style="padding:2px 8px;background:var(--rdb);border:1px solid #fca5a5;border-radius:5px;color:var(--rd);font-size:11px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-weight:700">Löschen</button></div>';
+    k.rkws.forEach(r=>{
+      const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'';
+      html+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">';
+      html+='<span style="font-size:12px;color:var(--tx);min-width:90px">'+esc(r.name)+'</span>';
+      html+='<select id="kbee-'+kid+'-'+e.id+'-'+ei+'-'+r.name.replace(/\s/g,'_')+'" style="flex:1;padding:4px 7px;font-size:13px;border:1.5px solid var(--bo);border-radius:6px;background:var(--bg)">';
+      html+='<option value="">–</option>';
+      KBE_WERTE.forEach(v=>html+='<option'+(v===val?' selected':'')+'>'+esc(v)+'</option>');
+      html+='</select></div>';
+    });
+    html+='<button onclick="saveKbeEintragEdit(\''+kid+'\',\''+e.id+'\','+ei+',this)" style="margin-top:4px;padding:5px 12px;background:var(--gn);color:#fff;border:none;border-radius:6px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Speichern</button>';
+    html+='</div>';
+  });
+  html+='<button onclick="this.closest(\'.kbe-edit-box\').remove()" style="margin-top:4px;width:100%;padding:8px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Schließen</button>';
+  box.innerHTML=html;
+  G('kbe-kunden-grid').after(box);
+}
+
+async function saveKbeEintragEdit(kid,eid,ei,btn){
+  const k=KBE.find(x=>x.id===kid);if(!k)return;
+  const e=k.eintraege.find(x=>x.id===eid);if(!e)return;
+  const newWerte={};
+  k.rkws.forEach(r=>{
+    const sel=document.getElementById('kbee-'+kid+'-'+eid+'-'+ei+'-'+r.name.replace(/\s/g,'_'));
+    if(sel&&sel.value)newWerte[r.name]=sel.value;
+  });
+  await _sb.from('kbe_eintraege').update({werte:newWerte}).eq('id',eid);
+  e.werte=newWerte;
+  toast('✓ Eintrag gespeichert');
+  openKbeEdit(kid);
+}
+
+async function delKbeEintrag(kid,eid,btn){
+  if(btn.dataset.confirm!=='1'){btn.textContent='Sicher?';btn.dataset.confirm='1';setTimeout(()=>{btn.textContent='Löschen';btn.dataset.confirm='';},3000);return;}
+  await _sb.from('kbe_eintraege').delete().eq('id',eid);
+  const k=KBE.find(x=>x.id===kid);
+  if(k)k.eintraege=k.eintraege.filter(x=>x.id!==eid);
+  toast('✓ Eintrag gelöscht');
+  openKbeEdit(kid);
+  renderKbeListe();
 }
 function selectKbeKunde(kid){
   selKbeKunde=kid;renderKbeKunden();
@@ -1361,6 +1457,15 @@ function selectKbeKunde(kid){
     row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
     c.appendChild(row);
   });
+  // "+ RKW hinzufügen" Button falls noch nicht vorhanden
+  if(!G('kbe-best-add-rkw-btn')){
+    const addBtn=document.createElement('button');
+    addBtn.id='kbe-best-add-rkw-btn';
+    addBtn.className='add-rkw-btn';
+    addBtn.textContent='+ RKW hinzufügen';
+    addBtn.onclick=()=>addRkwRow('kbe-best-rkws');
+    c.parentElement.insertBefore(addBtn, c.nextSibling);
+  }
   G('kbe-bestehend-form').style.display='block';
 }
 
