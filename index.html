@@ -1539,79 +1539,124 @@ function toggleKbeNeuKunde(){const body=G('kbe-neu-body');const arrow=G('kbe-neu
 // ══════════════════════════════════════════════════════════
 // RENDER LOG
 // ══════════════════════════════════════════════════════════
+function buildGeloeschtChip(logEntry){
+  // Rendert einen gelöschten Eintrag als vollständigen Chip – identisch zum Original
+  // aber read-only (keine Buttons) und mit lila Lösch-Markierung
+  const p=logEntry.payload||{};
+  const typ=logEntry.typ;
+  const el=document.createElement('div');
+  el.className='v2-chip';
+  el.style.opacity='0.82';
+
+  // ── HEADER ──
+  // Dieselbe Struktur wie buildMeldChip / renderC / renderF
+  // Lila Streifen + lila Header als Signal "gelöscht"
+  const kzBadge='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(p.kuerzel||logEntry.geloescht_von||'')+'</span>';
+  const datumBadge='<span style="color:#9ca3af;font-size:11px">'+fd(p.ts||null)+'</span>';
+  const loeschBadge='<span style="background:#fee2e2;color:#dc2626;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;white-space:nowrap">🗑 '+esc(logEntry.geloescht_von)+' · '+fd(logEntry.ts)+'</span>';
+  const typBadge='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em">'+esc(typ)+'</span>';
+
+  const headerInner=
+    '<div class="v2-header-inner" style="background:#f5f3ff;border-bottom-color:#ddd6fe">'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="v2-firma" style="color:#5b21b6">'+esc(p.firma||logEntry.firma||'–')+'</div>'+
+        '<div style="font-size:11px;margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
+          kzBadge+datumBadge+
+        '</div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'+
+        typBadge+loeschBadge+
+      '</div>'+
+    '</div>';
+
+  // ── BODY ──
+  let bodyHtml='<div class="v2-body">';
+
+  if(typ==='Meldung'){
+    // Text + bearbeitet
+    bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
+    if(p.bearbeitet_am)bodyHtml+='<div style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:2px">bearbeitet '+fd(p.bearbeitet_am)+'</div>';
+    // Zuweisung
+    const zuwArr=p.zugewiesen_an||[];
+    if(zuwArr.length)bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">→ '+zuwArr.map(esc).join(', ')+'</span></div>';
+    // Gelesen-Status: alle Nutzer (zugewiesen oder alle)
+    const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
+    const gelVon=p.gelesen_von||{};
+    bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
+    zeigeKZ.forEach(k2=>{
+      bodyHtml+=gelVon[k2]
+        ?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>'
+        :'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
+    });
+    // Ersteller immer als gelesen markieren
+    if(!zeigeKZ.includes(p.kuerzel)&&p.kuerzel)
+      bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(p.kuerzel)+'</span>';
+    bodyHtml+='</div>';
+    // Verlauf / Kommentare
+    const verlauf=(p.verlauf||[]).filter(v=>v.text);
+    verlauf.forEach(v=>{
+      const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
+      bodyHtml+='<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
+    });
+
+  } else if(typ==='Chemie'){
+    bodyHtml+='<div class="v2-text" style="font-weight:600">'+(p.produkte||[]).map(x=>'• '+esc(x)).join('  ')+'</div>';
+    if(p.notiz)bodyHtml+='<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(p.notiz)+'</div>';
+    bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span><span>'+fd(p.ts||null)+'</span></div>';
+    if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
+
+  } else if(typ==='Frei'){
+    bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
+    if(p.nurMat||p.nur_mat){
+      bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>';
+    } else if(p.mann){
+      const mt=p.mann===0.5?'½ Monteur':p.mann===1?'1 Monteur':p.mann+' Monteure';
+      bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+esc(mt)+'</span><span class="frei-meta-chip std">⏱ '+esc(p.stunden)+' h</span></div>';
+    }
+    bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span><span>'+fd(p.ts||null)+'</span></div>';
+    if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
+    // Rückfragen falls vorhanden
+    const rqs=(p.rueckfragen||[]);
+    if(rqs.length){
+      bodyHtml+='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';
+      rqs.forEach(rq=>{
+        bodyHtml+='<div class="rq-item"><div style="display:flex;gap:6px;align-items:center"><span class="rq-kz">'+esc(rq.kuerzel)+'</span><span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div>';
+        bodyHtml+='<div class="rq-text">'+esc(rq.kommentar)+'</div>';
+        (rq.antworten||[]).forEach(a=>{bodyHtml+='<div class="rq-answer"><strong>'+esc(a.kuerzel)+':</strong> '+esc(a.text)+'</div>';});
+        bodyHtml+='</div>';
+      });
+      bodyHtml+='</div>';
+    }
+
+  } else if(typ==='KBE'){
+    bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
+    bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel_erstellt||'')+'</span></div>';
+    // Letzte KBE-Einträge
+    if(p.eintraege&&p.eintraege.length){
+      bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px">'+p.eintraege.length+' Einträge · Letzter: '+esc(p.eintraege[0].datum||'')+'</div>';
+    }
+  } else {
+    bodyHtml+='<div class="v2-text">'+esc(logEntry.kurzinfo||'–')+'</div>';
+  }
+
+  bodyHtml+='</div>';
+  el.innerHTML='<div class="v2-header"><div class="v2-stripe" style="background:#6b21a8"></div>'+headerInner+'</div>'+bodyHtml;
+  return el;
+}
+
 function renderLog(){
-  const c=G('el');c.querySelectorAll('.log-karte,.v2-chip').forEach(e=>e.remove());
+  const c=G('el');
+  c.querySelectorAll('.log-karte,.v2-chip').forEach(e=>e.remove());
   const q=(V('sl-search')||'').toLowerCase();
   let d=LOG_DATA.filter(e=>{
-    const suchText=(e.firma+e.typ+(e.geloescht_von||'')+(e.kurzinfo||'')).toLowerCase();
+    const p=e.payload||{};
+    const suchText=(e.firma+e.typ+(e.geloescht_von||'')+(e.kurzinfo||'')+(p.text||'')+(p.kuerzel||'')).toLowerCase();
     if(q&&!suchText.includes(q))return false;
     if(fil.l!=='alle'&&e.typ.toLowerCase()!==fil.l)return false;
     return true;
   });
   G('el0').style.display=d.length?'none':'';
-  d.forEach(e=>{
-    const p=e.payload||{};
-    const karte=document.createElement('div');
-    karte.className='v2-chip';
-    karte.style.opacity='0.85';
-
-    // Header
-    let headerHtml='<div class="v2-header"><div class="v2-stripe" style="background:#6b21a8"></div>'+
-      '<div class="v2-header-inner" style="background:#f3e8ff">'+
-        '<div>'+
-          '<div class="v2-firma" style="color:#6b21a8">'+esc(e.firma||p.firma||'–')+'</div>'+
-          '<div style="font-size:11px;color:#9333ea;margin-top:2px;display:flex;gap:6px;align-items:center">'+
-            '<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.typ)+'</span>'+
-            '<span style="color:#94a3b8">'+fd(p.ts||null)+'</span>'+
-          '</div>'+
-        '</div>'+
-        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">'+
-          '<span style="background:#fee2e2;color:#dc2626;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px">🗑 gelöscht</span>'+
-          '<span style="font-size:10px;color:#94a3b8">'+esc(e.geloescht_von)+' · '+fd(e.ts)+'</span>'+
-        '</div>'+
-      '</div></div>';
-
-    // Body je nach Typ
-    let bodyHtml='<div class="v2-body">';
-
-    if(e.typ==='Meldung'&&p.text){
-      bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text)+'</div>';
-      // Gelesen-Status
-      if(p.gelesen_von&&Object.keys(p.gelesen_von).length){
-        bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
-        Object.keys(p.gelesen_von).forEach(k2=>{bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>';});
-        bodyHtml+='</div>';
-      }
-      // Verlauf/Kommentare
-      if(p.verlauf&&p.verlauf.filter(v=>v.text).length){
-        p.verlauf.filter(v=>v.text).forEach(v=>{
-          const nz=v.neu_zuw&&v.neu_zuw.length?' <span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-          bodyHtml+='<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
-        });
-      }
-    } else if(e.typ==='Chemie'&&p.produkte){
-      bodyHtml+='<div class="v2-text" style="font-weight:600">'+(p.produkte||[]).map(x=>'• '+esc(x)).join('  ')+'</div>';
-      if(p.notiz)bodyHtml+='<div style="font-size:12px;color:var(--mu);font-style:italic">'+esc(p.notiz)+'</div>';
-      if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ AN: '+esc(p.angebotsnr||'–')+' · '+esc(p.erledigt_von||'')+'</div>';
-    } else if(e.typ==='Frei'&&p.text){
-      bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text)+'</div>';
-      if(p.nurMat||p.nur_mat){
-        bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>';
-      } else if(p.mann){
-        bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+esc(p.mann===1?'1 Monteur':p.mann+' Monteure')+'</span><span class="frei-meta-chip std">⏱ '+esc(p.stunden)+' h</span></div>';
-      }
-      if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ AN: '+esc(p.angebotsnr||'–')+' · '+esc(p.erledigt_von||'')+'</div>';
-    } else if(e.typ==='KBE'&&p.rkws){
-      bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
-    } else {
-      // Fallback: Kurzinfo
-      bodyHtml+='<div class="v2-text">'+esc(e.kurzinfo||'–')+'</div>';
-    }
-    bodyHtml+='</div>';
-
-    karte.innerHTML=headerHtml+bodyHtml;
-    c.appendChild(karte);
-  });
+  d.forEach(e=>c.appendChild(buildGeloeschtChip(e)));
 }
 
 // ══════════════════════════════════════════════════════════
