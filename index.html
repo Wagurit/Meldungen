@@ -823,7 +823,7 @@ async function loadAll(){
   }
 }
 
-function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[]};}
+function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[]};}
 function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts};}
 function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[]};}
 
@@ -965,7 +965,7 @@ async function saveMeld(){
   }
   G('mtx').value='';selZuwSet.clear();updateZuwNone();
   document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));
-  toast('✓ Meldung gespeichert');resetE(false);inkDirty=false;
+  toast('✓ Meldung gespeichert');resetE(true);
 }
 
 async function saveChem(){
@@ -984,7 +984,7 @@ async function saveChem(){
     if(error){toast('⚠️ Fehler: '+error.message);return;}
   }
   G('cno').value='';cS.clear();renderPills();
-  toast('✓ Chemie-Angebot gespeichert');resetE(false);inkDirty=false;
+  toast('✓ Chemie-Angebot gespeichert');resetE(true);
 }
 
 async function saveFrei(){
@@ -1006,7 +1006,7 @@ async function saveFrei(){
   }
   G('ftx').value='';G('fh').value=1;mw=1;G('mv').textContent='1';G('ml').textContent='Monteur';
   G('nur-mat').checked=false;toggleNurMat();
-  toast('✓ Angebot gespeichert');resetE(false);inkDirty=false;
+  toast('✓ Angebot gespeichert');resetE(true);
 }
 
 function resetE(keepInk){
@@ -1186,7 +1186,8 @@ function buildMeldChip(e){
     return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
   }).join('');
 
-  const kannBest=relevanFuerMich(e)&&!ichGel;
+  const kannBest=relevanFuerMich(e)&&!ichGel&&e.kuerzel!==kz;
+  const istErsteller=e.kuerzel===kz;
   let meinBlock='';
   if(kannBest){
     const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+eid+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
@@ -1202,6 +1203,15 @@ function buildMeldChip(e){
         '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
       '</div>'+
     '</div>';
+  } else if(istErsteller){
+    // Ersteller bekommt Bearbeiten-Button
+    meinBlock='<div id="medit-'+eid+'" style="border-top:1px solid var(--bo);padding-top:7px;margin-top:3px">'+
+      '<button onclick="toggleMeldEdit(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 0;font-family:\'Barlow\',sans-serif">✏️ Bearbeiten</button>'+
+      '<div id="meditbox-'+eid+'" style="display:none;flex-direction:column;gap:6px;margin-top:6px">'+
+        '<textarea id="medit-ta-'+eid+'" style="width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px!important;font-family:\'Barlow\',sans-serif;padding:8px 10px;outline:none;resize:vertical;min-height:52px">'+esc(e.text)+'</textarea>'+
+        '<button onclick="saveMeldEdit(\''+eid+'\',this)" style="padding:7px 13px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start">Speichern</button>'+
+      '</div>'+
+    '</div>';
   }
 
   const el=document.createElement('div');
@@ -1214,7 +1224,7 @@ function buildMeldChip(e){
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
-    '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+
+    '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+(e.bearbeitet_am?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-style:italic">bearbeitet '+fd(e.bearbeitet_am)+'</div>':'')+
     '<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>'+statusChips+'</div>'+
     verlaufHtml+meinBlock+
     ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+eid+'\',\'m\')">🗑 Löschen</button>':'')+
@@ -1230,6 +1240,33 @@ function toggleMgx(eid, btn){
   box.style.flexDirection='column';
   box.style.gap='6px';
   btn.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
+}
+
+function toggleMeldEdit(eid, btn){
+  const box=document.getElementById('meditbox-'+eid);
+  if(!box)return;
+  const open=box.style.display==='flex';
+  box.style.display=open?'none':'flex';
+  box.style.flexDirection='column';
+  box.style.gap='6px';
+  btn.textContent=open?'✏️ Bearbeiten':'✏️ Schließen';
+}
+
+async function saveMeldEdit(eid, btn){
+  const ta=document.getElementById('medit-ta-'+eid);
+  if(!ta)return;
+  const newText=ta.value.trim();
+  if(!newText){alert('Text darf nicht leer sein.');return;}
+  const now=new Date().toISOString();
+  btn.disabled=true;btn.textContent='Speichert…';
+  const {error}=await _sb.from('meldungen').update({text:newText,bearbeitet_am:now}).eq('id',eid);
+  btn.disabled=false;btn.textContent='Speichern';
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  // Lokal updaten
+  const e=MD.find(x=>x.id===eid);
+  if(e){e.text=newText;e.bearbeitet_am=now;}
+  toast('✓ Meldung bearbeitet');
+  renderM();
 }
 
 // ══════════════════════════════════════════════════════════
