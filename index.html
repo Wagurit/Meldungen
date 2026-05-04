@@ -972,9 +972,12 @@ async function saveMeld(){
     G('btn-meld').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
-    const {error}=await _sb.from('meldungen').insert(meldData);
+    const {data:newMeld,error}=await _sb.from('meldungen').insert(meldData).select().single();
     G('btn-meld').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
+    // Lokal sofort einfügen
+    if(newMeld) MD.unshift(mapMeld(newMeld));
+    renderM();updB();
   }
   G('mtx').value='';selZuwSet.clear();updateZuwNone();
   document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));
@@ -992,9 +995,12 @@ async function saveChem(){
     G('btn-chem').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
-    const {error}=await _sb.from('chemie').insert(chemData);
+    const {data:newChem,error}=await _sb.from('chemie').insert(chemData).select().single();
     G('btn-chem').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
+    // Lokal sofort einfügen
+    if(newChem) CH.unshift(mapChem(newChem));
+    renderC();updB();
   }
   G('cno').value='';cS.clear();renderPills();
   toast('✓ Chemie-Angebot gespeichert');resetE(true);
@@ -1013,9 +1019,12 @@ async function saveFrei(){
     G('btn-frei').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
-    const {error}=await _sb.from('freie_angebote').insert(freiData);
+    const {data:newFrei,error}=await _sb.from('freie_angebote').insert(freiData).select().single();
     G('btn-frei').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
+    // Lokal sofort einfügen
+    if(newFrei) FR.unshift(mapFrei(newFrei));
+    renderF();updB();
   }
   G('ftx').value='';G('fh').value=1;mw=1;G('mv').textContent='1';G('ml').textContent='Monteur';
   G('nur-mat').checked=false;toggleNurMat();
