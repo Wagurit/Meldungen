@@ -1,7 +1,7 @@
 // sw_rkw_meldungen.js
 // Service Worker – RKW Meldungen & Angebote
 // Version hier hochzählen bei jedem Deploy → erzwingt Update bei allen Nutzern
-const CACHE = 'rkw-meld-v1';
+const CACHE = 'rkw-meld-v2';
 const ASSETS = [
   './',
   './index.html',
