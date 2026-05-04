@@ -368,7 +368,7 @@ textarea{resize:vertical;min-height:68px;}
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">🔧 Frei <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Eintragen <span class="tab-badges"><span class="tbg" id="tbk"></span></span></button>
-    <button class="tab" data-tab="l">📝 Log <span class="tab-badges"><span class="tbg" id="tbl"></span></span></button>
+    <button class="tab" data-tab="l">🗑 Gelöscht <span class="tab-badges"><span class="tbg" id="tbl"></span></span></button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
       ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
     </button>
@@ -564,7 +564,7 @@ textarea{resize:vertical;min-height:68px;}
     <!-- LOG -->
     <div class="pnl" id="panel-l">
       <div class="lhdr">
-        <div class="ltit">📝 Lösch-Log</div>
+        <div class="ltit">🗑 Gelöschte Einträge</div>
         <input type="text" class="sin" id="sl-search" placeholder="🔍 Firma, Typ oder Kürzel…" oninput="renderLog()">
         <div class="fts">
           <button class="ft active" onclick="setF('l','alle',this)">Alle</button>
@@ -869,9 +869,17 @@ function swTab(n){
 // LOGIK-HILFSFUNKTIONEN
 // ══════════════════════════════════════════════════════════
 function ichHabGelesen(e){
-  // Ersteller gilt immer als "gelesen" – er hat die Meldung ja selbst erstellt
-  if(e.kuerzel===kz) return true;
-  return !!(e.gelesen_von&&e.gelesen_von[kz]);
+  // Nicht-Ersteller: normaler Gelesen-Check
+  if(e.kuerzel!==kz) return !!(e.gelesen_von&&e.gelesen_von[kz]);
+  // Ersteller: gilt als gelesen AUSSER wenn jemand anderes nach dem letzten
+  // Gelesen-Eintrag des OP noch kommentiert hat → dann wieder "ungelesen" für OP
+  const letztesBest=e.gelesen_von&&e.gelesen_von[kz]?new Date(e.gelesen_von[kz].ts).getTime():0;
+  const letzterFremdKomm=(e.verlauf||[]).filter(v=>v.kuerzel!==kz&&v.text).reduce((max,v)=>{
+    const t=new Date(v.ts).getTime(); return t>max?t:max;
+  },0);
+  // Wenn kein Fremd-Kommentar oder OP hat danach bestätigt → gelesen
+  if(!letzterFremdKomm) return true;
+  return letztesBest > letzterFremdKomm;
 }
 function relevanFuerMich(e){
   if(!e.zugewiesen_an||!e.zugewiesen_an.length)return true;
@@ -1228,41 +1236,50 @@ function buildMeldChip(e){
     return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
   }).join('');
 
-  const kannBest=relevanFuerMich(e)&&!ichGel&&e.kuerzel!==kz;
   const istErsteller=e.kuerzel===kz;
+  const hatVerlauf=(e.verlauf||[]).some(v=>v.text&&v.kuerzel!==kz);
+  // kannBest: Nicht-Ersteller ungelesen ODER Ersteller wenn jemand anderes kommentiert hat
+  const kannBest=!ichGel&&(
+    (!istErsteller&&relevanFuerMich(e)) ||
+    (istErsteller&&hatVerlauf)
+  );
+
+  // Bearbeiten-Button: Ersteller sieht ihn immer
+  const bearbeitenBtn=istErsteller
+    ? '<div style="border-top:1px solid var(--bo);padding-top:7px;margin-top:3px">'+
+        '<button onclick="toggleMeldEdit(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 0;font-family:\'Barlow\',sans-serif">✏️ Bearbeiten</button>'+
+        '<div id="meditbox-'+eid+'" style="display:none;flex-direction:column;gap:6px;margin-top:6px">'+
+          '<textarea id="medit-ta-'+eid+'" style="width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px!important;font-family:\'Barlow\',sans-serif;padding:8px 10px;outline:none;resize:vertical;min-height:52px">'+esc(e.text)+'</textarea>'+
+          '<button onclick="saveMeldEdit(\''+eid+'\',this)" style="padding:7px 13px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start">Speichern</button>'+
+        '</div>'+
+      '</div>'
+    : '';
+
   let meinBlock='';
   if(kannBest){
     const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+eid+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
-    // Bestätigen-Button direkt sichtbar, Kommentar/Zuweisung eingeklappt
-    meinBlock='<div class="mein-gel-box">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-        '<div class="mein-gel-title">👁 Bestätigung</div>'+
-        '<button class="bgel" onclick="setGel(\''+eid+'\')">✓ Bestätigen</button>'+
+    meinBlock=
+      '<div class="mein-gel-box">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<div class="mein-gel-title">'+(istErsteller?'💬 Antworten':'👁 Bestätigung')+'</div>'+
+          '<button class="bgel" onclick="setGel(\''+eid+'\')">✓ Bestätigen</button>'+
+        '</div>'+
+        '<button onclick="toggleMgx(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:\'Barlow\',sans-serif;text-align:left">▸ Kommentar / Weiterleiten</button>'+
+        '<div id="mgx-'+eid+'" style="display:none;flex-direction:column;gap:6px">'+
+          '<textarea class="gta" id="gta-'+eid+'" placeholder="Kommentar (optional)…" style="font-size:16px!important;min-height:52px"></textarea>'+
+          '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
+        '</div>'+
       '</div>'+
-      '<button onclick="toggleMgx(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:\'Barlow\',sans-serif;text-align:left">▸ Kommentar / Weiterleiten</button>'+
-      '<div id="mgx-'+eid+'" style="display:none;flex-direction:column;gap:6px">'+
-        '<textarea class="gta" id="gta-'+eid+'" placeholder="Kommentar (optional)…" style="font-size:16px!important;min-height:52px"></textarea>'+
-        '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
-      '</div>'+
-    '</div>';
-  } else if(istErsteller){
-    // Ersteller bekommt Bearbeiten-Button
-    meinBlock='<div id="medit-'+eid+'" style="border-top:1px solid var(--bo);padding-top:7px;margin-top:3px">'+
-      '<button onclick="toggleMeldEdit(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 0;font-family:\'Barlow\',sans-serif">✏️ Bearbeiten</button>'+
-      '<div id="meditbox-'+eid+'" style="display:none;flex-direction:column;gap:6px;margin-top:6px">'+
-        '<textarea id="medit-ta-'+eid+'" style="width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px!important;font-family:\'Barlow\',sans-serif;padding:8px 10px;outline:none;resize:vertical;min-height:52px">'+esc(e.text)+'</textarea>'+
-        '<button onclick="saveMeldEdit(\''+eid+'\',this)" style="padding:7px 13px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start">Speichern</button>'+
-      '</div>'+
-    '</div>';
+      bearbeitenBtn;
+  } else {
+    meinBlock=bearbeitenBtn;
   }
 
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
-  // Header: Firma + Meta (Kürzel+Datum) im blauen Header-Bereich
-  const headerInner = offen||explizit
+  const headerInner=offen||explizit
     ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges">'+bStatus+bZuw+'</div></div>'
     : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center"><span style="background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div></div><div class="v2-badges">'+bStatus+bZuw+'</div></div>';
-
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
@@ -1272,74 +1289,6 @@ function buildMeldChip(e){
     ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+eid+'\',\'m\')">🗑 Löschen</button>':'')+
     '</div>';
   return el;
-}
-
-function toggleMgx(eid, btn){
-  const box=document.getElementById('mgx-'+eid);
-  if(!box)return;
-  const open=box.style.display==='flex';
-  box.style.display=open?'none':'flex';
-  box.style.flexDirection='column';
-  box.style.gap='6px';
-  btn.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
-}
-
-function toggleMeldEdit(eid, btn){
-  const box=document.getElementById('meditbox-'+eid);
-  if(!box)return;
-  const open=box.style.display==='flex';
-  box.style.display=open?'none':'flex';
-  box.style.flexDirection='column';
-  box.style.gap='6px';
-  btn.textContent=open?'✏️ Bearbeiten':'✏️ Schließen';
-}
-
-async function saveMeldEdit(eid, btn){
-  const ta=document.getElementById('medit-ta-'+eid);
-  if(!ta)return;
-  const newText=ta.value.trim();
-  if(!newText){alert('Text darf nicht leer sein.');return;}
-  const now=new Date().toISOString();
-  btn.disabled=true;btn.textContent='Speichert…';
-  const {error}=await _sb.from('meldungen').update({text:newText,bearbeitet_am:now}).eq('id',eid);
-  btn.disabled=false;btn.textContent='Speichern';
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
-  // Lokal updaten
-  const e=MD.find(x=>x.id===eid);
-  if(e){e.text=newText;e.bearbeitet_am=now;}
-  toast('✓ Meldung bearbeitet');
-  renderM();
-}
-
-// ══════════════════════════════════════════════════════════
-// RENDER CHEMIE
-// ══════════════════════════════════════════════════════════
-function renderC(){
-  const c=G('ec');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
-  const q=V('sc').toLowerCase();
-  let d=CH.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
-  if(fil.c==='offen')    d=d.filter(e=>!e.erledigt);
-  if(fil.c==='erledigt') d=d.filter(e=>e.erledigt);
-  G('ec0').style.display=d.length?'none':'';
-  d.forEach(e=>{
-    const el=document.createElement('div');
-    el.className='v2-chip'+(e.erledigt?' erl':'');
-    el.innerHTML=
-      '<div class="v2-header"><div class="v2-stripe"></div>'+
-      '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
-      '<div class="v2-badges"><span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span></div></div></div>'+
-      '<div class="v2-body">'+
-      '<div class="v2-text">'+(e.produkte||[]).map(p=>'• '+esc(p)).join('  ')+'</div>'+
-      (e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'')+
-      '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
-      (e.erledigt
-        ?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>'
-        :'<div class="anr"><input class="ani" id="anr-c-'+e.id+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'"><button class="berl" onclick="setErlC(\''+e.id+'\')">✓ Erledigt</button></div>'
-      )+
-      ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'c\')">🗑 Löschen</button>':'')+
-      '</div>';
-    c.appendChild(el);
-  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1591,17 +1540,76 @@ function toggleKbeNeuKunde(){const body=G('kbe-neu-body');const arrow=G('kbe-neu
 // RENDER LOG
 // ══════════════════════════════════════════════════════════
 function renderLog(){
-  const c=G('el');c.querySelectorAll('.log-karte').forEach(e=>e.remove());
+  const c=G('el');c.querySelectorAll('.log-karte,.v2-chip').forEach(e=>e.remove());
   const q=(V('sl-search')||'').toLowerCase();
   let d=LOG_DATA.filter(e=>{
-    if(q&&!(e.firma.toLowerCase().includes(q)||e.typ.toLowerCase().includes(q)||(e.geloescht_von||'').toLowerCase().includes(q)||(e.kurzinfo||'').toLowerCase().includes(q)))return false;
+    const suchText=(e.firma+e.typ+(e.geloescht_von||'')+(e.kurzinfo||'')).toLowerCase();
+    if(q&&!suchText.includes(q))return false;
     if(fil.l!=='alle'&&e.typ.toLowerCase()!==fil.l)return false;
     return true;
   });
   G('el0').style.display=d.length?'none':'';
   d.forEach(e=>{
-    const karte=document.createElement('div');karte.className='log-karte';
-    karte.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:7px"><div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:15px;color:var(--bd)">'+esc(e.firma||'–')+'</div><span class="log-typ">'+esc(e.typ)+'</span></div>'+(e.kurzinfo?'<div style="font-size:12px;color:#6b7280;font-style:italic">'+esc(e.kurzinfo)+'</div>':'')+'<div class="log-meta"><span style="background:#fee2e2;color:#dc2626;font-size:11px;padding:1px 6px;border-radius:5px;font-weight:700">🗑 gelöscht</span><span style="background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px">'+esc(e.geloescht_von)+'</span><span>'+fd(e.ts)+'</span></div>';
+    const p=e.payload||{};
+    const karte=document.createElement('div');
+    karte.className='v2-chip';
+    karte.style.opacity='0.85';
+
+    // Header
+    let headerHtml='<div class="v2-header"><div class="v2-stripe" style="background:#6b21a8"></div>'+
+      '<div class="v2-header-inner" style="background:#f3e8ff">'+
+        '<div>'+
+          '<div class="v2-firma" style="color:#6b21a8">'+esc(e.firma||p.firma||'–')+'</div>'+
+          '<div style="font-size:11px;color:#9333ea;margin-top:2px;display:flex;gap:6px;align-items:center">'+
+            '<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.typ)+'</span>'+
+            '<span style="color:#94a3b8">'+fd(p.ts||null)+'</span>'+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">'+
+          '<span style="background:#fee2e2;color:#dc2626;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px">🗑 gelöscht</span>'+
+          '<span style="font-size:10px;color:#94a3b8">'+esc(e.geloescht_von)+' · '+fd(e.ts)+'</span>'+
+        '</div>'+
+      '</div></div>';
+
+    // Body je nach Typ
+    let bodyHtml='<div class="v2-body">';
+
+    if(e.typ==='Meldung'&&p.text){
+      bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text)+'</div>';
+      // Gelesen-Status
+      if(p.gelesen_von&&Object.keys(p.gelesen_von).length){
+        bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
+        Object.keys(p.gelesen_von).forEach(k2=>{bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>';});
+        bodyHtml+='</div>';
+      }
+      // Verlauf/Kommentare
+      if(p.verlauf&&p.verlauf.filter(v=>v.text).length){
+        p.verlauf.filter(v=>v.text).forEach(v=>{
+          const nz=v.neu_zuw&&v.neu_zuw.length?' <span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
+          bodyHtml+='<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
+        });
+      }
+    } else if(e.typ==='Chemie'&&p.produkte){
+      bodyHtml+='<div class="v2-text" style="font-weight:600">'+(p.produkte||[]).map(x=>'• '+esc(x)).join('  ')+'</div>';
+      if(p.notiz)bodyHtml+='<div style="font-size:12px;color:var(--mu);font-style:italic">'+esc(p.notiz)+'</div>';
+      if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ AN: '+esc(p.angebotsnr||'–')+' · '+esc(p.erledigt_von||'')+'</div>';
+    } else if(e.typ==='Frei'&&p.text){
+      bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text)+'</div>';
+      if(p.nurMat||p.nur_mat){
+        bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>';
+      } else if(p.mann){
+        bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+esc(p.mann===1?'1 Monteur':p.mann+' Monteure')+'</span><span class="frei-meta-chip std">⏱ '+esc(p.stunden)+' h</span></div>';
+      }
+      if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ AN: '+esc(p.angebotsnr||'–')+' · '+esc(p.erledigt_von||'')+'</div>';
+    } else if(e.typ==='KBE'&&p.rkws){
+      bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
+    } else {
+      // Fallback: Kurzinfo
+      bodyHtml+='<div class="v2-text">'+esc(e.kurzinfo||'–')+'</div>';
+    }
+    bodyHtml+='</div>';
+
+    karte.innerHTML=headerHtml+bodyHtml;
     c.appendChild(karte);
   });
 }
