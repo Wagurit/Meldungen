@@ -290,11 +290,35 @@ textarea{resize:vertical;min-height:68px;}
 /* Update-Banner */
 .update-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#0369a1;color:#fff;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .update-banner.v{display:block;}
+
+/* ── OFFLINE BANNER ── */
+.offline-banner{display:none;position:fixed;bottom:0;left:0;right:0;z-index:8000;background:#1e293b;color:#fff;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-align:center;letter-spacing:.04em;}
+.offline-banner.v{display:flex;align-items:center;justify-content:center;gap:8px;}
+.offline-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;}
+.offline-queue{background:#fbbf24;color:#78350f;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:800;}
+
+/* ── PULL TO REFRESH ── */
+.ptr{position:fixed;top:0;left:0;right:0;z-index:8001;display:flex;align-items:center;justify-content:center;height:0;overflow:hidden;background:var(--bd);transition:height .2s ease;pointer-events:none;}
+.ptr.pulling{transition:none;}
+.ptr-inner{display:flex;align-items:center;gap:8px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;}
+.ptr-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;}
+.ptr-spin.go{animation:spin .6s linear infinite;}
 </style>
 </head>
 <body>
 
 <!-- Update Banner -->
+
+<!-- Pull to Refresh -->
+<div class="ptr" id="ptr"><div class="ptr-inner"><div class="ptr-spin" id="ptr-spin"></div><span id="ptr-txt">Loslassen zum Aktualisieren</span></div></div>
+
+<!-- Offline Banner -->
+<div class="offline-banner" id="offline-banner">
+  <div class="offline-dot"></div>
+  <span>Offline – Einträge werden gespeichert</span>
+  <span class="offline-queue" id="offline-queue-cnt" style="display:none"></span>
+</div>
+
 <div class="update-banner" id="update-banner" onclick="applyUpdate()">
   🔄 Neue Version verfügbar – Antippen zum Aktualisieren
 </div>
@@ -343,7 +367,7 @@ textarea{resize:vertical;min-height:68px;}
     </button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">🔧 Frei <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
-    <button class="tab" data-tab="k">🔬 KBE <span class="tab-badges"><span class="tbg" id="tbk"></span></span></button>
+    <button class="tab" data-tab="k">🔬 KBE Eintragen <span class="tab-badges"><span class="tbg" id="tbk"></span></span></button>
     <button class="tab" data-tab="l">📝 Log <span class="tab-badges"><span class="tbg" id="tbl"></span></span></button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
       ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
@@ -371,7 +395,7 @@ textarea{resize:vertical;min-height:68px;}
           <div class="fc">
             <div class="fct">📋 Meldung erfassen</div>
             <div class="sl">Meldungstext</div>
-            <textarea id="mtx" placeholder="z. B. Chemie mitnehmen – BZ 300 und KT Konzentrat"></textarea>
+            <textarea id="mtx" placeholder="z. B. Chemie mitnehmen – BZ 300 und KT 300 K"></textarea>
             <div class="sl">Zuweisen an (optional, Mehrfachauswahl)</div>
             <div class="zuw-box">
               <div class="zuw-title">👤 Empfänger wählen</div>
@@ -414,9 +438,9 @@ textarea{resize:vertical;min-height:68px;}
               <div class="sl">Anzahl Monteure</div>
               <div class="str">
                 <div class="stp">
-                  <button class="stb" onclick="stepM(-0.5)">−</button>
+                  <button class="stb" onclick="stepM(-1)">−</button>
                   <div class="stv" id="mv">1</div>
-                  <button class="stb" onclick="stepM(0.5)">+</button>
+                  <button class="stb" onclick="stepM(1)">+</button>
                 </div>
                 <div class="stl" id="ml">Monteur</div>
               </div>
@@ -483,44 +507,53 @@ textarea{resize:vertical;min-height:68px;}
 
     <!-- KBE -->
     <div class="pnl" id="panel-k">
+
+      <!-- Chip 1: Wert für bestehenden Kunden – OFFEN (wird am meisten genutzt) -->
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
-        <div onclick="toggleKbeEingabe()" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer;background:var(--bg);border-bottom:1.5px solid var(--bo)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:var(--bp);border-bottom:1.5px solid var(--bo)">
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">
-            🔬 KBE Wert erfassen
+            🔬 Wert für bestehenden Kunden
           </div>
-          <span id="kbe-eingabe-arrow" style="font-size:18px;color:var(--mu)">⌄</span>
+          <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--bm);letter-spacing:.08em;background:var(--bo);padding:2px 8px;border-radius:6px">MEIST GENUTZT</span>
         </div>
-        <div id="kbe-eingabe-body" style="display:none;padding:14px">
-          <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1.5px solid var(--bo)">
-            <div class="sl" style="margin-top:0">Neuen Kunden anlegen</div>
-            <input type="text" id="kbe-neukunde" placeholder="Kundenname…" style="margin-bottom:6px">
-            <div class="sl">RKW-Anlage(n)</div>
-            <div id="kbe-neu-rkws">
-              <div class="rkw-row">
-                <input type="text" placeholder="RKW-Name z. B. RH, Umformung…">
-                <select class="rkw-val-select"><option value="">–</option><option>10⁰</option><option>10²</option><option>10³</option><option>10⁴</option><option>10⁵</option><option>10⁶</option></select>
-                <button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>
-              </div>
-            </div>
-            <button class="add-rkw-btn" onclick="addRkwRow('kbe-neu-rkws')">+ RKW hinzufügen</button>
+        <div style="padding:14px">
+          <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="renderKbeKunden()">
+          <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
+          <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
+            <div class="sl" id="kbe-selkunde-label"></div>
+            <div id="kbe-best-rkws"></div>
             <div class="sl">Datum der Probenahme</div>
-            <input type="date" id="kbe-neu-datum">
-            <button class="bsend" onclick="saveNeuerKunde()" style="margin-top:10px">Kunden anlegen &amp; speichern</button>
-          </div>
-          <div>
-            <div class="sl" style="margin-top:0">Wert für bestehenden Kunden</div>
-            <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="renderKbeKunden()">
-            <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
-            <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
-              <div class="sl" id="kbe-selkunde-label"></div>
-              <div id="kbe-best-rkws"></div>
-              <div class="sl">Datum der Probenahme</div>
-              <input type="date" id="kbe-best-datum">
-              <button class="bsend" onclick="saveBestKunde()" style="margin-top:10px">KBE-Werte speichern</button>
-            </div>
+            <input type="date" id="kbe-best-datum">
+            <button class="bsend" onclick="saveBestKunde()" style="margin-top:10px">KBE-Werte speichern</button>
           </div>
         </div>
       </div>
+
+      <!-- Chip 2: Neuen Kunden anlegen – EINGEKLAPPT -->
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+        <div onclick="toggleKbeNeuKunde()" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer;background:var(--bg);border-bottom:1.5px solid var(--bo)">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">
+            ➕ Neuen Kunden anlegen
+          </div>
+          <span id="kbe-neu-arrow" style="font-size:18px;color:var(--mu)">⌄</span>
+        </div>
+        <div id="kbe-neu-body" style="display:none;padding:14px">
+          <input type="text" id="kbe-neukunde" placeholder="Kundenname…" style="margin-bottom:6px">
+          <div class="sl">RKW-Anlage(n)</div>
+          <div id="kbe-neu-rkws">
+            <div class="rkw-row">
+              <input type="text" placeholder="RKW-Name z. B. RH, Umformung…">
+              <select class="rkw-val-select"><option value="">–</option><option>10⁰</option><option>10²</option><option>10³</option><option>10⁴</option><option>10⁵</option><option>10⁶</option></select>
+              <button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>
+            </div>
+          </div>
+          <button class="add-rkw-btn" onclick="addRkwRow('kbe-neu-rkws')">+ RKW hinzufügen</button>
+          <div class="sl">Datum der Probenahme</div>
+          <input type="date" id="kbe-neu-datum">
+          <button class="bsend" onclick="saveNeuerKunde()" style="margin-top:10px">Kunden anlegen &amp; speichern</button>
+        </div>
+      </div>
+
       <div class="lhdr">
         <div class="ltit">KBE-Übersicht</div>
         <input type="text" class="sin" id="sk" placeholder="🔍 Firma suchen…" oninput="renderKbeListe()">
@@ -900,8 +933,8 @@ function tog(w){
   if(w==='c')renderPills();
 }
 function toggleNurMat(){nurMat=G('nur-mat').checked;G('mann-stunden-block').style.display=nurMat?'none':'';}
-function stepM(d){const n=Math.round((mw+d)*2)/2;if(n<0.5||n>10)return;mw=n;G('mv').textContent=n%1?n.toFixed(1):n;if(n===0.5)G('ml').textContent='½ Monteur';else if(n===1)G('ml').textContent='Monteur';else G('ml').textContent=n+' Monteure';}
-function stepH(d){const inp=G('fh');let v=parseFloat(inp.value)||1;v=Math.round((v+d)*2)/2;if(v<0.5)v=0.5;inp.value=v;}
+function stepM(d){const n=mw+d;if(n<1||n>10)return;mw=n;G('mv').textContent=n;if(n===1)G('ml').textContent='Monteur';else G('ml').textContent=n+' Monteure';}
+function stepH(d){const inp=G('fh');let v=parseFloat(inp.value)||1;v=Math.round((v+d*0.5)*2)/2;if(v<0.5)v=0.5;inp.value=v;}
 function validateH(inp){const v=parseFloat(inp.value);if(isNaN(v)||v<=0)inp.value=1;}
 function renderPills(){
   const g=G('cg');g.innerHTML='';
@@ -920,9 +953,16 @@ async function saveMeld(){
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!text){alert('Bitte Meldungstext eingeben.');return;}
   G('btn-meld').disabled=true;
-  const {error}=await _sb.from('meldungen').insert({firma,text,kuerzel:kz,zugewiesen_an:[...selZuwSet],gelesen_von:{},verlauf:[]});
-  G('btn-meld').disabled=false;
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const meldData={firma,text,kuerzel:kz,zugewiesen_an:[...selZuwSet],gelesen_von:{},verlauf:[]};
+  if(!isOnline()){
+    addToQueue({type:'meldung',data:meldData});
+    G('btn-meld').disabled=false;
+    toast('📥 Offline gespeichert – wird hochgeladen sobald online');
+  } else {
+    const {error}=await _sb.from('meldungen').insert(meldData);
+    G('btn-meld').disabled=false;
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+  }
   G('mtx').value='';selZuwSet.clear();updateZuwNone();
   document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));
   toast('✓ Meldung gespeichert');resetE(true);swTab('m');
@@ -933,9 +973,16 @@ async function saveChem(){
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!cS.size){alert('Bitte mindestens ein Produkt wählen.');return;}
   G('btn-chem').disabled=true;
-  const {error}=await _sb.from('chemie').insert({firma,produkte:[...cS],notiz:V('cno'),kuerzel:kz});
-  G('btn-chem').disabled=false;
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const chemData={firma,produkte:[...cS],notiz:V('cno'),kuerzel:kz};
+  if(!isOnline()){
+    addToQueue({type:'chemie',data:chemData});
+    G('btn-chem').disabled=false;
+    toast('📥 Offline gespeichert – wird hochgeladen sobald online');
+  } else {
+    const {error}=await _sb.from('chemie').insert(chemData);
+    G('btn-chem').disabled=false;
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+  }
   G('cno').value='';cS.clear();renderPills();
   toast('✓ Chemie-Angebot gespeichert');resetE(true);swTab('c');
 }
@@ -947,9 +994,16 @@ async function saveFrei(){
   const nm=G('nur-mat').checked;
   let h=parseFloat(G('fh').value)||1;if(h<=0)h=1;
   G('btn-frei').disabled=true;
-  const {error}=await _sb.from('freie_angebote').insert({firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[]});
-  G('btn-frei').disabled=false;
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const freiData={firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[]};
+  if(!isOnline()){
+    addToQueue({type:'frei',data:freiData});
+    G('btn-frei').disabled=false;
+    toast('📥 Offline gespeichert – wird hochgeladen sobald online');
+  } else {
+    const {error}=await _sb.from('freie_angebote').insert(freiData);
+    G('btn-frei').disabled=false;
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+  }
   G('ftx').value='';G('fh').value=1;mw=1;G('mv').textContent='1';G('ml').textContent='Monteur';
   G('nur-mat').checked=false;toggleNurMat();
   toast('✓ Angebot gespeichert');resetE(true);swTab('f');
@@ -978,7 +1032,11 @@ async function setGel(id){
     if(neuZuw.length){neuZuw.forEach(k2=>{if(newGV[k2])delete newGV[k2];});}
   }
   await _sb.from('meldungen').update({gelesen_von:newGV,verlauf:newVerlauf}).eq('id',id);
+  // Lokal sofort updaten → kein Warten auf Realtime
+  const idx=MD.findIndex(x=>x.id===id);
+  if(idx>-1){MD[idx].gelesen_von=newGV;MD[idx].verlauf=newVerlauf;}
   toast('✓ Bestätigt'+(neuZuw.length?' → '+neuZuw.join(', '):''));
+  renderM();updB();
 }
 function toggleNgz(btn){btn.classList.toggle('sel');}
 
@@ -1338,7 +1396,7 @@ function addRkwRow(containerId){
   row.innerHTML='<input type="text" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
   c.appendChild(row);
 }
-function toggleKbeEingabe(){const body=G('kbe-eingabe-body');const arrow=G('kbe-eingabe-arrow');const open=body.style.display!=='none';body.style.display=open?'none':'block';if(arrow)arrow.innerHTML=open?'⌄':'▲';}
+function toggleKbeNeuKunde(){const body=G('kbe-neu-body');const arrow=G('kbe-neu-arrow');const open=body.style.display!=='none';body.style.display=open?'none':'block';if(arrow)arrow.innerHTML=open?'⌄':'▲';}
 
 // ══════════════════════════════════════════════════════════
 // RENDER LOG
@@ -1446,7 +1504,133 @@ async function resetPw(){
 // ══════════════════════════════════════════════════════════
 // START
 // ══════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════
+// OFFLINE QUEUE & DETECTION
+// ══════════════════════════════════════════════════════════
+const QUEUE_KEY = 'rkw_offline_queue';
+
+function isOnline(){ return navigator.onLine; }
+
+function showOfflineBanner(show){
+  const b=G('offline-banner');
+  if(b) b.classList.toggle('v', show);
+}
+
+function updateQueueBadge(){
+  const q=getQueue();
+  const el=G('offline-queue-cnt');
+  if(!el)return;
+  if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}
+  else el.style.display='none';
+}
+
+function getQueue(){
+  try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}
+}
+function addToQueue(item){
+  const q=getQueue();
+  q.push({...item, qid: Date.now()+'_'+Math.random()});
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  updateQueueBadge();
+}
+function removeFromQueue(qid){
+  const q=getQueue().filter(x=>x.qid!==qid);
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+  updateQueueBadge();
+}
+
+async function flushQueue(){
+  if(!isOnline())return;
+  const q=getQueue();
+  if(!q.length)return;
+  let flushed=0;
+  for(const item of q){
+    try{
+      if(item.type==='meldung'){
+        const {error}=await _sb.from('meldungen').insert(item.data);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      } else if(item.type==='chemie'){
+        const {error}=await _sb.from('chemie').insert(item.data);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      } else if(item.type==='frei'){
+        const {error}=await _sb.from('freie_angebote').insert(item.data);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
+    } catch(e){ /* weiter versuchen */ }
+  }
+  if(flushed>0){
+    toast('✓ '+flushed+' offline gespeicherte Einträge hochgeladen');
+    await loadAll();
+  }
+  updateQueueBadge();
+}
+
+window.addEventListener('online', ()=>{
+  showOfflineBanner(false);
+  flushQueue();
+  setSyncing('ok');
+});
+window.addEventListener('offline', ()=>{
+  showOfflineBanner(true);
+  setSyncing('err');
+});
+
+// Beim Start prüfen
+if(!isOnline()) showOfflineBanner(true);
+
+// ══════════════════════════════════════════════════════════
+// PULL TO REFRESH
+// ══════════════════════════════════════════════════════════
+(function(){
+  let startY=0, pulling=false, threshold=70, triggered=false;
+  const ptr=document.getElementById('ptr');
+  const ptrSpin=document.getElementById('ptr-spin');
+  const ptrTxt=document.getElementById('ptr-txt');
+  const cnt=document.querySelector('.cnt');
+  if(!ptr||!cnt)return;
+
+  cnt.addEventListener('touchstart',e=>{
+    if(cnt.scrollTop>0)return;
+    startY=e.touches[0].clientY;
+    pulling=true;triggered=false;
+    ptr.classList.add('pulling');
+  },{passive:true});
+
+  cnt.addEventListener('touchmove',e=>{
+    if(!pulling)return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy<0){pulling=false;ptr.style.height='0';return;}
+    const h=Math.min(dy*0.5, threshold+10);
+    ptr.style.height=h+'px';
+    if(dy>threshold*1.5&&!triggered){
+      ptrTxt.textContent='Loslassen zum Aktualisieren';
+      ptrSpin.classList.remove('go');
+    } else if(dy<=threshold*1.5){
+      ptrTxt.textContent='Zum Aktualisieren ziehen…';
+    }
+  },{passive:true});
+
+  cnt.addEventListener('touchend',async e=>{
+    if(!pulling)return;
+    pulling=false;
+    ptr.classList.remove('pulling');
+    const dy=e.changedTouches[0].clientY-startY;
+    if(dy>threshold){
+      ptr.style.height=threshold+'px';
+      ptrSpin.classList.add('go');
+      ptrTxt.textContent='Aktualisiere…';
+      await loadAll();
+      ptr.style.height='0';
+      ptrSpin.classList.remove('go');
+    } else {
+      ptr.style.height='0';
+    }
+  },{passive:true});
+})();
+
 renderPills();
+updateQueueBadge();
 init();
 </script>
 </body>
