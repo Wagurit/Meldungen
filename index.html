@@ -791,10 +791,10 @@ async function loadAll(){
   setSyncing('syncing');
   try {
     const [m,c,f,k,ke,l] = await Promise.all([
-      _sb.from('meldungen').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
-      _sb.from('chemie').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
-      _sb.from('freie_angebote').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false}),
-      _sb.from('kbe_kunden').select('*').eq('geloescht',false).order('firma'),
+      _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false}),
+      _sb.from('chemie').select('*').order('erstellt_am',{ascending:false}),
+      _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false}),
+      _sb.from('kbe_kunden').select('*').order('firma'),
       _sb.from('kbe_eintraege').select('*').order('datum',{ascending:false}),
       _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200),
     ]);
@@ -842,9 +842,9 @@ function setupRealtime(){
     .subscribe();
 }
 async function reloadTable(tbl){
-  if(tbl==='meldungen'){const {data}=await _sb.from('meldungen').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});MD=(data||[]).map(mapMeld);renderM();updB();}
-  else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
-  else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').eq('geloescht',false).order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
+  if(tbl==='meldungen'){const {data}=await _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false});MD=(data||[]).map(mapMeld);renderM();updB();}
+  else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
+  else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
   else if(tbl==='kbe'){loadAll();}
   else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
 }
