@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
 <title>RKW Meldungen & Angebote</title>
-<link rel="manifest" href='data:application/manifest+json,{"name": "RKW Meldungen & Angebote", "short_name": "RKW Meldungen", "start_url": "./", "display": "standalone", "background_color": "#0369a1", "theme_color": "#0369a1", "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}]}'>
+<link rel="manifest" href='data:application/manifest+json,{"name":"RKW Meldungen & Angebote","short_name":"RKW Meldungen","start_url":"./","display":"standalone","background_color":"#0369a1","theme_color":"#0369a1","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"}]}'>
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1661,6 +1661,13 @@ async function saveBestKunde(){
   if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte});
   toast('✓ KBE-Werte gespeichert');
   renderKbeListe();renderKbeKunden();updB();
+  // Formular schließen und zurück zur Suche springen
+  selKbeKunde=null;
+  G('kbe-bestehend-form').style.display='none';
+  document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
+  G('kbe-best-rkws').innerHTML='';
+  const suchfeld=G('kbe-suche');
+  if(suchfeld){suchfeld.value='';suchfeld.focus();renderKbeKunden();}
 }
 function addRkwRow(containerId){
   const c=G(containerId);const row=document.createElement('div');row.className='rkw-row';
