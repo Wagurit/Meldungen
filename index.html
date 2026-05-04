@@ -820,7 +820,14 @@ async function loadAll(){
     renderAll(); updB();
   } catch(e){
     setSyncing('err');
-    toast('⚠️ Ladefehler – bitte Seite neu laden');
+    console.error('loadAll Fehler:', e);
+    // Einzelne Queries testen um den Fehler einzugrenzen
+    const tables = ['meldungen','chemie','freie_angebote','kbe_kunden','loeschlog'];
+    for(const t of tables){
+      const {error:te} = await _sb.from(t).select('id').limit(1);
+      if(te) console.error('Fehler bei Tabelle '+t+':', te.message);
+    }
+    toast('⚠️ Ladefehler: '+e.message);
   }
 }
 
