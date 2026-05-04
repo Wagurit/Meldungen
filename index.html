@@ -1118,21 +1118,43 @@ function delWithConfirm(btn,id,typ){
   }
 }
 async function doDelete(id,typ){
-  let tabelle='',firmaStr='',kurzinfoStr='';
-  if(typ==='m'){const e=MD.find(x=>x.id===id);tabelle='meldungen';firmaStr=e?.firma||'';kurzinfoStr=(e?.text||'').substring(0,60);}
-  else if(typ==='c'){const e=CH.find(x=>x.id===id);tabelle='chemie';firmaStr=e?.firma||'';kurzinfoStr=(e?.produkte||[]).join(', ');}
-  else if(typ==='f'){const e=FR.find(x=>x.id===id);tabelle='freie_angebote';firmaStr=e?.firma||'';kurzinfoStr=(e?.text||'').substring(0,60);}
-  else if(typ==='k'){const e=KBE.find(x=>x.id===id);tabelle='kbe_kunden';firmaStr=e?.firma||'';kurzinfoStr=(e?.rkws||[]).map(r=>r.name).join(', ');}
-
+  // Komplettes Objekt als payload für den Log holen
+  let tabelle='', typLabel='', payload=null, firmaStr='', kurzinfoStr='';
+  if(typ==='m'){
+    const e=MD.find(x=>x.id===id);
+    tabelle='meldungen'; typLabel='Meldung';
+    firmaStr=e?.firma||''; kurzinfoStr=(e?.text||'').substring(0,60);
+    payload=e||null;
+  } else if(typ==='c'){
+    const e=CH.find(x=>x.id===id);
+    tabelle='chemie'; typLabel='Chemie';
+    firmaStr=e?.firma||''; kurzinfoStr=(e?.produkte||[]).join(', ');
+    payload=e||null;
+  } else if(typ==='f'){
+    const e=FR.find(x=>x.id===id);
+    tabelle='freie_angebote'; typLabel='Frei';
+    firmaStr=e?.firma||''; kurzinfoStr=(e?.text||'').substring(0,60);
+    payload=e||null;
+  } else if(typ==='k'){
+    const e=KBE.find(x=>x.id===id);
+    tabelle='kbe_kunden'; typLabel='KBE';
+    firmaStr=e?.firma||''; kurzinfoStr=(e?.rkws||[]).map(r=>r.name).join(', ');
+    payload=e||null;
+  }
   if(!tabelle)return;
-  const typLabel={'meldungen':'Meldung','chemie':'Chemie','freie_angebote':'Frei','kbe_kunden':'KBE'}[tabelle];
 
-  // Soft-Delete (geloescht=true)
-  const {error:delErr}=await _sb.from(tabelle).update({geloescht:true}).eq('id',id);
+  // 1. Erst in loeschlog mit vollem payload sichern
+  const {error:logErr}=await _sb.from('loeschlog').insert({
+    typ:typLabel, firma:firmaStr, original_id:id,
+    kurzinfo:kurzinfoStr, geloescht_von:kz, payload
+  });
+  if(logErr){toast('⚠️ Log-Fehler: '+logErr.message);return;}
+
+  // 2. Dann hard-delete aus der Originaltabelle
+  const {error:delErr}=await _sb.from(tabelle).delete().eq('id',id);
   if(delErr){toast('⚠️ Fehler beim Löschen: '+delErr.message);return;}
-  // Log-Eintrag
-  await _sb.from('loeschlog').insert({typ:typLabel,firma:firmaStr,original_id:id,kurzinfo:kurzinfoStr,geloescht_von:kz});
-  // Lokal sofort entfernen → kein Warten auf Realtime
+
+  // 3. Lokal sofort entfernen
   if(typ==='m'){MD=MD.filter(x=>x.id!==id);renderM();}
   else if(typ==='c'){CH=CH.filter(x=>x.id!==id);renderC();}
   else if(typ==='f'){FR=FR.filter(x=>x.id!==id);renderF();}
