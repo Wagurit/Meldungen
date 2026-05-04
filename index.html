@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen & Angebote v7</title>
+<title>Meldungen & Angebote v8</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -360,7 +360,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v7</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v8</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1337,24 +1337,70 @@ function buildMeldChip(e){
 
   let meinBlock='';
   if(kannBest){
-    const nzPills=allNutzer.filter(n=>n.kuerzel!==kz).map(n=>'<button class="kz-pill ngz-pill" style="font-size:12px;padding:5px 8px" data-eid="'+eid+'" data-kz="'+esc(n.kuerzel)+'" onclick="toggleNgz(this)">'+esc(n.kuerzel)+'</button>').join('');
-    meinBlock=
-      '<div class="mein-gel-box">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-          '<div class="mein-gel-title">'+(istErsteller?'💬 Antworten':'👁 Bestätigung')+'</div>'+
-          '<button class="bgel" onclick="setGel(\''+eid+'\')">✓ Bestätigen</button>'+
-        '</div>'+
-        '<button onclick="toggleMgx(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:\'Barlow\',sans-serif;text-align:left">▸ Kommentar / Weiterleiten</button>'+
-        '<div id="mgx-'+eid+'" style="display:none;flex-direction:column;gap:6px">'+
-          '<textarea class="gta" id="gta-'+eid+'" placeholder="Kommentar (optional)…" style="font-size:16px!important;min-height:52px"></textarea>'+
-          '<div class="kom-zuw-box"><div class="kom-zuw-lbl">Weiterleiten an (optional):</div><div class="kz-pills">'+nzPills+'</div></div>'+
-        '</div>'+
-      '</div>'+
-      bearbeitenBtn;
-  } else {
-    meinBlock=bearbeitenBtn;
-  }
+    // meinBlock per DOM – kein HTML-String-Escaping Problem
+    const mgBox=document.createElement('div');
+    mgBox.className='mein-gel-box';
 
+    // Titelzeile + Bestätigen-Button
+    const topRow=document.createElement('div');
+    topRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
+    const titel=document.createElement('div');
+    titel.className='mein-gel-title';
+    titel.textContent=istErsteller?'💬 Antworten':'👁 Bestätigung';
+    const bestBtn=document.createElement('button');
+    bestBtn.className='bgel';
+    bestBtn.textContent='✓ Bestätigen';
+    bestBtn.onclick=()=>setGel(eid);
+    topRow.append(titel,bestBtn);
+    mgBox.appendChild(topRow);
+
+    // Toggle-Link für Kommentar/Weiterleiten
+    const togLink=document.createElement('button');
+    togLink.textContent='▸ Kommentar / Weiterleiten';
+    togLink.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;width:100%';
+    mgBox.appendChild(togLink);
+
+    // Aufklappbarer Bereich
+    const mgxDiv=document.createElement('div');
+    mgxDiv.id='mgx-'+eid;
+    mgxDiv.style.cssText='display:none;flex-direction:column;gap:6px';
+
+    const gta=document.createElement('textarea');
+    gta.className='gta';
+    gta.id='gta-'+eid;
+    gta.placeholder='Kommentar (optional)…';
+    gta.style.cssText='font-size:16px;min-height:52px';
+    mgxDiv.appendChild(gta);
+
+    const zuwBox=document.createElement('div');
+    zuwBox.className='kom-zuw-box';
+    zuwBox.innerHTML='<div class="kom-zuw-lbl">Weiterleiten an (optional):</div>';
+    const pillsDiv=document.createElement('div');
+    pillsDiv.className='kz-pills';
+    allNutzer.filter(n=>n.kuerzel!==kz).forEach(n=>{
+      const pb=document.createElement('button');
+      pb.className='kz-pill ngz-pill';
+      pb.style.cssText='font-size:12px;padding:5px 8px';
+      pb.dataset.eid=eid;pb.dataset.kz=n.kuerzel;
+      pb.textContent=n.kuerzel;
+      pb.onclick=()=>toggleNgz(pb);
+      pillsDiv.appendChild(pb);
+    });
+    zuwBox.appendChild(pillsDiv);
+    mgxDiv.appendChild(zuwBox);
+    mgBox.appendChild(mgxDiv);
+
+    // Toggle-Funktion direkt ans Button binden
+    togLink.onclick=()=>{
+      const open=mgxDiv.style.display==='flex';
+      mgxDiv.style.display=open?'none':'flex';
+      mgxDiv.style.flexDirection='column';
+      mgxDiv.style.gap='6px';
+      togLink.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
+    };
+
+    meinBlock=mgBox;
+  } // end if(kannBest)
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
   const headerInner=offen||explizit
@@ -1363,17 +1409,30 @@ function buildMeldChip(e){
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
-    '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+(e.bearbeitet_am?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-style:italic">bearbeitet '+fd(e.bearbeitet_am)+'</div>':'')+
+    '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+
+    (e.bearbeitet_am?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-style:italic">bearbeitet '+fd(e.bearbeitet_am)+'</div>':'')+
     '<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>'+statusChips+'</div>'+
-    verlaufHtml+meinBlock+
-    ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+eid+'\',\'m\')">🗑 Löschen</button>':'')+
+    verlaufHtml+
     '</div>';
+  // meinBlock + bearbeitenBtn per DOM einfügen
+  const body=el.querySelector('.v2-body');
+  if(kannBest && meinBlock instanceof Element) body.appendChild(meinBlock);
+  else if(typeof meinBlock==='string' && meinBlock) body.insertAdjacentHTML('beforeend',meinBlock);
+  if(bearbeitenBtn instanceof Element) body.appendChild(bearbeitenBtn);
+  else if(typeof bearbeitenBtn==='string' && bearbeitenBtn) body.insertAdjacentHTML('beforeend',bearbeitenBtn);
+  if(userRolle==='admin'){
+    const delB=document.createElement('button');
+    delB.className='edel';delB.textContent='🗑 Löschen';
+    delB.onclick=(ev)=>delWithConfirm(ev.target,eid,'m');
+    body.appendChild(delB);
+  }
   return el;
 }
 
 // ══════════════════════════════════════════════════════════
 // RENDER CHEMIE
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════}
+
 function renderC(){
   const c=G('ec');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=V('sc').toLowerCase();
