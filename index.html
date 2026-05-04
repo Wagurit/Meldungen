@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
 <title>RKW Meldungen & Angebote</title>
-<link rel="manifest" href='data:application/manifest+json,{"name":"RKW Meldungen & Angebote","short_name":"RKW Meldungen","start_url":"./","display":"standalone","background_color":"#0369a1","theme_color":"#0369a1","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"}]}'>
+<link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -163,7 +163,7 @@ textarea{resize:vertical;min-height:68px;}
 .v2-body{padding:10px 12px 10px 16px;display:flex;flex-direction:column;gap:7px;}
 .v2-text{font-size:14px;color:var(--tx);line-height:1.5;font-weight:500;}
 .v2-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:#94a3b8;}
-.v2-kz{background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px;letter-spacing:.07em;}
+.v2-kz{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:1px 8px;border-radius:4px;letter-spacing:.07em;}
 .v2-status-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding-top:7px;border-top:1px solid #f0f0f0;}
 .v2-slabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);}
 .gs-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;}
@@ -303,6 +303,15 @@ textarea{resize:vertical;min-height:68px;}
 .ptr-inner{display:flex;align-items:center;gap:8px;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;}
 .ptr-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;}
 .ptr-spin.go{animation:spin .6s linear infinite;}
+
+/* ── KÜRZEL-FARBEN ── */
+.kzf-IS{background:#0369a1;color:#fff;}
+.kzf-AG{background:#15803d;color:#fff;}
+.kzf-RG{background:#4f46e5;color:#fff;}
+.kzf-SB{background:#0891b2;color:#fff;}
+.kzf-BT{background:#be185d;color:#fff;}
+.kzf-JN{background:#b45309;color:#fff;}
+.kzf-default{background:#475569;color:#fff;}
 </style>
 </head>
 <body>
@@ -1210,6 +1219,15 @@ function setF(tab,f,el){
   if(tab==='l')renderLog();
 }
 
+
+// Kürzel-Farbe: gibt CSS-Klasse zurück
+function kzClass(k){
+  const map={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BT:'kzf-BT',JN:'kzf-JN'};
+  return map[k]||'kzf-default';
+}
+function kzBadge(k){
+  return '<span class="v2-kz '+kzClass(k)+'">'+esc(k)+'</span>';
+}
 // ══════════════════════════════════════════════════════════
 // RENDER MELDUNGEN
 // ══════════════════════════════════════════════════════════
@@ -1243,18 +1261,18 @@ function buildMeldChip(e){
 
   // Ersteller + Datum im Header unter Firmenname
   const metaHeader='<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;display:flex;gap:6px;align-items:center">'+
-    '<span style="background:rgba(255,255,255,.2);font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.kuerzel)+'</span>'+
+    '<span class="v2-kz '+kzClass(e.kuerzel)+'" style="opacity:.9">'+esc(e.kuerzel)+'</span>'+
     '<span>'+fd(e.ts)+'</span></div>';
 
   const statusChips=zeigeKZ.map(k2=>{
     const g=e.gelesen_von&&e.gelesen_von[k2];
-    return g?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
+    return g?'<span class="gs-chip gs-done '+kzClass(k2)+'">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
   }).join('');
 
   // Verlauf – fetter Text für bessere Lesbarkeit
   const verlaufHtml=(e.verlauf||[]).filter(v=>v.text).map(v=>{
     const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-    return '<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
+    return '<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
   }).join('');
 
   const istErsteller=e.kuerzel===kz;
@@ -1329,7 +1347,7 @@ function renderC(){
     const statusBadge=e.erledigt?'<span class="v2-badge b-erl">✓ Erledigt</span>':'<span class="v2-badge b-neu">Offen</span>';
     const produkteHtml=(e.produkte||[]).map(p=>'• '+esc(p)).join('  ');
     const notizHtml=e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'';
-    const metaHtml='<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>';
+    // metaHtml entfernt – Kürzel+Datum jetzt nur im Header
     let aktionHtml='';
     if(e.erledigt){
       aktionHtml='<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>';
@@ -1349,14 +1367,14 @@ function renderC(){
       '<div class="v2-header-inner">'+
         '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
         '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+
-          '<span class="v2-kz">'+esc(e.kuerzel)+'</span>'+
+          kzBadge(e.kuerzel)+
           '<span>'+fd(e.ts)+'</span>'+
         '</div></div>'+
         '<div class="v2-badges">'+statusBadge+'</div>'+
       '</div></div>'+
       '<div class="v2-body">'+
         '<div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+
-        notizHtml+metaHtml+
+        notizHtml+
       '</div>';
     // Aktion-Elemente per DOM einfügen (vermeidet Quote-Escaping)
     const body=el.querySelector('.v2-body');
@@ -1408,14 +1426,42 @@ function renderF(){
     el.className='v2-chip'+(e.erledigt?' erl':hatRQ?' rueckfrage':'');
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe"></div>'+
-      '<div class="v2-header-inner"><div class="v2-firma">'+esc(e.firma)+'</div>'+
-      '<div class="v2-badges">'+(e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+(hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+'<span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span></div></div></div>'+
-      '<div class="v2-body"><div class="v2-text">'+esc(e.text)+'</div>'+meta+
-      '<div class="v2-meta"><span class="v2-kz">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div>'+
-      rqHtml+rqBoxHtml+
-      (!e.erledigt?'<div class="anr"><input class="ani" id="anr-f-'+e.id+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'"><button class="berl" onclick="setErlF(\''+e.id+'\')">✓ Erledigt</button><button class="brq" onclick="showRqBox(\''+e.id+'\')">❓ Rückfrage</button></div>':'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>')+
-      ((userRolle==='admin')?'<button class="edel" onclick="delWithConfirm(this,\''+e.id+'\',\'f\')">🗑 Löschen</button>':'')+
+      '<div class="v2-header-inner">'+
+        '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
+        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+
+          kzBadge(e.kuerzel)+
+          '<span>'+fd(e.ts)+'</span>'+
+        '</div></div>'+
+        '<div class="v2-badges">'+
+          (e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+
+          (hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+
+          '<span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span>'+
+        '</div>'+
+      '</div></div>'+
+      '<div class="v2-body">'+
+        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+
+        rqHtml+rqBoxHtml+
+        (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
+    // Aktions-Buttons per DOM (kein Quote-Problem)
+    const body=el.querySelector('.v2-body');
+    if(!e.erledigt){
+      const anrDiv=document.createElement('div');anrDiv.className='anr';
+      const anrInp=document.createElement('input');anrInp.className='ani';
+      anrInp.id='anr-f-'+e.id;anrInp.placeholder='Angebotsnummer (optional)';
+      anrInp.value=esc(e.angebotsnr||'');
+      const erlB=document.createElement('button');erlB.className='berl';
+      erlB.textContent='✓ Erledigt';erlB.onclick=()=>setErlF(e.id);
+      const rqB=document.createElement('button');rqB.className='brq';
+      rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
+      anrDiv.append(anrInp,erlB,rqB);body.appendChild(anrDiv);
+    }
+    if(userRolle==='admin'){
+      const delB=document.createElement('button');delB.className='edel';
+      delB.textContent='🗑 Löschen';
+      delB.onclick=(ev)=>delWithConfirm(ev.target,e.id,'f');
+      body.appendChild(delB);
+    }
     c.appendChild(el);
   });
 }
@@ -1736,7 +1782,7 @@ function buildGeloeschtChip(logEntry){
     const verlauf=(p.verlauf||[]).filter(v=>v.text);
     verlauf.forEach(v=>{
       const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-      bodyHtml+='<div class="kom-zeile"><strong>'+esc(v.kuerzel)+'</strong> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
+      bodyHtml+='<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
     });
 
   } else if(typ==='Chemie'){
