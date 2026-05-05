@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen & Angebote v8</title>
+<title>Meldungen & Angebote v9</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -360,7 +360,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v8</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v9</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1405,7 +1405,7 @@ function buildMeldChip(e){
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
   const headerInner=offen||explizit
     ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges">'+bStatus+bZuw+'</div></div>'
-    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center"><span style="background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(e.kuerzel)+'</span><span>'+fd(e.ts)+'</span></div></div><div class="v2-badges">'+bStatus+bZuw+'</div></div>';
+    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:3px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div><div class="v2-badges">'+bStatus+bZuw+'</div></div>';
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
@@ -1957,7 +1957,8 @@ function updB(){
   if(fm>0){bFm.textContent=fm;bFm.className='tbg v fm';}else bFm.className='tbg';
   const ftOf=G('ft-m-of-cnt');if(ftOf)ftOf.textContent=ug||'';
   const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
-  const ftKbe=G('ft-kbe-cnt');if(ftKbe)ftKbe.textContent=KBE.length||'';
+  // KBE Counter bewusst entfernt – wird mit der Zeit zu groß
+  const ftKbe=G('ft-kbe-cnt');if(ftKbe)ftKbe.textContent='';
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
   const of2=FR.filter(e=>!e.erledigt).length;
@@ -2111,7 +2112,7 @@ if(!isOnline()) showOfflineBanner(true);
 // PULL TO REFRESH
 // ══════════════════════════════════════════════════════════
 (function(){
-  let startY=0, pulling=false, threshold=70, triggered=false;
+  let startY=0, pulling=false, threshold=120, triggered=false;
   const ptr=document.getElementById('ptr');
   const ptrSpin=document.getElementById('ptr-spin');
   const ptrTxt=document.getElementById('ptr-txt');
@@ -2119,7 +2120,7 @@ if(!isOnline()) showOfflineBanner(true);
   if(!ptr||!cnt)return;
 
   cnt.addEventListener('touchstart',e=>{
-    if(cnt.scrollTop>0)return;
+    if(cnt.scrollTop>8)return; // Etwas Toleranz damit Tippen nicht auslöst
     startY=e.touches[0].clientY;
     pulling=true;triggered=false;
     ptr.classList.add('pulling');
@@ -2131,7 +2132,7 @@ if(!isOnline()) showOfflineBanner(true);
     if(dy<0){pulling=false;ptr.style.height='0';return;}
     const h=Math.min(dy*0.5, threshold+10);
     ptr.style.height=h+'px';
-    if(dy>threshold*1.5&&!triggered){
+    if(dy>threshold&&!triggered){
       ptrTxt.textContent='Loslassen zum Aktualisieren';
       ptrSpin.classList.remove('go');
     } else if(dy<=threshold*1.5){
