@@ -1,48 +1,98 @@
-// sw_rkw_meldungen.js
-// Service Worker – RKW Meldungen & Angebote
-// Version hier hochzählen bei jedem Deploy → erzwingt Update bei allen Nutzern
-const CACHE = 'rkw-meld-v2';
-const ASSETS = [
-  './',
-  './index.html',
-  'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap'
-];
+// ══════════════════════════════════════════════════════════
+// sw_rkw_meldungen.js – Service Worker v2
+// Push-Empfang mit Payload-Auswertung (Firma + Text)
+// ══════════════════════════════════════════════════════════
 
+const CACHE = 'rkw-v16';
+const FILES = ['./', './index.html', './manifest.json', './icon-192.png'];
+
+// ── INSTALL ──
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then(c => c.addAll(FILES))
   );
+  self.skipWaiting();
 });
 
+// ── ACTIVATE ──
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    )
   );
+  self.clients.claim();
 });
 
+// ── FETCH (Cache-First für App-Shell) ──
 self.addEventListener('fetch', e => {
-  // Supabase API-Calls nie cachen
-  if (e.request.url.includes('supabase.co')) return;
-  // Google Fonts nicht cachen (optional, kann bei Offline-Problemen helfen)
-  // if (e.request.url.includes('fonts.g')) return;
-
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
-        if (res && res.status === 200 && e.request.method === 'GET') {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || network;
-    })
+    caches.match(e.request).then(r => r || fetch(e.request))
   );
 });
 
-// Update-Broadcast an alle offenen Tabs
+// ── SKIP WAITING ──
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// ══════════════════════════════════════════════════════════
+// PUSH – Payload auslesen und Notification anzeigen
+// ══════════════════════════════════════════════════════════
+self.addEventListener('push', e => {
+  // Badge setzen (genaue Zahl setzt updB() wenn App geöffnet wird)
+  if ('setAppBadge' in navigator) {
+    navigator.setAppBadge(1).catch(() => {});
+  }
+
+  // Payload aus web-push lesen (JSON)
+  let title = '📋 Neue Meldung';
+  let body  = 'Tippe zum Öffnen';
+  let tag   = 'rkw-meldung';
+
+  if (e.data) {
+    try {
+      const data = e.data.json();
+      title = data.title || title;
+      body  = data.body  || body;
+      tag   = data.tag   || tag;
+    } catch {
+      // Fallback falls kein JSON
+      body = e.data.text() || body;
+    }
+  }
+
+  const options = {
+    body,
+    icon:      './icon-192.png',
+    badge:     './icon-192.png',
+    tag,
+    renotify:  true,
+    vibrate:   [200, 100, 200],
+    data:      { url: self.registration.scope },
+  };
+
+  e.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// ══════════════════════════════════════════════════════════
+// NOTIFICATIONCLICK – App öffnen oder fokussieren
+// ══════════════════════════════════════════════════════════
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || self.registration.scope;
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
