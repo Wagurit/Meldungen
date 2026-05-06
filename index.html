@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen & Angebote v9</title>
+<title>Meldungen &amp; Angebote v15</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -69,6 +69,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bl);color:var(--tx);font-s
 .tbg.kbe{background:#0891b2;color:#fff;}
 .tbg.lg{background:var(--log);color:#fff;}
 .tbg.adm{background:#fbbf24;color:#78350f;}
+.tbg.zb{background:#15803d;color:#fff;}
+.tbg.wb{background:#0891b2;color:#fff;}
 
 /* ── CONTENT ── */
 .cnt{flex:1;overflow-y:auto;padding:12px;}
@@ -304,8 +306,6 @@ textarea{resize:vertical;min-height:68px;}
 .ptr-spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;}
 .ptr-spin.go{animation:spin .6s linear infinite;}
 
-
-
 /* ── KÜRZEL-FARBEN ── */
 .kzf-IS{background:#0369a1!important;color:#fff!important;}
 .kzf-AG{background:#15803d!important;color:#fff!important;}
@@ -314,11 +314,18 @@ textarea{resize:vertical;min-height:68px;}
 .kzf-BT{background:#be185d!important;color:#fff!important;}
 .kzf-JN{background:#b45309!important;color:#fff!important;}
 .kzf-default{background:#475569!important;color:#fff!important;}
+
+/* ── BEARBEITUNGS-STATUS ── */
+.b-inb{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
+.b-bearb{background:#f0fdf4;color:#15803d;}
+.bearb-box{background:#f0fdf4;border:1.5px solid var(--gl);border-radius:9px;padding:10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;}
+.bearb-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gn);}
+.bbearb{padding:7px 14px;background:var(--gn);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start;}
+.bbearb:active{opacity:.85;}
+.wird-bearb-info{background:#dcfce7;border:1px solid var(--gl);border-radius:8px;padding:7px 11px;font-size:12px;color:var(--gn);display:flex;align-items:center;gap:6px;}
 </style>
 </head>
 <body>
-
-<!-- Update Banner -->
 
 <!-- Pull to Refresh -->
 <div class="ptr" id="ptr"><div class="ptr-inner"><div class="ptr-spin" id="ptr-spin"></div><span id="ptr-txt">Loslassen zum Aktualisieren</span></div></div>
@@ -360,7 +367,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v9</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v15</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -374,12 +381,14 @@ textarea{resize:vertical;min-height:68px;}
       <span class="tab-badges">
         <span class="tbg" id="tbm-ug"></span>
         <span class="tbg" id="tbm-fm"></span>
+        <span class="tbg" id="tbm-zb"></span>
+        <span class="tbg" id="tbm-wb"></span>
       </span>
     </button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">🔧 Frei <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
-    <button class="tab" data-tab="k">🔬 KBE Eintragen <span class="tab-badges"><span class="tbg" id="tbk"></span></span></button>
-    <button class="tab" data-tab="l">🗑 Gelöscht <span class="tab-badges"><span class="tbg" id="tbl"></span></span></button>
+    <button class="tab" data-tab="k">🔬 KBE Eintragen</button>
+    <button class="tab" data-tab="l">🗑 Gelöscht</button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
       ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
     </button>
@@ -479,6 +488,8 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('m','offen',this)">Offen <span class="ftbg" id="ft-m-of-cnt"></span></button>
           <button class="ft" onclick="setF('m','fuerMich',this)">Für mich <span class="ftbg vi" id="fm-cnt"></span></button>
           <button class="ft" onclick="setF('m','kbe',this)">🔬 KBE <span class="ftbg kbe" id="ft-kbe-cnt"></span></button>
+          <button class="ft" onclick="setF('m','zuBearbeiten',this)">🔧 Zu bearbeiten <span class="tbg zb" id="ft-zb-cnt"></span></button>
+          <button class="ft" onclick="setF('m','wirdBearbeitet',this)">⏳ Wird bearbeitet <span class="tbg wb" id="ft-wb-cnt"></span></button>
           <button class="ft" onclick="setF('m','gelesen',this)">Gelesen</button>
           <button class="ft" onclick="setF('m','kommentar',this)">Kommentar</button>
         </div>
@@ -518,8 +529,6 @@ textarea{resize:vertical;min-height:68px;}
 
     <!-- KBE -->
     <div class="pnl" id="panel-k">
-
-      <!-- Chip 1: Wert für bestehenden Kunden – OFFEN (wird am meisten genutzt) -->
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:var(--bp);border-bottom:1.5px solid var(--bo)">
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">
@@ -540,7 +549,6 @@ textarea{resize:vertical;min-height:68px;}
         </div>
       </div>
 
-      <!-- Chip 2: Neuen Kunden anlegen – EINGEKLAPPT -->
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
         <div onclick="toggleKbeNeuKunde()" style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer;background:var(--bg);border-bottom:1.5px solid var(--bo)">
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">
@@ -776,10 +784,16 @@ async function afterLogin(user){
 
   await loadAll();
   setupRealtime();
+  // Push-Abo aktivieren (fragt nur einmal nach Erlaubnis)
+  setTimeout(subscribePush, 2000);
   if(userRolle==='admin') loadNutzerAdmin();
 }
 
 async function doLogout(){
+  // Badge beim Abmelden zurücksetzen
+  if('clearAppBadge' in navigator) navigator.clearAppBadge();
+  // Push-Abo deaktivieren
+  await unsubscribePush();
   await _sb.auth.signOut();
   kz='';userId='';userRolle='';
   selKzLogin='';selZuwSet.clear();
@@ -832,7 +846,6 @@ async function loadAll(){
   } catch(e){
     setSyncing('err');
     console.error('loadAll Fehler:', e);
-    // Einzelne Queries testen um den Fehler einzugrenzen
     const tables = ['meldungen','chemie','freie_angebote','kbe_kunden','loeschlog'];
     for(const t of tables){
       const {error:te} = await _sb.from(t).select('id').limit(1);
@@ -842,7 +855,7 @@ async function loadAll(){
   }
 }
 
-function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[]};}
+function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[],bearbeitungs_status:r.bearbeitungs_status||null};}
 function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts};}
 function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[]};}
 
@@ -875,7 +888,6 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
-    // Daten beim Tab-Wechsel neu laden (hält Counter und Listen aktuell)
     if(kz) loadAll();
   });
 });
@@ -884,7 +896,6 @@ function swTab(n){
   document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
   const tab=document.querySelector('.tab[data-tab="'+n+'"]');
   if(tab){tab.classList.add('active');G('panel-'+n).classList.add('active');}
-  // Daten ebenfalls neu laden
   if(kz) loadAll();
 }
 
@@ -892,21 +903,21 @@ function swTab(n){
 // LOGIK-HILFSFUNKTIONEN
 // ══════════════════════════════════════════════════════════
 function ichHabGelesen(e){
-  // Nicht-Ersteller: normaler Gelesen-Check
   if(e.kuerzel!==kz) return !!(e.gelesen_von&&e.gelesen_von[kz]);
-  // Ersteller: gilt als gelesen AUSSER wenn jemand anderes nach dem letzten
-  // Gelesen-Eintrag des OP noch kommentiert hat → dann wieder "ungelesen" für OP
   const letztesBest=e.gelesen_von&&e.gelesen_von[kz]?new Date(e.gelesen_von[kz].ts).getTime():0;
-  const letzterFremdKomm=(e.verlauf||[]).filter(v=>v.kuerzel!==kz&&v.text).reduce((max,v)=>{
+  // Fremd-Aktivität: Kommentare ODER Bearbeitet-Einträge (auch ohne Text)
+  // → Bearbeitet ohne Kommentar muss den OP trotzdem als "ungelesen" markieren
+  const letzterFremdKomm=(e.verlauf||[]).filter(v=>v.kuerzel!==kz&&(v.text||v.typ==='bearbeitet')).reduce((max,v)=>{
     const t=new Date(v.ts).getTime(); return t>max?t:max;
   },0);
-  // Wenn kein Fremd-Kommentar oder OP hat danach bestätigt → gelesen
   if(!letzterFremdKomm) return true;
   return letztesBest > letzterFremdKomm;
 }
 function relevanFuerMich(e){
   if(!e.zugewiesen_an||!e.zugewiesen_an.length)return true;
   if(e.zugewiesen_an.includes(kz))return true;
+  // OP ist relevant wenn Empfänger "Bearbeitet" geklickt hat → wie Zuweisung behandeln
+  if(e.kuerzel===kz&&e.bearbeitungs_status==='bearbeitet')return true;
   const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
   if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
   return false;
@@ -915,13 +926,14 @@ function offenFuerMich(e){return relevanFuerMich(e)&&!ichHabGelesen(e);}
 function istExplizitFuerMich(e){
   if(ichHabGelesen(e))return false;
   if(e.zugewiesen_an&&e.zugewiesen_an.includes(kz))return true;
+  // OP bekommt lila "Für mich" Counter wenn Empfänger Bearbeitung abgeschickt hat
+  if(e.kuerzel===kz&&e.bearbeitungs_status==='bearbeitet')return true;
   const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
   if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
   return false;
 }
 function freiHatOffeneRQ(e){return(e.rueckfragen||[]).some(r=>r.offen);}
 function freiHatAntwort(e){return(e.rueckfragen||[]).some(r=>!r.offen&&!r.bestaetigt&&r.antworten&&r.antworten.length>0);}
-// IS bekommt IMMER alle Rückfragen zu sehen
 function rqIstFuerMich(e){return freiHatOffeneRQ(e)&&(e.kuerzel===kz||kz===IS_KZ);}
 function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS_KZ);}
 
@@ -997,7 +1009,6 @@ async function saveMeld(){
     const {data:newMeld,error}=await _sb.from('meldungen').insert(meldData).select().single();
     G('btn-meld').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
-    // Lokal sofort einfügen
     if(newMeld) MD.unshift(mapMeld(newMeld));
     renderM();updB();
   }
@@ -1020,7 +1031,6 @@ async function saveChem(){
     const {data:newChem,error}=await _sb.from('chemie').insert(chemData).select().single();
     G('btn-chem').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
-    // Lokal sofort einfügen
     if(newChem) CH.unshift(mapChem(newChem));
     renderC();updB();
   }
@@ -1044,7 +1054,6 @@ async function saveFrei(){
     const {data:newFrei,error}=await _sb.from('freie_angebote').insert(freiData).select().single();
     G('btn-frei').disabled=false;
     if(error){toast('⚠️ Fehler: '+error.message);return;}
-    // Lokal sofort einfügen
     if(newFrei) FR.unshift(mapFrei(newFrei));
     renderF();updB();
   }
@@ -1075,10 +1084,29 @@ async function setGel(id){
     newVerlauf.push({kuerzel:kz,text:kommentar,ts:new Date().toISOString(),neu_zuw:neuZuw});
     if(neuZuw.length){neuZuw.forEach(k2=>{if(newGV[k2])delete newGV[k2];});}
   }
-  await _sb.from('meldungen').update({gelesen_von:newGV,verlauf:newVerlauf}).eq('id',id);
-  // Lokal sofort updaten → kein Warten auf Realtime
+  // Bearbeitungs-Status-Logik:
+  // a) Ich bin Empfänger + zugewiesen → 'in_bearbeitung' setzen
+  // b) Ich bin Ersteller + Status 'bearbeitet' → 'abgeschlossen' setzen
+  const meld=MD.find(x=>x.id===id);
+  const updateObj={gelesen_von:newGV,verlauf:newVerlauf};
+  if(meld){
+    const istEmpfaenger=meld.zugewiesen_an&&meld.zugewiesen_an.includes(kz)&&meld.kuerzel!==kz;
+    const istErsteller=meld.kuerzel===kz;
+    if(istEmpfaenger&&(!meld.bearbeitungs_status||meld.bearbeitungs_status==='null')){
+      // Empfänger liest → in_bearbeitung
+      updateObj.bearbeitungs_status='in_bearbeitung';
+    } else if(istErsteller&&meld.bearbeitungs_status==='bearbeitet'){
+      // Ersteller bestätigt nach Bearbeitung → abgeschlossen
+      updateObj.bearbeitungs_status='abgeschlossen';
+    }
+  }
+  await _sb.from('meldungen').update(updateObj).eq('id',id);
   const idx=MD.findIndex(x=>x.id===id);
-  if(idx>-1){MD[idx].gelesen_von=newGV;MD[idx].verlauf=newVerlauf;}
+  if(idx>-1){
+    MD[idx].gelesen_von=newGV;
+    MD[idx].verlauf=newVerlauf;
+    if(updateObj.bearbeitungs_status) MD[idx].bearbeitungs_status=updateObj.bearbeitungs_status;
+  }
   toast('✓ Bestätigt'+(neuZuw.length?' → '+neuZuw.join(', '):''));
   renderM();updB();
 }
@@ -1092,7 +1120,6 @@ async function setErlC(id){
   const an=G('anr-c-'+id)?G('anr-c-'+id).value.trim():'';
   const now=new Date().toISOString();
   await _sb.from('chemie').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:now}).eq('id',id);
-  // Lokal sofort updaten
   e.erledigt=true;e.angebotsnr=an;e.erledigt_von=kz;e.erledigt_ts=now;
   toast('✓ Erledigt');renderC();updB();
 }
@@ -1101,7 +1128,6 @@ async function setErlF(id){
   const an=G('anr-f-'+id)?G('anr-f-'+id).value.trim():'';
   const now=new Date().toISOString();
   await _sb.from('freie_angebote').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:now}).eq('id',id);
-  // Lokal sofort updaten
   e.erledigt=true;e.angebotsnr=an;e.erledigt_von=kz;e.erledigt_ts=now;
   toast('✓ Erledigt');renderF();updB();
 }
@@ -1158,7 +1184,6 @@ function delWithConfirm(btn,id,typ){
   }
 }
 async function doDelete(id,typ){
-  // Komplettes Objekt als payload für den Log holen
   let tabelle='', typLabel='', payload=null, firmaStr='', kurzinfoStr='';
   if(typ==='m'){
     const e=MD.find(x=>x.id===id);
@@ -1183,18 +1208,15 @@ async function doDelete(id,typ){
   }
   if(!tabelle)return;
 
-  // 1. Erst in loeschlog mit vollem payload sichern
   const {error:logErr}=await _sb.from('loeschlog').insert({
     typ:typLabel, firma:firmaStr, original_id:id,
     kurzinfo:kurzinfoStr, geloescht_von:kz, payload
   });
   if(logErr){toast('⚠️ Log-Fehler: '+logErr.message);return;}
 
-  // 2. Dann hard-delete aus der Originaltabelle
   const {error:delErr}=await _sb.from(tabelle).delete().eq('id',id);
   if(delErr){toast('⚠️ Fehler beim Löschen: '+delErr.message);return;}
 
-  // 3. Lokal sofort entfernen
   if(typ==='m'){MD=MD.filter(x=>x.id!==id);renderM();}
   else if(typ==='c'){CH=CH.filter(x=>x.id!==id);renderC();}
   else if(typ==='f'){FR=FR.filter(x=>x.id!==id);renderF();}
@@ -1220,8 +1242,6 @@ function setF(tab,f,el){
   if(tab==='f')renderF();
   if(tab==='l')renderLog();
 }
-
-
 
 // Kürzel → CSS-Klasse für Farbzuweisung
 function kzClass(k){
@@ -1270,16 +1290,122 @@ async function saveMeldEdit(eid, btn){
 }
 
 // ══════════════════════════════════════════════════════════
+// BEARBEITET – Empfänger markiert Meldung als bearbeitet
+// → Ersteller bekommt sie wieder als "offen / für mich"
+// ══════════════════════════════════════════════════════════
+async function setBearbeitet(id, taEl){
+  const e=MD.find(x=>x.id===id);if(!e)return;
+  const kommentar=taEl?taEl.value.trim():'';
+  const now=new Date().toISOString();
+
+  // Verlauf-Eintrag mit Bearbeitungs-Kommentar
+  const newVerlauf=[...e.verlauf];
+  newVerlauf.push({
+    kuerzel:kz,
+    text:kommentar||null,
+    bearbeitungs_kommentar:kommentar||null,
+    ts:now,
+    typ:'bearbeitet'
+  });
+
+  // Empfänger als gelesen markieren (Ein-Schritt: gelesen + bearbeitet zusammen)
+  // → kein separater Gelesen-Klick nötig
+  const newGV={...e.gelesen_von};
+  newGV[kz]={ts:now, kommentar:kommentar||null};
+
+  // Ersteller-Gelesen-Status zurücksetzen → erscheint als "offen/für mich" beim OP
+  if(newGV[e.kuerzel]) delete newGV[e.kuerzel];
+
+  await _sb.from('meldungen').update({
+    bearbeitungs_status:'bearbeitet',
+    verlauf:newVerlauf,
+    gelesen_von:newGV
+  }).eq('id',id);
+
+  // Lokal updaten
+  const idx=MD.findIndex(x=>x.id===id);
+  if(idx>-1){
+    MD[idx].bearbeitungs_status='bearbeitet';
+    MD[idx].verlauf=newVerlauf;
+    MD[idx].gelesen_von=newGV;
+  }
+  toast('✅ Als bearbeitet markiert – Ersteller wird informiert');
+  renderM();updB();
+}
+
+// ══════════════════════════════════════════════════════════
+// IS-ADMIN WEITERLEITEN
+// ══════════════════════════════════════════════════════════
+// Trägt einen Verlauf-Eintrag ein und setzt den Empfänger
+// auf "ungelesen" – identisch zu setGel() mit Weiterleitung,
+// aber auch wenn IS die Meldung bereits gelesen hat.
+async function isWeiterleiten(eid, pillsDiv, ta, box, toggleBtn){
+  const e = MD.find(x => x.id === eid);
+  if(!e) return;
+
+  // Welche Kürzel sind ausgewählt?
+  const neuZuw = [];
+  pillsDiv.querySelectorAll('.kz-pill.sel').forEach(b => neuZuw.push(b.dataset.kz));
+  if(!neuZuw.length){ toast('⚠️ Bitte mindestens ein Kürzel wählen.'); return; }
+
+  const kommentar = ta ? ta.value.trim() : '';
+  const now = new Date().toISOString();
+
+  // Verlauf-Eintrag schreiben
+  const newVerlauf = [...e.verlauf];
+  newVerlauf.push({
+    kuerzel: kz,
+    text: kommentar || null,
+    ts: now,
+    neu_zuw: neuZuw
+  });
+
+  // Gelesen-Status der Empfänger zurücksetzen (damit sie es als "neu" sehen)
+  const newGV = { ...e.gelesen_von };
+  neuZuw.forEach(k2 => { if(newGV[k2]) delete newGV[k2]; });
+
+  // IS als gelesen markieren (IS hat es ja gerade bearbeitet)
+  newGV[kz] = { ts: now, kommentar: kommentar || null };
+
+  await _sb.from('meldungen').update({
+    gelesen_von: newGV,
+    verlauf: newVerlauf,
+    zugewiesen_an: neuZuw   // Zuweisung auf neue Empfänger setzen
+  }).eq('id', eid);
+
+  // Lokal sofort updaten
+  const idx = MD.findIndex(x => x.id === eid);
+  if(idx > -1){
+    MD[idx].gelesen_von = newGV;
+    MD[idx].verlauf = newVerlauf;
+    MD[idx].zugewiesen_an = neuZuw;
+  }
+
+  // UI zurücksetzen
+  if(ta) ta.value = '';
+  pillsDiv.querySelectorAll('.kz-pill').forEach(b => b.classList.remove('sel'));
+  box.style.display = 'none';
+  toggleBtn.textContent = '↪ Weiterleiten';
+
+  toast('✓ Weitergeleitet an ' + neuZuw.join(', '));
+  renderM(); updB();
+}
+
+// ══════════════════════════════════════════════════════════
 // RENDER MELDUNGEN
 // ══════════════════════════════════════════════════════════
 function renderM(){
   const c=G('em');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=V('sm').toLowerCase();
   let d=MD.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
-  if(fil.m==='offen')    d=d.filter(e=>offenFuerMich(e));
-  if(fil.m==='gelesen')  d=d.filter(e=>ichHabGelesen(e));
-  if(fil.m==='kommentar')d=d.filter(e=>e.verlauf&&e.verlauf.some(v=>v.text));
-  if(fil.m==='fuerMich') d=d.filter(e=>istExplizitFuerMich(e));
+  if(fil.m==='offen')         d=d.filter(e=>offenFuerMich(e));
+  if(fil.m==='gelesen')       d=d.filter(e=>ichHabGelesen(e));
+  if(fil.m==='kommentar')     d=d.filter(e=>e.verlauf&&e.verlauf.some(v=>v.text));
+  if(fil.m==='fuerMich')      d=d.filter(e=>istExplizitFuerMich(e));
+  // Zu bearbeiten: ich bin zugewiesen UND Status ist in_bearbeitung oder null (noch nicht bearbeitet)
+  if(fil.m==='zuBearbeiten')  d=d.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&(e.bearbeitungs_status==='in_bearbeitung'||e.bearbeitungs_status===null)&&ichHabGelesen(e)&&!e.erledigt);
+  // Wird bearbeitet: ich bin Ersteller UND Empfänger hat gelesen (in_bearbeitung)
+  if(fil.m==='wirdBearbeitet') d=d.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung');
   if(fil.m==='kbe'){
     let kbeArr=[...KBE];if(q)kbeArr=kbeArr.filter(k=>k.firma.toLowerCase().includes(q));
     G('em0').style.display=kbeArr.length?'none':'';
@@ -1298,9 +1424,9 @@ function buildMeldChip(e){
   const eid=e.id;
 
   const bStatus=offen?'<span class="v2-badge b-neu">● Neu</span>':'<span class="v2-badge b-gel">Gelesen</span>';
-  const bZuw=zuwArr.length?'<span class="v2-badge b-zuw">→ '+zuwArr.map(esc).join(', ')+'</span>':'';
+  // Farbige Zuweisung-Badges: jedes Kürzel bekommt seine eigene Farbe
+  const bZuw=zuwArr.length?'<span class="v2-badge b-zuw" style="display:inline-flex;align-items:center;gap:3px">→ '+zuwArr.map(k2=>'<span class="v2-kz '+kzClass(k2)+'">'+esc(k2)+'</span>').join('')+'</span>':'';
 
-  // Ersteller + Datum im Header unter Firmenname
   const metaHeader='<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;display:flex;gap:6px;align-items:center">'+
     kzBadge(e.kuerzel)+
     '<span>'+fd(e.ts)+'</span></div>';
@@ -1310,21 +1436,27 @@ function buildMeldChip(e){
     return g?'<span class="gs-chip gs-done '+kzClass(k2)+'">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
   }).join('');
 
-  // Verlauf – fetter Text für bessere Lesbarkeit
-  const verlaufHtml=(e.verlauf||[]).filter(v=>v.text).map(v=>{
+  const verlaufHtml=(e.verlauf||[]).filter(v=>v.text||v.typ==='bearbeitet').map(v=>{
     const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-    return '<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
+    // Bearbeitungs-Einträge farblich hervorheben
+    const istBearb=v.typ==='bearbeitet';
+    const prefix=istBearb?'<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:3px">✅ BEARBEITET</span>':'';
+    const textTeil=v.text?'<span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>':'';
+    return '<div class="kom-zeile">'+prefix+'<span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: '+textTeil+nz+'</div>';
   }).join('');
 
   const istErsteller=e.kuerzel===kz;
   const hatVerlauf=(e.verlauf||[]).some(v=>v.text&&v.kuerzel!==kz);
-  // kannBest: Nicht-Ersteller ungelesen ODER Ersteller wenn jemand anderes kommentiert hat
+  // OP bekommt Gelesen-Button wenn:
+  // a) Normaler Verlauf mit Fremd-Kommentar
+  // b) Empfänger hat "Bearbeitet" geklickt → OP muss bestätigen
+  const istBearbeitetFuerOp = istErsteller && e.bearbeitungs_status==='bearbeitet';
   const kannBest=!ichGel&&(
     (!istErsteller&&relevanFuerMich(e)) ||
-    (istErsteller&&hatVerlauf)
+    (istErsteller&&hatVerlauf) ||
+    istBearbeitetFuerOp
   );
 
-  // Bearbeiten-Button: Ersteller sieht ihn immer
   const bearbeitenBtn=istErsteller
     ? '<div style="border-top:1px solid var(--bo);padding-top:7px;margin-top:3px">'+
         '<button onclick="toggleMeldEdit(\''+eid+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 0;font-family:\'Barlow\',sans-serif">✏️ Bearbeiten</button>'+
@@ -1337,11 +1469,9 @@ function buildMeldChip(e){
 
   let meinBlock='';
   if(kannBest){
-    // meinBlock per DOM – kein HTML-String-Escaping Problem
     const mgBox=document.createElement('div');
     mgBox.className='mein-gel-box';
 
-    // Titelzeile + Bestätigen-Button
     const topRow=document.createElement('div');
     topRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
     const titel=document.createElement('div');
@@ -1349,18 +1479,16 @@ function buildMeldChip(e){
     titel.textContent=istErsteller?'💬 Antworten':'👁 Bestätigung';
     const bestBtn=document.createElement('button');
     bestBtn.className='bgel';
-    bestBtn.textContent='✓ Bestätigen';
+    bestBtn.textContent='✓ Gelesen';
     bestBtn.onclick=()=>setGel(eid);
     topRow.append(titel,bestBtn);
     mgBox.appendChild(topRow);
 
-    // Toggle-Link für Kommentar/Weiterleiten
     const togLink=document.createElement('button');
     togLink.textContent='▸ Kommentar / Weiterleiten';
     togLink.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;width:100%';
     mgBox.appendChild(togLink);
 
-    // Aufklappbarer Bereich
     const mgxDiv=document.createElement('div');
     mgxDiv.id='mgx-'+eid;
     mgxDiv.style.cssText='display:none;flex-direction:column;gap:6px';
@@ -1390,7 +1518,6 @@ function buildMeldChip(e){
     mgxDiv.appendChild(zuwBox);
     mgBox.appendChild(mgxDiv);
 
-    // Toggle-Funktion direkt ans Button binden
     togLink.onclick=()=>{
       const open=mgxDiv.style.display==='flex';
       mgxDiv.style.display=open?'none':'flex';
@@ -1400,7 +1527,32 @@ function buildMeldChip(e){
     };
 
     meinBlock=mgBox;
-  } // end if(kannBest)
+  }
+  // ── BEARBEITUNGS-BLOCK ──
+  // Zeigt dem Empfänger den "Bearbeitet"-Button (nur bei zugewiesenen Meldungen)
+  // und dem Ersteller den "Wird bearbeitet"-Hinweis
+  const istZugewiesen = zuwArr.length > 0;
+  const bs = e.bearbeitungs_status;
+
+  // Für Empfänger: "Bearbeitet"-Box (grün)
+  // Bedingung: ich bin zugewiesen, habe gelesen, Status ist noch nicht 'bearbeitet'/'abgeschlossen'
+  // Bearbeitet-Box sofort sichtbar wenn ich zugewiesen bin –
+  // auch ohne vorherigen Gelesen-Klick (spart einen Schritt)
+  const kannBearbeiten = istZugewiesen &&
+    zuwArr.includes(kz) &&
+    e.kuerzel !== kz &&
+    bs !== 'bearbeitet' &&
+    bs !== 'abgeschlossen';
+
+  // Für Ersteller: "Wird bearbeitet"-Hinweis
+  const zeigeWirdBearbeitet = e.kuerzel === kz &&
+    istZugewiesen &&
+    bs === 'in_bearbeitung';
+
+  // Für Ersteller: "Bestätigen"-Button wenn Empfänger "Bearbeitet" geklickt hat
+  // → erscheint als "offen/für mich" beim Ersteller
+  const kannAbschliessen = e.kuerzel === kz && bs === 'bearbeitet';
+
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
   const headerInner=offen||explizit
@@ -1414,25 +1566,163 @@ function buildMeldChip(e){
     '<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>'+statusChips+'</div>'+
     verlaufHtml+
     '</div>';
-  // meinBlock + bearbeitenBtn per DOM einfügen
   const body=el.querySelector('.v2-body');
   if(kannBest && meinBlock instanceof Element) body.appendChild(meinBlock);
   else if(typeof meinBlock==='string' && meinBlock) body.insertAdjacentHTML('beforeend',meinBlock);
   if(bearbeitenBtn instanceof Element) body.appendChild(bearbeitenBtn);
   else if(typeof bearbeitenBtn==='string' && bearbeitenBtn) body.insertAdjacentHTML('beforeend',bearbeitenBtn);
+
+  // ── BEARBEITET-Box für Empfänger ──
+  if(kannBearbeiten){
+    const bBox=document.createElement('div');
+    bBox.className='bearb-box';
+
+    // Titelzeile + Bearbeitet-Button (immer sichtbar)
+    const bTopRow=document.createElement('div');
+    bTopRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
+    const bTit=document.createElement('div');
+    bTit.className='bearb-title';
+    bTit.textContent='🔧 Bearbeitung bestätigen';
+    const bBtn=document.createElement('button');
+    bBtn.className='bbearb';
+    bBtn.textContent='✅ Bearbeitet';
+    bBtn.onclick=()=>setBearbeitet(eid,bTa);
+    bTopRow.append(bTit,bBtn);
+    bBox.appendChild(bTopRow);
+
+    // Toggle-Link für Kommentarfeld (eingeklappt wie bei Bestätigen)
+    const bTogLink=document.createElement('button');
+    bTogLink.textContent='▸ Kommentar hinzufügen';
+    bTogLink.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;width:100%';
+    bBox.appendChild(bTogLink);
+
+    // Eingeklapptes Kommentarfeld
+    const bKommDiv=document.createElement('div');
+    bKommDiv.style.cssText='display:none';
+    const bTa=document.createElement('textarea');
+    bTa.className='gta';
+    bTa.id='bearb-ta-'+eid;
+    bTa.placeholder='Kommentar zur Bearbeitung (optional)…';
+    bTa.style.cssText='font-size:16px;min-height:46px';
+    bKommDiv.appendChild(bTa);
+    bBox.appendChild(bKommDiv);
+
+    // Toggle-Logik
+    bTogLink.onclick=()=>{
+      const open=bKommDiv.style.display==='block';
+      bKommDiv.style.display=open?'none':'block';
+      bTogLink.textContent=open?'▸ Kommentar hinzufügen':'▾ Kommentar schließen';
+    };
+
+    body.appendChild(bBox);
+  }
+
+  // ── "Wird bearbeitet"-Hinweis für Ersteller ──
+  if(zeigeWirdBearbeitet){
+    const wbDiv=document.createElement('div');
+    wbDiv.className='wird-bearb-info';
+    // Wer hat "gelesen" geklickt? Aus gelesen_von filtern (nur Zugewiesene)
+    const gelVon=zuwArr.filter(k2=>e.gelesen_von&&e.gelesen_von[k2]).map(k2=>'<span class="v2-kz '+kzClass(k2)+'">'+esc(k2)+'</span>').join(' ');
+    wbDiv.innerHTML='⏳ Wird bearbeitet von: '+gelVon;
+    body.appendChild(wbDiv);
+  }
+
+  // ── "Abgeschlossen"-Hinweis wenn Empfänger "Bearbeitet" geklickt hat ──
+  // Erscheint beim Ersteller – normaler Bestätigen-Button übernimmt den Abschluss
+  if(kannAbschliessen){
+    const abDiv=document.createElement('div');
+    abDiv.className='wird-bearb-info';
+    abDiv.style.cssText='background:#dcfce7;border-color:var(--gl);color:var(--gn)';
+    // Letzten Bearbeitungs-Kommentar aus Verlauf holen
+    const letzterBearb=(e.verlauf||[]).filter(v=>v.bearbeitungs_kommentar).slice(-1)[0];
+    let infoText='✅ Bearbeitet – bitte bestätigen';
+    if(letzterBearb&&letzterBearb.bearbeitungs_kommentar){
+      infoText+='<div style="margin-top:4px;font-size:11px;color:#166534">💬 '+esc(letzterBearb.bearbeitungs_kommentar)+'</div>';
+    }
+    abDiv.innerHTML=infoText;
+    body.appendChild(abDiv);
+  }
+
   if(userRolle==='admin'){
     const delB=document.createElement('button');
     delB.className='edel';delB.textContent='🗑 Löschen';
     delB.onclick=(ev)=>delWithConfirm(ev.target,eid,'m');
     body.appendChild(delB);
   }
+
+  // ── IS-Admin: Weiterleiten-Block – immer sichtbar, auch nach Lesen ──
+  // Ermöglicht IS das nachträgliche Weiterleiten mit Kommentar,
+  // ohne dass die Meldung erst "ungelesen" sein muss.
+  if(kz === IS_KZ){
+    const wlWrap = document.createElement('div');
+    wlWrap.style.cssText = 'border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
+
+    // Toggle-Button
+    const wlBtn = document.createElement('button');
+    wlBtn.textContent = '↪ Weiterleiten';
+    wlBtn.style.cssText = 'font-size:11px;color:var(--bd);background:var(--bp);border:1px solid var(--bo);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.04em';
+    wlWrap.appendChild(wlBtn);
+
+    // Aufklappbarer Bereich
+    const wlBox = document.createElement('div');
+    wlBox.id = 'wl-box-' + eid;
+    wlBox.style.cssText = 'display:none;flex-direction:column;gap:7px;margin-top:8px;background:#f0f9ff;border:1.5px solid var(--bo);border-radius:9px;padding:10px';
+
+    // Titel
+    const wlTitel = document.createElement('div');
+    wlTitel.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--bd)';
+    wlTitel.textContent = '↪ Weiterleiten an…';
+    wlBox.appendChild(wlTitel);
+
+    // Kürzel-Pills
+    const wlPillsDiv = document.createElement('div');
+    wlPillsDiv.className = 'kz-pills';
+    wlPillsDiv.id = 'wl-pills-' + eid;
+    allNutzer.filter(n => n.kuerzel !== kz).forEach(n => {
+      const pb = document.createElement('button');
+      pb.className = 'kz-pill';
+      pb.style.cssText = 'font-size:12px;padding:5px 8px';
+      pb.dataset.kz = n.kuerzel;
+      pb.textContent = n.kuerzel;
+      pb.onclick = () => pb.classList.toggle('sel');
+      wlPillsDiv.appendChild(pb);
+    });
+    wlBox.appendChild(wlPillsDiv);
+
+    // Kommentarfeld
+    const wlTa = document.createElement('textarea');
+    wlTa.id = 'wl-ta-' + eid;
+    wlTa.className = 'gta';
+    wlTa.placeholder = 'Kommentar (optional)…';
+    wlTa.style.cssText = 'font-size:16px;min-height:46px';
+    wlBox.appendChild(wlTa);
+
+    // Senden-Button
+    const wlSend = document.createElement('button');
+    wlSend.style.cssText = 'padding:7px 14px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start';
+    wlSend.textContent = '↪ Weiterleiten';
+    wlSend.onclick = () => isWeiterleiten(eid, wlPillsDiv, wlTa, wlBox, wlBtn);
+    wlBox.appendChild(wlSend);
+
+    wlWrap.appendChild(wlBox);
+
+    // Toggle-Logik
+    wlBtn.onclick = () => {
+      const open = wlBox.style.display === 'flex';
+      wlBox.style.display = open ? 'none' : 'flex';
+      wlBox.style.flexDirection = 'column';
+      wlBtn.textContent = open ? '↪ Weiterleiten' : '↾ Schließen';
+    };
+
+    body.appendChild(wlWrap);
+  }
+
   return el;
 }
 
 // ══════════════════════════════════════════════════════════
 // RENDER CHEMIE
-// ══════════════════════════════════════════════════════════}
-
+// ══════════════════════════════════════════════════════════
 function renderC(){
   const c=G('ec');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=V('sc').toLowerCase();
@@ -1447,7 +1737,6 @@ function renderC(){
     const statusBadge=e.erledigt?'<span class="v2-badge b-erl">✓ Erledigt</span>':'<span class="v2-badge b-neu">Offen</span>';
     const produkteHtml=(e.produkte||[]).map(p=>'• '+esc(p)).join('  ');
     const notizHtml=e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'';
-    // metaHtml entfernt – Kürzel+Datum jetzt nur im Header
     let aktionHtml='';
     if(e.erledigt){
       aktionHtml='<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>';
@@ -1476,7 +1765,6 @@ function renderC(){
         '<div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+
         notizHtml+
       '</div>';
-    // Aktion-Elemente per DOM einfügen (vermeidet Quote-Escaping)
     const body=el.querySelector('.v2-body');
     if(e.erledigt){
       const div=document.createElement('div');div.innerHTML=aktionHtml;body.appendChild(div);
@@ -1543,7 +1831,6 @@ function renderF(){
         rqHtml+rqBoxHtml+
         (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
-    // Aktions-Buttons per DOM (kein Quote-Problem)
     const body=el.querySelector('.v2-body');
     if(!e.erledigt){
       const anrDiv=document.createElement('div');anrDiv.className='anr';
@@ -1614,7 +1901,6 @@ function renderKbeInListe(kbeArr,container){
     const el=document.createElement('div');el.className='v2-chip kbe-meld';
     const karteId='kbem-'+k.id;
 
-    // Neuester Eintrag – immer sichtbar
     let vorschauHtml='';
     if(letzter){
       vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">';
@@ -1628,7 +1914,6 @@ function renderKbeInListe(kbeArr,container){
       vorschauHtml+='</div>';
     }
 
-    // Ältere Einträge – eingeklappt
     let aelterHtml='';
     if(k.eintraege.length>1){
       aelterHtml='<div id="'+karteId+'" style="display:none;border-top:1px solid var(--bo);margin-top:8px;padding-top:8px">';
@@ -1658,7 +1943,6 @@ function renderKbeInListe(kbeArr,container){
         '</div>'+
         vorschauHtml+aelterHtml+
       '</div>';
-    // Toggle-Button per DOM einfügen (kein Quote-Escaping Problem)
     if(k.eintraege.length>1){
       const tBtn=document.createElement('button');
       tBtn.textContent=(k.eintraege.length-1)+' ältere anzeigen';
@@ -1689,7 +1973,6 @@ function renderKbeKunden(){
     b.style.margin='0';
     b.textContent=k.firma;
     b.onclick=()=>selectKbeKunde(k.id);
-    // Edit-Button für KBE-Einträge
     const eb=document.createElement('button');
     eb.title='Einträge bearbeiten';
     eb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0';
@@ -1702,7 +1985,6 @@ function renderKbeKunden(){
 
 function openKbeEdit(kid){
   const k=KBE.find(x=>x.id===kid);if(!k)return;
-  // Bestehende Edit-Box entfernen
   document.querySelectorAll('.kbe-edit-box').forEach(x=>x.remove());
   const box=document.createElement('div');
   box.className='kbe-edit-box';
@@ -1764,7 +2046,6 @@ function selectKbeKunde(kid){
     row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
     c.appendChild(row);
   });
-  // "+ RKW hinzufügen" Button falls noch nicht vorhanden
   if(!G('kbe-best-add-rkw-btn')){
     const addBtn=document.createElement('button');
     addBtn.id='kbe-best-add-rkw-btn';
@@ -1797,17 +2078,14 @@ async function saveBestKunde(){
   rows.forEach(row=>{const name=(row.querySelector('input[type=text]').value||'').trim();const val=row.querySelector('select').value;if(!name){ok=false;return;}rkws.push({name});if(val)werte[name]=val;});
   if(!ok){alert('Alle RKW brauchen einen Namen.');return;}
   const datum=G('kbe-best-datum').value;if(!datum){alert('Bitte Datum wählen.');return;}
-  // Neue RKWs mergen
   const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
   await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
   const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
-  // Lokal sofort updaten
   k.rkws=neueRkws;
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte});
   toast('✓ KBE-Werte gespeichert');
   renderKbeListe();renderKbeKunden();updB();
-  // Formular schließen und zurück zur Suche springen
   selKbeKunde=null;
   G('kbe-bestehend-form').style.display='none';
   document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
@@ -1826,18 +2104,13 @@ function toggleKbeNeuKunde(){const body=G('kbe-neu-body');const arrow=G('kbe-neu
 // RENDER LOG
 // ══════════════════════════════════════════════════════════
 function buildGeloeschtChip(logEntry){
-  // Rendert einen gelöschten Eintrag als vollständigen Chip – identisch zum Original
-  // aber read-only (keine Buttons) und mit lila Lösch-Markierung
   const p=logEntry.payload||{};
   const typ=logEntry.typ;
   const el=document.createElement('div');
   el.className='v2-chip';
   el.style.opacity='0.82';
 
-  // ── HEADER ──
-  // Dieselbe Struktur wie buildMeldChip / renderC / renderF
-  // Lila Streifen + lila Header als Signal "gelöscht"
-  const kzBadge='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(p.kuerzel||logEntry.geloescht_von||'')+'</span>';
+  const kzBadgeLog='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(p.kuerzel||logEntry.geloescht_von||'')+'</span>';
   const datumBadge='<span style="color:#9ca3af;font-size:11px">'+fd(p.ts||null)+'</span>';
   const loeschBadge='<span style="background:#fee2e2;color:#dc2626;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;white-space:nowrap">🗑 '+esc(logEntry.geloescht_von)+' · '+fd(logEntry.ts)+'</span>';
   const typBadge='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em">'+esc(typ)+'</span>';
@@ -1847,7 +2120,7 @@ function buildGeloeschtChip(logEntry){
       '<div style="flex:1;min-width:0">'+
         '<div class="v2-firma" style="color:#5b21b6">'+esc(p.firma||logEntry.firma||'–')+'</div>'+
         '<div style="font-size:11px;margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
-          kzBadge+datumBadge+
+          kzBadgeLog+datumBadge+
         '</div>'+
       '</div>'+
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'+
@@ -1855,17 +2128,13 @@ function buildGeloeschtChip(logEntry){
       '</div>'+
     '</div>';
 
-  // ── BODY ──
   let bodyHtml='<div class="v2-body">';
 
   if(typ==='Meldung'){
-    // Text + bearbeitet
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
     if(p.bearbeitet_am)bodyHtml+='<div style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:2px">bearbeitet '+fd(p.bearbeitet_am)+'</div>';
-    // Zuweisung
     const zuwArr=p.zugewiesen_an||[];
     if(zuwArr.length)bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">→ '+zuwArr.map(esc).join(', ')+'</span></div>';
-    // Gelesen-Status: alle Nutzer (zugewiesen oder alle)
     const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
     const gelVon=p.gelesen_von||{};
     bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
@@ -1874,23 +2143,19 @@ function buildGeloeschtChip(logEntry){
         ?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>'
         :'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
     });
-    // Ersteller immer als gelesen markieren
     if(!zeigeKZ.includes(p.kuerzel)&&p.kuerzel)
       bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(p.kuerzel)+'</span>';
     bodyHtml+='</div>';
-    // Verlauf / Kommentare
     const verlauf=(p.verlauf||[]).filter(v=>v.text);
     verlauf.forEach(v=>{
       const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
       bodyHtml+='<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
     });
-
   } else if(typ==='Chemie'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+(p.produkte||[]).map(x=>'• '+esc(x)).join('  ')+'</div>';
     if(p.notiz)bodyHtml+='<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(p.notiz)+'</div>';
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span><span>'+fd(p.ts||null)+'</span></div>';
     if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
-
   } else if(typ==='Frei'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
     if(p.nurMat||p.nur_mat){
@@ -1901,7 +2166,6 @@ function buildGeloeschtChip(logEntry){
     }
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span><span>'+fd(p.ts||null)+'</span></div>';
     if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
-    // Rückfragen falls vorhanden
     const rqs=(p.rueckfragen||[]);
     if(rqs.length){
       bodyHtml+='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';
@@ -1913,11 +2177,9 @@ function buildGeloeschtChip(logEntry){
       });
       bodyHtml+='</div>';
     }
-
   } else if(typ==='KBE'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel_erstellt||'')+'</span></div>';
-    // Letzte KBE-Einträge
     if(p.eintraege&&p.eintraege.length){
       bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px">'+p.eintraege.length+' Einträge · Letzter: '+esc(p.eintraege[0].datum||'')+'</div>';
     }
@@ -1946,7 +2208,7 @@ function renderLog(){
 }
 
 // ══════════════════════════════════════════════════════════
-// BADGES
+// BADGES – Tab-Counter + App-Icon Badge (v10)
 // ══════════════════════════════════════════════════════════
 function updB(){
   const ug=MD.filter(e=>offenFuerMich(e)).length;
@@ -1957,7 +2219,6 @@ function updB(){
   if(fm>0){bFm.textContent=fm;bFm.className='tbg v fm';}else bFm.className='tbg';
   const ftOf=G('ft-m-of-cnt');if(ftOf)ftOf.textContent=ug||'';
   const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
-  // KBE Counter bewusst entfernt – wird mit der Zeit zu groß
   const ftKbe=G('ft-kbe-cnt');if(ftKbe)ftKbe.textContent='';
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
@@ -1969,7 +2230,37 @@ function updB(){
   if(rqOf>0){bRq.textContent=rqOf;bRq.className='tbg v rq';}else bRq.className='tbg';
   const ftRq=G('ft-rq-cnt');if(ftRq)ftRq.textContent=rqOf||'';
   const ftAnt=G('ft-ant-cnt');if(ftAnt)ftAnt.textContent=rqAnt||'';
-  const bL=G('tbl');if(bL){if(LOG_DATA.length>0){bL.textContent=LOG_DATA.length;bL.className='tbg v lg';}else bL.className='tbg';}
+  // Gelöscht-Counter bewusst entfernt – Tab bleibt ruhiger
+
+  // ── Zu bearbeiten (grün) – ich bin zugewiesen + habe gelesen ──
+  const zbCount=MD.filter(e=>
+    e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&
+    e.kuerzel!==kz&&
+    ichHabGelesen(e)&&
+    e.bearbeitungs_status==='in_bearbeitung'
+  ).length;
+  const ftZb=document.getElementById('ft-zb-cnt');
+  if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
+  // Tab-Badge ZB (grün, andere Farbe als ug/fm)
+  const tbmZb=document.getElementById('tbm-zb');
+  if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
+
+  // ── Wird bearbeitet (cyan) – ich bin Ersteller + Empfänger hat gelesen ──
+  const wbCount=MD.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung').length;
+  const ftWb=document.getElementById('ft-wb-cnt');
+  if(ftWb){if(wbCount>0){ftWb.textContent=wbCount;ftWb.className='tbg wb v';}else ftWb.className='tbg';}
+  // Tab-Badge WB (cyan, andere Farbe als ug/fm)
+  const tbmWb=document.getElementById('tbm-wb');
+  if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
+
+  // ── App-Icon Badge: Summe aus "Offen" (rot, ug) + "Für mich" (lila, fm) ──
+  // Zeigt die Gesamtzahl der persönlichen Aufgaben direkt auf dem App-Icon
+  // Wird beim Abmelden in doLogout() explizit zurückgesetzt (clearAppBadge)
+  const badgeGesamt = ug + fm;
+  if('setAppBadge' in navigator){
+    if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);
+    else navigator.clearAppBadge();
+  }
 }
 
 function renderAll(){renderM();renderC();renderF();renderKbeListe();}
@@ -1999,15 +2290,9 @@ async function createNutzer(){
   const rolle=V('new-rolle');
   if(!newKz||!email||!pw){alert('Bitte alle Felder ausfüllen.');return;}
   if(newKz.length>4){alert('Kürzel max. 4 Zeichen.');return;}
-  // Supabase Admin-API ist nur im Backend verfügbar.
-  // Daher: Nutzer meldet sich selbst registrieren – wir nutzen signUp
-  // In der Praxis: Admin erstellt Nutzer über Supabase Dashboard oder Edge Function
-  // Hier vereinfachte Variante: signUp + nutzer-Eintrag
   const {data,error}=await _sb.auth.admin?.createUser?.({email,password:pw,email_confirm:true})||{data:null,error:{message:'Admin-API nicht verfügbar. Bitte Nutzer im Supabase Dashboard anlegen.'}};
   if(error||!data?.user){
-    // Fallback: Info anzeigen
     toast('ℹ️ Nutzer im Supabase Dashboard anlegen: '+email+' / '+pw);
-    toast('Dann SQL: INSERT INTO nutzer (id, kuerzel, rolle) VALUES (\'<UUID>\', \''+newKz+'\', \''+rolle+'\')');
     return;
   }
   await _sb.from('nutzer').insert({id:data.user.id,kuerzel:newKz,rolle});
@@ -2026,13 +2311,69 @@ async function deaktivNutzer(id,nkz){
 async function resetPw(){
   const uid2=V('pw-reset-kz');const pw=V('pw-reset-new');
   if(!uid2||!pw){alert('Bitte Nutzer und neues Passwort wählen.');return;}
-  // Passwort-Reset ebenfalls Admin-API – Hinweis ausgeben
   toast('ℹ️ Passwort-Reset im Supabase Dashboard: Authentication → Users → Edit');
 }
 
+
 // ══════════════════════════════════════════════════════════
-// START
+// PUSH NOTIFICATIONS – Abo verwalten
 // ══════════════════════════════════════════════════════════
+
+// VAPID Public Key (muss mit dem in Supabase Secrets übereinstimmen)
+const VAPID_PUBLIC_KEY = 'BGtA-VFh5Qz7iJ5W1cRIpOV4iTr3cOeCnnjYWMsD4mtYZtRi7vquT68Fr_-6F12XpRA-Zv09lbaVPQTqHtRBsww';
+
+// Umwandlung base64url → Uint8Array (für pushManager.subscribe)
+function urlB64ToUint8Array(base64String) {
+  const pad = base64String + '='.repeat((4 - base64String.length % 4) % 4);
+  const raw = atob(pad.replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Push-Abo anlegen und in Supabase speichern
+async function subscribePush() {
+  if (!('PushManager' in window) || !swReg) return;
+  try {
+    // Prüfen ob bereits abonniert
+    let sub = await swReg.pushManager.getSubscription();
+    if (!sub) {
+      // Neu abonnieren – Browser zeigt "Benachrichtigungen erlauben" Dialog
+      sub = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    // Subscription in Supabase speichern (upsert – kein Duplikat)
+    const subJson = sub.toJSON();
+    await _sb.from('push_subscriptions').upsert({
+      kuerzel: kz,
+      endpoint: subJson.endpoint,
+      subscription: subJson,
+      aktiv: true
+    }, { onConflict: 'kuerzel,endpoint' });
+    console.log('Push-Abo aktiv für', kz);
+  } catch(e) {
+    // Nutzer hat abgelehnt oder Browser unterstützt es nicht – kein Problem
+    console.log('Push-Abo nicht möglich:', e.message);
+  }
+}
+
+// Push-Abo beim Abmelden deaktivieren
+async function unsubscribePush() {
+  if (!swReg) return;
+  try {
+    const sub = await swReg.pushManager.getSubscription();
+    if (sub) {
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      await _sb.from('push_subscriptions')
+        .update({ aktiv: false })
+        .eq('kuerzel', kz)
+        .eq('endpoint', endpoint);
+    }
+  } catch(e) {
+    console.log('Unsubscribe Fehler:', e.message);
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // OFFLINE QUEUE & DETECTION
@@ -2105,7 +2446,6 @@ window.addEventListener('offline', ()=>{
   setSyncing('err');
 });
 
-// Beim Start prüfen
 if(!isOnline()) showOfflineBanner(true);
 
 // ══════════════════════════════════════════════════════════
@@ -2120,7 +2460,7 @@ if(!isOnline()) showOfflineBanner(true);
   if(!ptr||!cnt)return;
 
   cnt.addEventListener('touchstart',e=>{
-    if(cnt.scrollTop>8)return; // Etwas Toleranz damit Tippen nicht auslöst
+    if(cnt.scrollTop>8)return;
     startY=e.touches[0].clientY;
     pulling=true;triggered=false;
     ptr.classList.add('pulling');
@@ -2161,6 +2501,7 @@ if(!isOnline()) showOfflineBanner(true);
 renderPills();
 updateQueueBadge();
 init();
+
 </script>
 </body>
 </html>
