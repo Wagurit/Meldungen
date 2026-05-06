@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v15</title>
+<title>Meldungen &amp; Angebote v16</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -367,7 +367,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v15</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v16</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -956,7 +956,9 @@ function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;
 // ══════════════════════════════════════════════════════════
 function buildZuwPills(){
   const pp=G('zuw-pills');pp.innerHTML='';
-  allNutzer.filter(n=>n.kuerzel!==kz).forEach(n=>{
+  // Reihenfolge: IS AG RG SB JN BT – IS vorne als Bindeglied
+  const sorted=[...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel));
+  sorted.forEach(n=>{
     const b=document.createElement('button');b.className='kz-pill';b.textContent=n.kuerzel;
     b.onclick=()=>toggleZuw(n.kuerzel);pp.appendChild(b);
   });
@@ -1244,6 +1246,9 @@ function setF(tab,f,el){
 }
 
 // Kürzel → CSS-Klasse für Farbzuweisung
+// Gewünschte Anzeigereihenfolge: IS vorne (Bindeglied), dann Außendienst, dann Innendienst
+const KZ_ORDER = ['IS','AG','RG','SB','JN','BT'];
+function kzSortIdx(k){ const i=KZ_ORDER.indexOf(k); return i===-1?99:i; }
 function kzClass(k){
   const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BT:'kzf-BT',JN:'kzf-JN'};
   return m[k]||'kzf-default';
@@ -1420,7 +1425,8 @@ function buildMeldChip(e){
   const explizit=istExplizitFuerMich(e);
   const offen=offenFuerMich(e);
   const zuwArr=e.zugewiesen_an||[];
-  const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
+  // Gelesen-Status Chips in definierter Reihenfolge: IS AG RG SB JN BT
+  const zeigeKZ=(zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel)).sort((a,b)=>kzSortIdx(a)-kzSortIdx(b));
   const eid=e.id;
 
   const bStatus=offen?'<span class="v2-badge b-neu">● Neu</span>':'<span class="v2-badge b-gel">Gelesen</span>';
@@ -1505,7 +1511,7 @@ function buildMeldChip(e){
     zuwBox.innerHTML='<div class="kom-zuw-lbl">Weiterleiten an (optional):</div>';
     const pillsDiv=document.createElement('div');
     pillsDiv.className='kz-pills';
-    allNutzer.filter(n=>n.kuerzel!==kz).forEach(n=>{
+    [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
       const pb=document.createElement('button');
       pb.className='kz-pill ngz-pill';
       pb.style.cssText='font-size:12px;padding:5px 8px';
@@ -1678,7 +1684,7 @@ function buildMeldChip(e){
     const wlPillsDiv = document.createElement('div');
     wlPillsDiv.className = 'kz-pills';
     wlPillsDiv.id = 'wl-pills-' + eid;
-    allNutzer.filter(n => n.kuerzel !== kz).forEach(n => {
+    [...allNutzer].filter(n => n.kuerzel !== kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n => {
       const pb = document.createElement('button');
       pb.className = 'kz-pill';
       pb.style.cssText = 'font-size:12px;padding:5px 8px';
@@ -2135,7 +2141,8 @@ function buildGeloeschtChip(logEntry){
     if(p.bearbeitet_am)bodyHtml+='<div style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:2px">bearbeitet '+fd(p.bearbeitet_am)+'</div>';
     const zuwArr=p.zugewiesen_an||[];
     if(zuwArr.length)bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">→ '+zuwArr.map(esc).join(', ')+'</span></div>';
-    const zeigeKZ=zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel);
+    // Gelesen-Status Chips in definierter Reihenfolge: IS AG RG SB JN BT
+  const zeigeKZ=(zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel)).sort((a,b)=>kzSortIdx(a)-kzSortIdx(b));
     const gelVon=p.gelesen_von||{};
     bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
     zeigeKZ.forEach(k2=>{
