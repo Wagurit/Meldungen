@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v16</title>
+<title>Meldungen &amp; Angebote v17</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -367,7 +367,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v16</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v17</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -386,7 +386,7 @@ textarea{resize:vertical;min-height:68px;}
       </span>
     </button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
-    <button class="tab" data-tab="f">🔧 Frei <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
+    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Eintragen</button>
     <button class="tab" data-tab="l">🗑 Gelöscht</button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
@@ -408,7 +408,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="abts">
           <button class="abt" id="abt-m" onclick="tog('m')"><span class="ic">📋</span>Meldung</button>
           <button class="abt" id="abt-c" onclick="tog('c')"><span class="ic">🧪</span>Chemie</button>
-          <button class="abt" id="abt-f" onclick="tog('f')"><span class="ic">🔧</span>Frei</button>
+          <button class="abt" id="abt-f" onclick="tog('f')"><span class="ic">📝</span>Angebot</button>
         </div>
 
         <div class="acc" id="acc-m">
@@ -443,7 +443,7 @@ textarea{resize:vertical;min-height:68px;}
 
         <div class="acc" id="acc-f">
           <div class="fc">
-            <div class="fct">🔧 Freies Angebot</div>
+            <div class="fct">📝 Angebot erfassen</div>
             <div class="sl">Leistungsbeschreibung</div>
             <textarea id="ftx" placeholder="z. B. Austausch Steuerkopf Fleck, Inbetriebnahme"></textarea>
             <div class="sl">Art</div>
@@ -514,7 +514,7 @@ textarea{resize:vertical;min-height:68px;}
     <!-- FREI -->
     <div class="pnl" id="panel-f">
       <div class="lhdr">
-        <div class="ltit">Freie Angebote</div>
+        <div class="ltit">Angebote</div>
         <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF()">
         <div class="fts">
           <button class="ft active" onclick="setF('f','alle',this)">Alle</button>
@@ -779,8 +779,8 @@ async function afterLogin(user){
   G('ap').style.display='flex';
 
   // Datum-Felder
-  const heute = new Date().toISOString().split('T')[0];
-  ['kbe-neu-datum','kbe-best-datum'].forEach(id=>{const el=G(id);if(el)el.value=heute;});
+  // Datumsfelder bewusst leer lassen – verhindert versehentliches falsches Datum
+  // Kein Datum = keine Abspeicherung möglich
 
   await loadAll();
   setupRealtime();
@@ -1979,12 +1979,19 @@ function renderKbeKunden(){
     b.style.margin='0';
     b.textContent=k.firma;
     b.onclick=()=>selectKbeKunde(k.id);
+    // Button: alle Einträge bearbeiten
     const eb=document.createElement('button');
-    eb.title='Einträge bearbeiten';
+    eb.title='Alle Einträge bearbeiten';
     eb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0';
     eb.textContent='✏️';
     eb.onclick=(ev)=>{ev.stopPropagation();openKbeEdit(k.id);};
-    wrap.appendChild(b);wrap.appendChild(eb);
+    // Button: letzten Eintrag schnell editieren
+    const lb=document.createElement('button');
+    lb.title='Letzten Eintrag bearbeiten';
+    lb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bl);background:var(--bp);color:var(--bd);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px';
+    lb.textContent='📅 Letzten';
+    lb.onclick=(ev)=>{ev.stopPropagation();openLetztenEdit(k.id);};
+    wrap.appendChild(b);wrap.appendChild(lb);wrap.appendChild(eb);
     g.appendChild(wrap);
   });
 }
@@ -2045,7 +2052,7 @@ async function delKbeEintrag(kid,eid,btn){
 function selectKbeKunde(kid){
   selKbeKunde=kid;renderKbeKunden();
   const k=KBE.find(x=>x.id===kid);if(!k){G('kbe-bestehend-form').style.display='none';return;}
-  G('kbe-selkunde-label').textContent=k.firma+' – KBE-Werte eintragen';
+  G('kbe-selkunde-label').textContent=k.firma+' – neuer KBE-Eintrag';
   const c=G('kbe-best-rkws');c.innerHTML='';
   k.rkws.forEach(r=>{
     const row=document.createElement('div');row.className='rkw-row';
@@ -2060,7 +2067,115 @@ function selectKbeKunde(kid){
     addBtn.onclick=()=>addRkwRow('kbe-best-rkws');
     c.parentElement.insertBefore(addBtn, c.nextSibling);
   }
+  // Datum leer lassen
+  G('kbe-best-datum').value='';
   G('kbe-bestehend-form').style.display='block';
+}
+
+// ── Letzten KBE-Eintrag editieren ──
+// Öffnet ein Panel direkt unter dem Kunden-Chip mit Datum + Werten des neuesten Eintrags
+function openLetztenEdit(kid){
+  const k=KBE.find(x=>x.id===kid);if(!k||!k.eintraege.length)return;
+  const letzter=k.eintraege[0]; // neuester Eintrag
+
+  // Bestehende Edit-Boxen entfernen
+  document.querySelectorAll('.kbe-letzten-edit-box').forEach(x=>x.remove());
+
+  const box=document.createElement('div');
+  box.className='kbe-letzten-edit-box';
+  box.style.cssText='background:#fff;border:1.5px solid var(--bl);border-radius:10px;padding:13px;margin-top:6px';
+
+  // Titel
+  const titel=document.createElement('div');
+  titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';
+  titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten';
+  box.appendChild(titel);
+
+  // Datum
+  const datumLbl=document.createElement('div');
+  datumLbl.className='sl';datumLbl.style.marginTop='0';
+  datumLbl.textContent='Datum der Probenahme';
+  box.appendChild(datumLbl);
+  const datumInp=document.createElement('input');
+  datumInp.type='date';datumInp.id='edit-letzten-datum-'+kid;
+  // ISO Datum aus dem Eintrag (YYYY-MM-DD)
+  const isoDate=letzter.ts?letzter.ts.split('T')[0]:letzter.datum;
+  // Datum aus DD.MM.YYYY → YYYY-MM-DD falls nötig
+  if(isoDate&&isoDate.includes('-')){
+    datumInp.value=isoDate;
+  } else if(isoDate&&isoDate.includes('.')){
+    const parts=isoDate.split('.');
+    if(parts.length===3) datumInp.value=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  }
+  box.appendChild(datumInp);
+
+  // RKW-Werte
+  const rkwLbl=document.createElement('div');
+  rkwLbl.className='sl';rkwLbl.textContent='RKW-Werte';
+  box.appendChild(rkwLbl);
+
+  k.rkws.forEach(r=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    const nameSpan=document.createElement('span');
+    nameSpan.style.cssText='font-size:13px;color:var(--tx);min-width:100px;font-weight:500';
+    nameSpan.textContent=r.name;
+    const sel=document.createElement('select');
+    sel.className='rkw-val-select';
+    sel.id='edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_');
+    sel.style.flex='1';
+    sel.innerHTML='<option value="">– kein Wert</option>'+
+      KBE_WERTE.map(v=>'<option'+(letzter.werte&&letzter.werte[r.name]===v?' selected':'')+'>'+esc(v)+'</option>').join('');
+    row.append(nameSpan,sel);
+    box.appendChild(row);
+  });
+
+  // Buttons
+  const btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:8px;margin-top:10px';
+  const saveBtn=document.createElement('button');
+  saveBtn.className='bsend';saveBtn.style.cssText='margin-top:0;flex:1';
+  saveBtn.textContent='💾 Speichern';
+  saveBtn.onclick=()=>saveLetztenEdit(kid,letzter.id,datumInp,k,box);
+  const cancelBtn=document.createElement('button');
+  cancelBtn.style.cssText='padding:10px 14px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer';
+  cancelBtn.textContent='Abbrechen';
+  cancelBtn.onclick=()=>box.remove();
+  btnRow.append(saveBtn,cancelBtn);
+  box.appendChild(btnRow);
+
+  // Nach dem Kunden-Chip einfügen
+  const grid=G('kbe-kunden-grid');
+  grid.after(box);
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function saveLetztenEdit(kid, eid, datumInp, k, box){
+  const datum=datumInp.value;
+  if(!datum){toast('⚠️ Bitte Datum wählen.');return;}
+
+  // Neue Werte sammeln
+  const newWerte={};
+  k.rkws.forEach(r=>{
+    const sel=document.getElementById('edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_'));
+    if(sel&&sel.value) newWerte[r.name]=sel.value;
+  });
+
+  // In Supabase updaten
+  const {error}=await _sb.from('kbe_eintraege').update({datum,werte:newWerte}).eq('id',eid);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+
+  // Lokal updaten
+  const letzter=k.eintraege[0];
+  letzter.ts=datum;
+  letzter.werte=newWerte;
+  const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  letzter.datum=datumStr;
+
+  box.remove();
+  renderKbeListe();
+  renderKbeKunden();
+  toast('✓ Eintrag aktualisiert');
 }
 
 async function saveNeuerKunde(){
@@ -2074,8 +2189,29 @@ async function saveNeuerKunde(){
   const {data:neuerK,error}=await _sb.from('kbe_kunden').insert({firma,kuerzel_erstellt:kz,rkws}).select().single();
   if(error||!neuerK){toast('⚠️ Fehler: '+(error?.message||''));return;}
   await _sb.from('kbe_eintraege').insert({kunde_id:neuerK.id,datum,werte,kuerzel:kz});
+
+  // Lokal sofort hinzufügen damit Chip gleich erscheint
+  const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  KBE.push({
+    id:neuerK.id, firma, kuerzel_erstellt:kz,
+    rkws,
+    eintraege:[{id:'tmp-'+Date.now(),ts:datum,datum:datumStr,werte}]
+  });
+  // KBE Liste neu sortieren
+  KBE.sort((a,b)=>a.firma.localeCompare(b.firma,'de'));
+
+  // Felder leeren für nächste Eingabe
   G('kbe-neukunde').value='';
-  toast('✓ Kunde angelegt & KBE gespeichert');
+  G('kbe-neu-datum').value='';
+  // RKW-Rows zurücksetzen
+  const rkwContainer=G('kbe-neu-rkws');
+  rkwContainer.innerHTML='<div class="rkw-row"><input type="text" placeholder="RKW-Name z. B. RH, Umformung…"><select class="rkw-val-select"><option value="">–</option>'+KBE_WERTE.map(v=>'<option>'+v+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button></div>';
+
+  // UI aktualisieren
+  renderKbeListe();
+  renderKbeKunden();
+  updB();
+  toast('✓ Kunde angelegt & KBE gespeichert – Felder bereit für nächsten Eintrag');
 }
 async function saveBestKunde(){
   const k=KBE.find(x=>x.id===selKbeKunde);if(!k){alert('Kein Kunde gewählt.');return;}
