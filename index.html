@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v19</title>
+<title>Meldungen &amp; Angebote v20</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -382,7 +382,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v19</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v20</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -933,6 +933,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
+    if(swReg) swReg.update(); // SW-Update aktiv prüfen bei Tab-Wechsel
     if(kz) loadAll();
   });
 });
@@ -941,6 +942,7 @@ function swTab(n){
   document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
   const tab=document.querySelector('.tab[data-tab="'+n+'"]');
   if(tab){tab.classList.add('active');G('panel-'+n).classList.add('active');}
+  if(swReg) swReg.update();
   if(kz) loadAll();
 }
 
@@ -2758,6 +2760,7 @@ if(!isOnline()) showOfflineBanner(true);
       ptr.style.height=threshold+'px';
       ptrSpin.classList.add('go');
       ptrTxt.textContent='Aktualisiere…';
+      if(swReg) swReg.update(); // SW-Update aktiv prüfen
       await loadAll();
       ptr.style.height='0';
       ptrSpin.classList.remove('go');
