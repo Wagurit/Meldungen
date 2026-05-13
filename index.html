@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v18</title>
+<title>Meldungen &amp; Angebote v19</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -315,6 +315,21 @@ textarea{resize:vertical;min-height:68px;}
 .kzf-JN{background:#b45309!important;color:#fff!important;}
 .kzf-default{background:#475569!important;color:#fff!important;}
 
+/* ── POP-UP MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px;}
+.modal-icon{font-size:36px;text-align:center;}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:var(--tx);text-align:center;letter-spacing:.02em;}
+.modal-body{font-size:14px;color:var(--mu);text-align:center;line-height:1.5;}
+.modal-btn{width:100%;padding:13px;border:none;border-radius:10px;background:var(--or);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;}
+.modal-btn:active{opacity:.85;}
+
+/* ── STERN / FAVORITEN ── */
+.stern-btn{background:none;border:none;cursor:pointer;font-size:18px;padding:2px 4px;line-height:1;opacity:.4;transition:opacity .15s,transform .15s;flex-shrink:0;}
+.stern-btn.aktiv{opacity:1;transform:scale(1.15);}
+.stern-btn:active{transform:scale(.9);}
+.tbg.fav{background:#f59e0b;color:#fff;}
+
 /* ── BEARBEITUNGS-STATUS ── */
 .b-inb{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
 .b-bearb{background:#f0fdf4;color:#15803d;}
@@ -367,7 +382,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v18</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v19</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -383,6 +398,7 @@ textarea{resize:vertical;min-height:68px;}
         <span class="tbg" id="tbm-fm"></span>
         <span class="tbg" id="tbm-zb"></span>
         <span class="tbg" id="tbm-wb"></span>
+        <span class="tbg" id="tbm-fav"></span>
       </span>
     </button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
@@ -490,6 +506,7 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('m','kbe',this)">🔬 KBE <span class="ftbg kbe" id="ft-kbe-cnt"></span></button>
           <button class="ft" onclick="setF('m','zuBearbeiten',this)">🔧 Zu bearbeiten <span class="tbg zb" id="ft-zb-cnt"></span></button>
           <button class="ft" onclick="setF('m','wirdBearbeitet',this)">⏳ Wird bearbeitet <span class="tbg wb" id="ft-wb-cnt"></span></button>
+          <button class="ft" onclick="setF('m','favoriten',this)">⭐ Favoriten <span class="tbg fav" id="ft-fav-cnt"></span></button>
           <button class="ft" onclick="setF('m','gelesen',this)">Gelesen</button>
           <button class="ft" onclick="setF('m','kommentar',this)">Kommentar</button>
         </div>
@@ -619,6 +636,16 @@ textarea{resize:vertical;min-height:68px;}
         </div>
       </div>
       <div class="admin-section">
+        <div class="admin-section-title">🔔 Erinnerungs-Modal testen</div>
+        <p style="font-size:13px;color:var(--mu);margin-bottom:10px;line-height:1.5">
+          Zeigt das Pop-up genau so wie es ein Nutzer mit ungelesenen Meldungen sieht.
+          Die 5-Minuten-Pause wird dabei ignoriert.
+        </p>
+        <button class="bsend" onclick="pruefeErinnerung(true)" style="background:var(--or)">
+          🔔 Pop-up Vorschau anzeigen
+        </button>
+      </div>
+      <div class="admin-section">
         <div class="admin-section-title">🔑 Passwort zurücksetzen</div>
         <div style="display:flex;gap:7px">
           <select id="pw-reset-kz" style="flex:1">
@@ -632,6 +659,16 @@ textarea{resize:vertical;min-height:68px;}
 
   </div><!-- /cnt -->
 </div><!-- /ap -->
+
+<!-- Erinnerungs-Modal -->
+<div class="modal-overlay" id="erinnerung-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-icon">📋</div>
+    <div class="modal-title" id="modal-title">Ungelesene Meldungen</div>
+    <div class="modal-body" id="modal-body">Du hast ungelesene Meldungen älter als 3 Tage.</div>
+    <button class="modal-btn" onclick="modalQuittieren()">Verstanden – jetzt lesen</button>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 <script>
@@ -664,6 +701,7 @@ let delPending = null;
 
 // Lokale Datenpuffer (werden aus Supabase geladen)
 let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [];
+let FAVORITEN = new Set(); // Set von meldung_ids die der aktuelle Nutzer favorisiert hat
 
 let cL = [...CHEM_STD], cS = new Set();
 
@@ -817,13 +855,14 @@ async function doLogout(){
 async function loadAll(){
   setSyncing('syncing');
   try {
-    const [m,c,f,k,ke,l] = await Promise.all([
+    const [m,c,f,k,ke,l,fav] = await Promise.all([
       _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('chemie').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('kbe_kunden').select('*').order('firma'),
       _sb.from('kbe_eintraege').select('*').order('datum',{ascending:false}),
       _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200),
+      _sb.from('favoriten').select('meldung_id').eq('kuerzel',kz),
     ]);
     MD = (m.data||[]).map(mapMeld);
     CH = (c.data||[]).map(mapChem);
@@ -838,6 +877,8 @@ async function loadAll(){
         werte:e.werte||{}
       }))
     }));
+    // Favoriten laden
+    FAVORITEN = new Set((fav.data||[]).map(x=>x.meldung_id));
     LOG_DATA = (l.data||[]).map(x=>({
       id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
       typ:x.typ, firma:x.firma, original_id:x.original_id, kurzinfo:x.kurzinfo,
@@ -845,6 +886,8 @@ async function loadAll(){
     }));
     setSyncing('ok');
     renderAll(); updB();
+    // Erinnerungs-Modal prüfen (nach Daten laden)
+    setTimeout(()=>pruefeErinnerung(false), 800);
   } catch(e){
     setSyncing('err');
     console.error('loadAll Fehler:', e);
@@ -1341,6 +1384,74 @@ async function setBearbeitet(id, taEl){
 }
 
 // ══════════════════════════════════════════════════════════
+// FAVORITEN – Stern togglen
+// ══════════════════════════════════════════════════════════
+async function toggleFav(meldungId){
+  const istFav = FAVORITEN.has(meldungId);
+  if(istFav){
+    // Entfernen
+    await _sb.from('favoriten').delete().eq('kuerzel',kz).eq('meldung_id',meldungId);
+    FAVORITEN.delete(meldungId);
+  } else {
+    // Hinzufügen
+    await _sb.from('favoriten').insert({kuerzel:kz, meldung_id:meldungId});
+    FAVORITEN.add(meldungId);
+  }
+  // Nur den Chip neu rendern (kein volles renderM für flüssiges UX)
+  renderM(); updB();
+  toast(istFav?'☆ Aus Favoriten entfernt':'⭐ Zu Favoriten hinzugefügt');
+}
+
+// ══════════════════════════════════════════════════════════
+// ERINNERUNGS-MODAL – Ungelesene Meldungen älter als 3 Tage
+// ══════════════════════════════════════════════════════════
+const MODAL_KEY = 'rkw_modal_quittiert';
+const MODAL_PAUSE_MS = 5 * 60 * 1000; // 5 Minuten Ruhe nach Quittieren
+
+function pruefeErinnerung(testModus){
+  // Im Testmodus: Pause ignorieren
+  if(!testModus){
+    const letztes = localStorage.getItem(MODAL_KEY);
+    if(letztes && Date.now() - parseInt(letztes) < MODAL_PAUSE_MS) return;
+  }
+
+  const dreiTageMs = 3 * 24 * 60 * 60 * 1000;
+  const jetzt = Date.now();
+
+  // Alle Meldungen die für mich offen sind UND älter als 3 Tage
+  const alte = MD.filter(e => {
+    if(!offenFuerMich(e)) return false;
+    const alter = jetzt - new Date(e.ts).getTime();
+    return alter > dreiTageMs;
+  });
+
+  if(!testModus && !alte.length) return;
+
+  // Modal anzeigen
+  const anzahl = alte.length;
+  const modal = G('erinnerung-modal');
+  const titel = G('modal-title');
+  const body  = G('modal-body');
+
+  if(testModus && !anzahl){
+    titel.textContent = '👀 Test-Vorschau (Admin)';
+    body.textContent  = 'So würde das Pop-up für Nutzer mit ungelesenen Meldungen aussehen. Aktuell hast du keine älteren ungelesenen Meldungen.';
+  } else {
+    titel.textContent = anzahl === 1 ? '1 ungelesene Meldung' : anzahl + ' ungelesene Meldungen';
+    body.textContent  = (anzahl === 1
+      ? 'Du hast 1 Meldung'
+      : 'Du hast ' + anzahl + ' Meldungen')
+      + ' älter als 3 Tage – bitte lesen und bestätigen.';
+  }
+  modal.style.display = 'flex';
+}
+
+function modalQuittieren(){
+  G('erinnerung-modal').style.display = 'none';
+  localStorage.setItem(MODAL_KEY, Date.now().toString());
+}
+
+// ══════════════════════════════════════════════════════════
 // IS-ADMIN WEITERLEITEN
 // ══════════════════════════════════════════════════════════
 // Trägt einen Verlauf-Eintrag ein und setzt den Empfänger
@@ -1413,6 +1524,8 @@ function renderM(){
   if(fil.m==='zuBearbeiten')  d=d.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&(e.bearbeitungs_status==='in_bearbeitung'||e.bearbeitungs_status===null)&&ichHabGelesen(e)&&!e.erledigt);
   // Wird bearbeitet: ich bin Ersteller UND Empfänger hat gelesen (in_bearbeitung)
   if(fil.m==='wirdBearbeitet') d=d.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung');
+  // Favoriten: nur meine markierten Meldungen
+  if(fil.m==='favoriten') d=d.filter(e=>FAVORITEN.has(e.id));
   if(fil.m==='kbe'){
     let kbeArr=[...KBE];if(q)kbeArr=kbeArr.filter(k=>k.firma.toLowerCase().includes(q));
     G('em0').style.display=kbeArr.length?'none':'';
@@ -1563,9 +1676,13 @@ function buildMeldChip(e){
 
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
+  // Stern-Button (privat, nur für mich sichtbar)
+  const istFav=FAVORITEN.has(eid);
+  const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\'' +eid+ '\')" title="'+(istFav?'Aus Favoriten entfernen':'Zu Favoriten hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
+
   const headerInner=offen||explizit
-    ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges">'+bStatus+bZuw+'</div></div>'
-    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:3px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div><div class="v2-badges">'+bStatus+bZuw+'</div></div>';
+    ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>'
+    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:3px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>';
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
@@ -2397,6 +2514,13 @@ function updB(){
   // Tab-Badge WB (cyan, andere Farbe als ug/fm)
   const tbmWb=document.getElementById('tbm-wb');
   if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
+
+  // ── Favoriten Counter ──
+  const favCount = FAVORITEN.size;
+  const ftFav = document.getElementById('ft-fav-cnt');
+  if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
+  const tbmFav = document.getElementById('tbm-fav');
+  if(tbmFav){if(favCount>0){tbmFav.textContent=favCount;tbmFav.className='tbg v fav';}else tbmFav.className='tbg';}
 
   // ── App-Icon Badge: Summe aus "Offen" (rot, ug) + "Für mich" (lila, fm) ──
   // Zeigt die Gesamtzahl der persönlichen Aufgaben direkt auf dem App-Icon
