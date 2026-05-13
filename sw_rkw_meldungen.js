@@ -3,7 +3,7 @@
 // Push-Empfang mit Payload-Auswertung (Firma + Text)
 // ══════════════════════════════════════════════════════════
 
-const CACHE = 'rkw-v16';
+const CACHE = 'rkw-v18';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png'];
 
 // ── INSTALL ──
