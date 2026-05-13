@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v20</title>
+<title>Meldungen &amp; Angebote v22</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -382,7 +382,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v20</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v22</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -401,6 +401,7 @@ textarea{resize:vertical;min-height:68px;}
         <span class="tbg" id="tbm-fav"></span>
       </span>
     </button>
+    <button class="tab" data-tab="b">🔬 KBE</button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Eintragen</button>
@@ -503,7 +504,6 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft active" onclick="setF('m','alle',this)">Alle</button>
           <button class="ft" onclick="setF('m','offen',this)">Offen <span class="ftbg" id="ft-m-of-cnt"></span></button>
           <button class="ft" onclick="setF('m','fuerMich',this)">Für mich <span class="ftbg vi" id="fm-cnt"></span></button>
-          <button class="ft" onclick="setF('m','kbe',this)">🔬 KBE <span class="ftbg kbe" id="ft-kbe-cnt"></span></button>
           <button class="ft" onclick="setF('m','zuBearbeiten',this)">🔧 Zu bearbeiten <span class="tbg zb" id="ft-zb-cnt"></span></button>
           <button class="ft" onclick="setF('m','wirdBearbeitet',this)">⏳ Wird bearbeitet <span class="tbg wb" id="ft-wb-cnt"></span></button>
           <button class="ft" onclick="setF('m','favoriten',this)">⭐ Favoriten <span class="tbg fav" id="ft-fav-cnt"></span></button>
@@ -512,6 +512,15 @@ textarea{resize:vertical;min-height:68px;}
         </div>
       </div>
       <div id="em"><div class="empty" id="em0">Noch keine Meldungen</div></div>
+    </div>
+
+    <!-- KBE ÜBERSICHT (eigener Tab) -->
+    <div class="pnl" id="panel-b">
+      <div class="lhdr">
+        <div class="ltit">🔬 KBE-Übersicht</div>
+        <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="renderKbeTab()">
+      </div>
+      <div id="eb"><div class="empty" id="eb0">Noch keine KBE-Einträge</div></div>
     </div>
 
     <!-- CHEMIE -->
@@ -1528,11 +1537,7 @@ function renderM(){
   if(fil.m==='wirdBearbeitet') d=d.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung');
   // Favoriten: nur meine markierten Meldungen
   if(fil.m==='favoriten') d=d.filter(e=>FAVORITEN.has(e.id));
-  if(fil.m==='kbe'){
-    let kbeArr=[...KBE];if(q)kbeArr=kbeArr.filter(k=>k.firma.toLowerCase().includes(q));
-    G('em0').style.display=kbeArr.length?'none':'';
-    renderKbeInListe(kbeArr,c);return;
-  }
+
   G('em0').style.display=d.length?'none':'';
   d.forEach(e=>c.appendChild(buildMeldChip(e)));
 }
@@ -2483,7 +2488,7 @@ function updB(){
   if(fm>0){bFm.textContent=fm;bFm.className='tbg v fm';}else bFm.className='tbg';
   const ftOf=G('ft-m-of-cnt');if(ftOf)ftOf.textContent=ug||'';
   const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
-  const ftKbe=G('ft-kbe-cnt');if(ftKbe)ftKbe.textContent='';
+  // KBE Tab bewusst ohne Counter
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
   const of2=FR.filter(e=>!e.erledigt).length;
@@ -2534,7 +2539,17 @@ function updB(){
   }
 }
 
-function renderAll(){renderM();renderC();renderF();renderKbeListe();}
+function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();}
+
+// ── KBE Tab Render ──
+function renderKbeTab(){
+  const c=G('eb');if(!c)return;
+  c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const q=(G('sb-search')?G('sb-search').value||'':'').toLowerCase();
+  const d=KBE.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  G('eb0').style.display=d.length?'none':'';
+  renderKbeInListe(d,c);
+}
 
 // ══════════════════════════════════════════════════════════
 // ADMIN: NUTZERVERWALTUNG
