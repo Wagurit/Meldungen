@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v22</title>
+<title>Meldungen &amp; Angebote v32</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -69,7 +69,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bl);color:var(--tx);font-s
 .tbg.kbe{background:#0891b2;color:#fff;}
 .tbg.lg{background:var(--log);color:#fff;}
 .tbg.adm{background:#fbbf24;color:#78350f;}
-.tbg.zb{background:#15803d;color:#fff;}
+.tbg.zb{background:#FFF700;color:#1a1a00;}
 .tbg.wb{background:#0891b2;color:#fff;}
 
 /* ── CONTENT ── */
@@ -333,11 +333,23 @@ textarea{resize:vertical;min-height:68px;}
 /* ── BEARBEITUNGS-STATUS ── */
 .b-inb{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
 .b-bearb{background:#f0fdf4;color:#15803d;}
-.bearb-box{background:#f0fdf4;border:1.5px solid var(--gl);border-radius:9px;padding:10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;}
-.bearb-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gn);}
-.bbearb{padding:7px 14px;background:var(--gn);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start;}
+.bearb-box{background:#fef9c3;border:1.5px solid #fde047;border-radius:9px;padding:10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;}
+.bearb-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#854d0e;}
+.bbearb{padding:7px 14px;background:var(--yw);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start;}
 .bbearb:active{opacity:.85;}
-.wird-bearb-info{background:#dcfce7;border:1px solid var(--gl);border-radius:8px;padding:7px 11px;font-size:12px;color:var(--gn);display:flex;align-items:center;gap:6px;}
+.bearb-done-box{background:#dcfce7;border:1.5px solid var(--gl);border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;}
+.bearb-done-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gn);}
+/* Beauftragt Button Frei */
+.bbeau{padding:7px 14px;background:var(--rd);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start;}
+.bbeau:active{opacity:.85;}
+.bbeau.aktiv{background:#1d4ed8;color:#fff;}
+.beau-box{background:#eff6ff;border:1.5px solid #93c5fd;border-radius:9px;padding:10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;}
+.beau-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#1d4ed8;}
+/* Bestellt Button Chemie */
+.bbestellt{padding:6px 10px;background:var(--rd);color:#fff;border:none;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.bbestellt.aktiv{background:#1d4ed8;}
+.bestellt-info{background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;padding:6px 10px;font-size:12px;color:#1d4ed8;margin-top:3px;}
+.wird-bearb-info{background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:7px 11px;font-size:12px;color:#854d0e;display:flex;align-items:center;gap:6px;}
 </style>
 </head>
 <body>
@@ -382,7 +394,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v22</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v32</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -398,7 +410,6 @@ textarea{resize:vertical;min-height:68px;}
         <span class="tbg" id="tbm-fm"></span>
         <span class="tbg" id="tbm-zb"></span>
         <span class="tbg" id="tbm-wb"></span>
-        <span class="tbg" id="tbm-fav"></span>
       </span>
     </button>
     <button class="tab" data-tab="b">🔬 KBE</button>
@@ -506,7 +517,7 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('m','fuerMich',this)">Für mich <span class="ftbg vi" id="fm-cnt"></span></button>
           <button class="ft" onclick="setF('m','zuBearbeiten',this)">🔧 Zu bearbeiten <span class="tbg zb" id="ft-zb-cnt"></span></button>
           <button class="ft" onclick="setF('m','wirdBearbeitet',this)">⏳ Wird bearbeitet <span class="tbg wb" id="ft-wb-cnt"></span></button>
-          <button class="ft" onclick="setF('m','favoriten',this)">⭐ Favoriten <span class="tbg fav" id="ft-fav-cnt"></span></button>
+          <button class="ft" onclick="setF('m','gemerkt',this)">⭐ Gemerkt <span class="tbg fav" id="ft-fav-cnt"></span></button>
           <button class="ft" onclick="setF('m','gelesen',this)">Gelesen</button>
           <button class="ft" onclick="setF('m','kommentar',this)">Kommentar</button>
         </div>
@@ -886,7 +897,7 @@ async function loadAll(){
         werte:e.werte||{}
       }))
     }));
-    // Favoriten laden
+    // Gemerkt laden
     FAVORITEN = new Set((fav.data||[]).map(x=>x.meldung_id));
     LOG_DATA = (l.data||[]).map(x=>({
       id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
@@ -910,8 +921,8 @@ async function loadAll(){
 }
 
 function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[],bearbeitungs_status:r.bearbeitungs_status||null};}
-function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts};}
-function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[]};}
+function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,bestellt:r.bestellt||false,bestellt_kommentar:r.bestellt_kommentar||null,bestellt_von:r.bestellt_von||null,bestellt_ts:r.bestellt_ts||null};}
+function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
 
 // ══════════════════════════════════════════════════════════
 // REALTIME
@@ -1012,7 +1023,15 @@ function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;
 // ══════════════════════════════════════════════════════════
 function buildZuwPills(){
   const pp=G('zuw-pills');pp.innerHTML='';
-  // Reihenfolge: IS AG RG SB JN BT – IS vorne als Bindeglied
+  // Ersteller selbst zuerst (mit "(ich)" Label)
+  const ichBtn=document.createElement('button');
+  ichBtn.className='kz-pill';
+  ichBtn.style.cssText='border-style:dashed;opacity:.8';
+  ichBtn.dataset.kz=kz;
+  ichBtn.textContent=kz+' (ich)';
+  ichBtn.onclick=()=>toggleZuw(kz);
+  pp.appendChild(ichBtn);
+  // Dann alle anderen in Reihenfolge
   const sorted=[...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel));
   sorted.forEach(n=>{
     const b=document.createElement('button');b.className='kz-pill';b.textContent=n.kuerzel;
@@ -1022,7 +1041,11 @@ function buildZuwPills(){
 }
 function toggleZuw(k2){
   if(selZuwSet.has(k2))selZuwSet.delete(k2);else selZuwSet.add(k2);
-  document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.toggle('sel',selZuwSet.has(b.textContent)));
+  // data-kz nutzen falls vorhanden (für "IS (ich)" Button), sonst textContent
+  document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>{
+    const bkz = b.dataset.kz || b.textContent;
+    b.classList.toggle('sel', selZuwSet.has(bkz));
+  });
   updateZuwNone();
 }
 function toggleZuwNone(){selZuwSet.clear();document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>b.classList.remove('sel'));updateZuwNone();}
@@ -1058,7 +1081,21 @@ async function saveMeld(){
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!text){alert('Bitte Meldungstext eingeben.');return;}
   G('btn-meld').disabled=true;
-  const meldData={firma,text,kuerzel:kz,zugewiesen_an:[...selZuwSet],gelesen_von:{},verlauf:[]};
+  const zuwArr=[...selZuwSet];
+  // Wenn Ersteller sich selbst zuweist → direkt als gelesen markieren
+  // → landet in "Zu bearbeiten" ohne extra Gelesen-Klick
+  const gelesen_von={};
+  if(zuwArr.includes(kz)){
+    gelesen_von[kz]={ts:new Date().toISOString(),kommentar:null};
+  }
+  const meldData={
+    firma,text,kuerzel:kz,
+    zugewiesen_an:zuwArr,
+    gelesen_von,
+    verlauf:[],
+    // Wenn nur Ersteller selbst zugewiesen → sofort in_bearbeitung
+    bearbeitungs_status: zuwArr.length>0&&zuwArr.every(k2=>k2===kz)?'in_bearbeitung':null
+  };
   if(!isOnline()){
     addToQueue({type:'meldung',data:meldData});
     G('btn-meld').disabled=false;
@@ -1351,6 +1388,85 @@ async function saveMeldEdit(eid, btn){
 }
 
 // ══════════════════════════════════════════════════════════
+// BEAUFTRAGT – Angebot als beauftragt markieren
+// Erstellt automatisch eine Meldungs-Kopie mit Zuweisung
+// ══════════════════════════════════════════════════════════
+async function setBeauftragt(id, taEl, pillsDiv){
+  const e=FR.find(x=>x.id===id);if(!e)return;
+  const kommentar=taEl?taEl.value.trim():'';
+  const now=new Date().toISOString();
+
+  // Gewählte Kürzel für Zuweisung
+  const neuZuw=[];
+  if(pillsDiv) pillsDiv.querySelectorAll('.kz-pill.sel').forEach(b=>neuZuw.push(b.dataset.kz));
+
+  // freie_angebote updaten
+  const {error}=await _sb.from('freie_angebote').update({
+    beauftragt:true,
+    beauftragt_kommentar:kommentar||null,
+    beauftragt_von:kz,
+    beauftragt_ts:now
+  }).eq('id',id);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+
+  // Lokal updaten
+  const idx=FR.findIndex(x=>x.id===id);
+  if(idx>-1){
+    FR[idx].beauftragt=true;
+    FR[idx].beauftragt_kommentar=kommentar||null;
+    FR[idx].beauftragt_von=kz;
+    FR[idx].beauftragt_ts=now;
+  }
+
+  // Meldungs-Kopie anlegen wenn Zuweisung gewählt
+  if(neuZuw.length){
+    const meldText='🔵 Beauftragt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
+    const meldData={
+      firma:e.firma,
+      text:meldText,
+      kuerzel:kz,
+      zugewiesen_an:neuZuw,
+      gelesen_von:{},
+      verlauf:[]
+    };
+    const {data:newMeld}=await _sb.from('meldungen').insert(meldData).select().single();
+    if(newMeld) MD.unshift(mapMeld(newMeld));
+    renderM();updB();
+    toast('✅ Beauftragt – Meldung an '+neuZuw.join(', ')+' erstellt');
+  } else {
+    toast('✅ Als beauftragt markiert');
+  }
+  renderF();
+}
+
+// ══════════════════════════════════════════════════════════
+// BESTELLT – Chemie als bestellt markieren
+// ══════════════════════════════════════════════════════════
+async function setBestellt(id, taEl){
+  const e=CH.find(x=>x.id===id);if(!e)return;
+  const kommentar=taEl?taEl.value.trim():'';
+  const now=new Date().toISOString();
+
+  const {error}=await _sb.from('chemie').update({
+    bestellt:true,
+    bestellt_kommentar:kommentar||null,
+    bestellt_von:kz,
+    bestellt_ts:now
+  }).eq('id',id);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+
+  const idx=CH.findIndex(x=>x.id===id);
+  if(idx>-1){
+    CH[idx].bestellt=true;
+    CH[idx].bestellt_kommentar=kommentar||null;
+    CH[idx].bestellt_von=kz;
+    CH[idx].bestellt_ts=now;
+  }
+  toast('✅ Als bestellt markiert');
+  renderC();
+}
+
+// ══════════════════════════════════════════════════════════
 // BEARBEITET – Empfänger markiert Meldung als bearbeitet
 // → Ersteller bekommt sie wieder als "offen / für mich"
 // ══════════════════════════════════════════════════════════
@@ -1410,7 +1526,7 @@ async function toggleFav(meldungId){
   }
   // Nur den Chip neu rendern (kein volles renderM für flüssiges UX)
   renderM(); updB();
-  toast(istFav?'☆ Aus Favoriten entfernt':'⭐ Zu Favoriten hinzugefügt');
+  toast(istFav?'☆ Aus Gemerkt entfernt':'⭐ Zu Gemerkt hinzugefügt');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1535,8 +1651,8 @@ function renderM(){
   if(fil.m==='zuBearbeiten')  d=d.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&(e.bearbeitungs_status==='in_bearbeitung'||e.bearbeitungs_status===null)&&ichHabGelesen(e)&&!e.erledigt);
   // Wird bearbeitet: ich bin Ersteller UND Empfänger hat gelesen (in_bearbeitung)
   if(fil.m==='wirdBearbeitet') d=d.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung');
-  // Favoriten: nur meine markierten Meldungen
-  if(fil.m==='favoriten') d=d.filter(e=>FAVORITEN.has(e.id));
+  // Gemerkt: nur meine markierten Meldungen
+  if(fil.m==='gemerkt') d=d.filter(e=>FAVORITEN.has(e.id));
 
   G('em0').style.display=d.length?'none':'';
   d.forEach(e=>c.appendChild(buildMeldChip(e)));
@@ -1666,16 +1782,21 @@ function buildMeldChip(e){
   // Bedingung: ich bin zugewiesen, habe gelesen, Status ist noch nicht 'bearbeitet'/'abgeschlossen'
   // Bearbeitet-Box sofort sichtbar wenn ich zugewiesen bin –
   // auch ohne vorherigen Gelesen-Klick (spart einen Schritt)
+  // Selbst-Zuweisung: Ersteller kann sich selbst zuweisen →
+  // er ist gleichzeitig Ersteller UND Empfänger
+  const istSelbstZugewiesen = e.kuerzel === kz && zuwArr.includes(kz);
   const kannBearbeiten = istZugewiesen &&
     zuwArr.includes(kz) &&
-    e.kuerzel !== kz &&
     bs !== 'bearbeitet' &&
     bs !== 'abgeschlossen';
 
   // Für Ersteller: "Wird bearbeitet"-Hinweis
+  // Zeigen wenn ANDERE zugewiesen sind – egal ob Ersteller sich selbst auch zugewiesen hat
+  const hatAndereZugewiesene = zuwArr.some(k2 => k2 !== kz);
   const zeigeWirdBearbeitet = e.kuerzel === kz &&
     istZugewiesen &&
-    bs === 'in_bearbeitung';
+    bs === 'in_bearbeitung' &&
+    hatAndereZugewiesene;
 
   // Für Ersteller: "Bestätigen"-Button wenn Empfänger "Bearbeitet" geklickt hat
   // → erscheint als "offen/für mich" beim Ersteller
@@ -1685,7 +1806,7 @@ function buildMeldChip(e){
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
   // Stern-Button (privat, nur für mich sichtbar)
   const istFav=FAVORITEN.has(eid);
-  const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\'' +eid+ '\')" title="'+(istFav?'Aus Favoriten entfernen':'Zu Favoriten hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
+  const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\'' +eid+ '\')" title="'+(istFav?'Aus Gemerkt entfernen':'Zu Gemerkt hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
 
   const headerInner=offen||explizit
     ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>'
@@ -1717,7 +1838,7 @@ function buildMeldChip(e){
     bTit.textContent='🔧 Bearbeitung bestätigen';
     const bBtn=document.createElement('button');
     bBtn.className='bbearb';
-    bBtn.textContent='✅ Bearbeitet';
+    bBtn.textContent='☐ Bearbeiten';
     bBtn.onclick=()=>setBearbeitet(eid,bTa);
     bTopRow.append(bTit,bBtn);
     bBox.appendChild(bTopRow);
@@ -1903,6 +2024,45 @@ function renderC(){
     } else {
       body.appendChild(aktionHtml);
     }
+    // ── Bestellt-Block Chemie ──
+    // Erst wenn Angebot geschrieben (erledigt=true) kann bestellt werden
+    if(e.erledigt){
+      if(e.bestellt){
+        // Bereits bestellt → blauer Info-Balken
+        const bstDiv=document.createElement('div');
+        bstDiv.className='bestellt-info';
+        bstDiv.innerHTML='🔵 Bestellt · <span class="v2-kz '+kzClass(e.bestellt_von||'')+'">'+esc(e.bestellt_von||'')+'</span> · '+fd(e.bestellt_ts)+(e.bestellt_kommentar?' · 💬 '+esc(e.bestellt_kommentar):'');
+        body.appendChild(bstDiv);
+      } else {
+        // Noch nicht bestellt → roter Button
+        const bstWrap=document.createElement('div');
+        bstWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px;display:flex;flex-direction:column;gap:5px';
+        const bstBtn=document.createElement('button');
+        bstBtn.className='bbestellt';
+        bstBtn.textContent='🔴 Bestellt';
+        const bstKommDiv=document.createElement('div');
+        bstKommDiv.style.display='none';
+        const bstTa=document.createElement('textarea');
+        bstTa.className='gta';
+        bstTa.placeholder='Kommentar (optional)…';
+        bstTa.style.cssText='font-size:16px;min-height:40px';
+        const bstSend=document.createElement('button');
+        bstSend.className='bbestellt aktiv';
+        bstSend.style.cssText='background:#1d4ed8;margin-top:4px;align-self:flex-start;padding:6px 12px';
+        bstSend.textContent='✓ Als bestellt markieren';
+        bstSend.onclick=()=>setBestellt(e.id,bstTa);
+        bstKommDiv.append(bstTa,bstSend);
+        bstWrap.appendChild(bstBtn);
+        bstWrap.appendChild(bstKommDiv);
+        bstBtn.onclick=()=>{
+          const open=bstKommDiv.style.display==='flex';
+          bstKommDiv.style.display=open?'none':'flex';
+          bstKommDiv.style.flexDirection='column';
+          bstBtn.textContent=open?'🔴 Bestellen':'▾ Bestellen';
+        };
+        body.appendChild(bstWrap);
+      }
+    }
     if(delBtn) body.appendChild(delBtn);
     c.appendChild(el);
   });
@@ -1974,6 +2134,75 @@ function renderF(){
       const rqB=document.createElement('button');rqB.className='brq';
       rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
       anrDiv.append(anrInp,erlB,rqB);body.appendChild(anrDiv);
+    }
+    // ── Beauftragt-Block ──
+    // Erst wenn Angebot geschrieben (erledigt=true) kann beauftragt werden
+    if(e.erledigt){
+      if(e.beauftragt){
+        // Bereits beauftragt → blauer Info-Balken
+        const bauDiv=document.createElement('div');
+        bauDiv.className='beau-box';
+        const bauTit=document.createElement('div');
+        bauTit.className='beau-title';
+        bauTit.textContent='🔵 Beauftragt';
+        bauDiv.appendChild(bauTit);
+        const bauMeta=document.createElement('div');
+        bauMeta.style.cssText='font-size:11px;color:#1d4ed8;display:flex;gap:6px;flex-wrap:wrap';
+        bauMeta.innerHTML='<span class="v2-kz '+kzClass(e.beauftragt_von||'')+'">'+esc(e.beauftragt_von||'')+'</span><span>'+fd(e.beauftragt_ts)+'</span>';
+        bauDiv.appendChild(bauMeta);
+        if(e.beauftragt_kommentar){
+          const bauKomm=document.createElement('div');
+          bauKomm.style.cssText='font-size:12px;color:#1e40af;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #93c5fd';
+          bauKomm.textContent='💬 '+e.beauftragt_kommentar;
+          bauDiv.appendChild(bauKomm);
+        }
+        body.appendChild(bauDiv);
+      } else {
+        // Noch nicht beauftragt → roter Button + aufklappbares Kommentarfeld
+        const bauWrap=document.createElement('div');
+        bauWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
+        const bauBtn=document.createElement('button');
+        bauBtn.className='bbeau';
+        bauBtn.textContent='🔴 Beauftragt';
+        // Toggle Kommentarfeld
+        const bauKommDiv=document.createElement('div');
+        bauKommDiv.style.display='none';
+        const bauTa=document.createElement('textarea');
+        bauTa.className='gta';
+        bauTa.placeholder='Kommentar zur Beauftragung (optional)…';
+        bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
+        // Zuweisung Pills
+        const bauZuwLbl=document.createElement('div');
+        bauZuwLbl.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:6px;margin-bottom:4px';
+        bauZuwLbl.textContent='Zuweisen an (Techniker):';
+        const bauPills=document.createElement('div');
+        bauPills.className='kz-pills';
+        bauPills.id='bau-pills-'+e.id;
+        [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
+          const pb=document.createElement('button');
+          pb.className='kz-pill';
+          pb.style.cssText='font-size:12px;padding:5px 8px';
+          pb.dataset.kz=n.kuerzel;
+          pb.textContent=n.kuerzel;
+          pb.onclick=()=>pb.classList.toggle('sel');
+          bauPills.appendChild(pb);
+        });
+        const bauSendBtn=document.createElement('button');
+        bauSendBtn.className='bbeau aktiv';
+        bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';
+        bauSendBtn.textContent='✓ Beauftragt speichern';
+        bauSendBtn.onclick=()=>setBeauftragt(e.id,bauTa,bauPills);
+        bauKommDiv.append(bauTa,bauZuwLbl,bauPills,bauSendBtn);
+        bauWrap.appendChild(bauBtn);
+        bauWrap.appendChild(bauKommDiv);
+        bauBtn.onclick=()=>{
+          const open=bauKommDiv.style.display==='flex';
+          bauKommDiv.style.display=open?'none':'flex';
+          bauKommDiv.style.flexDirection='column';
+          bauBtn.textContent=open?'🔴 Beauftragt':'▾ Beauftragt';
+        };
+        body.appendChild(bauWrap);
+      }
     }
     if(userRolle==='admin'){
       const delB=document.createElement('button');delB.className='edel';
@@ -2522,12 +2751,11 @@ function updB(){
   const tbmWb=document.getElementById('tbm-wb');
   if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
 
-  // ── Favoriten Counter ──
+  // ── Gemerkt Counter ──
   const favCount = FAVORITEN.size;
   const ftFav = document.getElementById('ft-fav-cnt');
   if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
-  const tbmFav = document.getElementById('tbm-fav');
-  if(tbmFav){if(favCount>0){tbmFav.textContent=favCount;tbmFav.className='tbg v fav';}else tbmFav.className='tbg';}
+
 
   // ── App-Icon Badge: Summe aus "Offen" (rot, ug) + "Für mich" (lila, fm) ──
   // Zeigt die Gesamtzahl der persönlichen Aufgaben direkt auf dem App-Icon
