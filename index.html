@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v32</title>
+<title>Meldungen &amp; Angebote v36</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -229,7 +229,7 @@ textarea{resize:vertical;min-height:68px;}
 .kunden-grid{display:flex;flex-wrap:wrap;margin-top:6px;}
 .kbe-karte{background:var(--wh);border:1px solid var(--bo);border-radius:10px;padding:12px 13px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
 .kbe-karte-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;}
-.kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--bd);}
+.kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;color:var(--bd);}
 .kbe-karte-toggle{font-size:18px;color:var(--mu);transition:transform .2s;}
 .kbe-karte.open .kbe-karte-toggle{transform:rotate(180deg);}
 .kbe-karte-body{display:none;margin-top:10px;border-top:1px solid var(--bo);padding-top:10px;}
@@ -238,8 +238,8 @@ textarea{resize:vertical;min-height:68px;}
 .kbe-eintrag:last-child{border-bottom:none;}
 .kbe-datum{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.04em;}
 .kbe-rwk-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.kbe-rkw-name{font-size:13px;color:var(--tx);font-weight:500;min-width:80px;}
-.kbe-val{display:inline-block;padding:3px 10px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.04em;}
+.kbe-rkw-name{font-size:26px;color:var(--tx);font-weight:500;min-width:120px;}
+.kbe-val{display:inline-block;padding:6px 16px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;letter-spacing:.04em;}
 .kbe-val.v0{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
 .kbe-val.v2,.kbe-val.v3{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
 .kbe-val.v4{background:#fef9c3;color:#854d0e;border:1px solid #fde047;}
@@ -311,6 +311,7 @@ textarea{resize:vertical;min-height:68px;}
 .kzf-AG{background:#15803d!important;color:#fff!important;}
 .kzf-RG{background:#4f46e5!important;color:#fff!important;}
 .kzf-SB{background:#0891b2!important;color:#fff!important;}
+.kzf-BG{background:#0891b2!important;color:#fff!important;}
 .kzf-BT{background:#be185d!important;color:#fff!important;}
 .kzf-JN{background:#b45309!important;color:#fff!important;}
 .kzf-default{background:#475569!important;color:#fff!important;}
@@ -394,7 +395,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v32</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v36</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1340,10 +1341,10 @@ function setF(tab,f,el){
 
 // Kürzel → CSS-Klasse für Farbzuweisung
 // Gewünschte Anzeigereihenfolge: IS vorne (Bindeglied), dann Außendienst, dann Innendienst
-const KZ_ORDER = ['IS','AG','RG','SB','JN','BT'];
+const KZ_ORDER = ['IS','AG','RG','BG','JN','BT'];
 function kzSortIdx(k){ const i=KZ_ORDER.indexOf(k); return i===-1?99:i; }
 function kzClass(k){
-  const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BT:'kzf-BT',JN:'kzf-JN'};
+  const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BG:'kzf-BG',BT:'kzf-BT',JN:'kzf-JN'};
   return m[k]||'kzf-default';
 }
 // Kürzel als farbiges Badge
@@ -1429,9 +1430,8 @@ async function setBeauftragt(id, taEl, pillsDiv){
       gelesen_von:{},
       verlauf:[]
     };
-    const {data:newMeld}=await _sb.from('meldungen').insert(meldData).select().single();
-    if(newMeld) MD.unshift(mapMeld(newMeld));
-    renderM();updB();
+    await _sb.from('meldungen').insert(meldData);
+    // Kein MD.unshift – Realtime lädt die neue Meldung automatisch (verhindert Duplikat)
     toast('✅ Beauftragt – Meldung an '+neuZuw.join(', ')+' erstellt');
   } else {
     toast('✅ Als beauftragt markiert');
@@ -1684,9 +1684,19 @@ function buildMeldChip(e){
     const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
     // Bearbeitungs-Einträge farblich hervorheben
     const istBearb=v.typ==='bearbeitet';
-    const prefix=istBearb?'<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:3px">✅ BEARBEITET</span>':'';
-    const textTeil=v.text?'<span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>':'';
-    return '<div class="kom-zeile">'+prefix+'<span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: '+textTeil+nz+'</div>';
+    const textTeil=v.text?'<span style="font-weight:600;color:'+(istBearb?'#166534':'var(--tx)')+'">'+esc(v.text)+'</span>':'';
+    // Bearbeitet-Einträge als grüner Balken – bitte bestätigen
+    if(istBearb){
+      return '<div style="background:#dcfce7;border:1px solid var(--gl);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:4px">'+
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+          '<span style="background:#15803d;color:#fff;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px">✅ Bearbeitet – bitte bestätigen</span>'+
+          '<span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span>'+
+          '<span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>'+
+        '</div>'+
+        (v.text?'<div style="font-size:12px;color:#166534;background:#fff;border-radius:6px;padding:4px 8px;border:1px solid var(--gl)">💬 '+esc(v.text)+'</div>':'')+
+      '</div>';
+    }
+    return '<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: '+textTeil+nz+'</div>';
   }).join('');
 
   const istErsteller=e.kuerzel===kz;
@@ -1798,9 +1808,6 @@ function buildMeldChip(e){
     bs === 'in_bearbeitung' &&
     hatAndereZugewiesene;
 
-  // Für Ersteller: "Bestätigen"-Button wenn Empfänger "Bearbeitet" geklickt hat
-  // → erscheint als "offen/für mich" beim Ersteller
-  const kannAbschliessen = e.kuerzel === kz && bs === 'bearbeitet';
 
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
@@ -1881,20 +1888,6 @@ function buildMeldChip(e){
   }
 
   // ── "Abgeschlossen"-Hinweis wenn Empfänger "Bearbeitet" geklickt hat ──
-  // Erscheint beim Ersteller – normaler Bestätigen-Button übernimmt den Abschluss
-  if(kannAbschliessen){
-    const abDiv=document.createElement('div');
-    abDiv.className='wird-bearb-info';
-    abDiv.style.cssText='background:#dcfce7;border-color:var(--gl);color:var(--gn)';
-    // Letzten Bearbeitungs-Kommentar aus Verlauf holen
-    const letzterBearb=(e.verlauf||[]).filter(v=>v.bearbeitungs_kommentar).slice(-1)[0];
-    let infoText='✅ Bearbeitet – bitte bestätigen';
-    if(letzterBearb&&letzterBearb.bearbeitungs_kommentar){
-      infoText+='<div style="margin-top:4px;font-size:11px;color:#166534">💬 '+esc(letzterBearb.bearbeitungs_kommentar)+'</div>';
-    }
-    abDiv.innerHTML=infoText;
-    body.appendChild(abDiv);
-  }
 
   if(userRolle==='admin'){
     const delB=document.createElement('button');
@@ -2268,8 +2261,8 @@ function renderKbeInListe(kbeArr,container){
       k.rkws.forEach(r=>{
         const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';
         vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px">'+
-          '<span style="font-size:11px;color:var(--mu)">'+esc(r.name)+'</span>'+
-          '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span>'+
+          '<span style="font-size:22px;color:var(--mu);font-weight:600">'+esc(r.name)+'</span>'+
+          '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span>'+
           '</div>';
       });
       vorschauHtml+='</div>';
@@ -2284,7 +2277,7 @@ function renderKbeInListe(kbeArr,container){
           const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';
           aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+
             '<span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span>'+
-            '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:12px">'+esc(val)+'</span>'+
+            '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span>'+
             '</div>';
         });
         aelterHtml+='</div>';
@@ -2294,7 +2287,7 @@ function renderKbeInListe(kbeArr,container){
 
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe" style="background:#0891b2"></div>'+
-      '<div class="v2-header-inner"><div class="v2-firma">'+esc(k.firma)+'</div>'+
+      '<div class="v2-header-inner"><div class="v2-firma" style="font-size:26px">'+esc(k.firma)+'</div>'+
       '<div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
       '<div class="v2-body">'+
         '<div class="v2-meta">'+
