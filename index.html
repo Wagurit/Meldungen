@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v36</title>
+<title>Meldungen &amp; Angebote v37</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -312,6 +312,7 @@ textarea{resize:vertical;min-height:68px;}
 .kzf-RG{background:#4f46e5!important;color:#fff!important;}
 .kzf-SB{background:#0891b2!important;color:#fff!important;}
 .kzf-BG{background:#0891b2!important;color:#fff!important;}
+.kzf-AS{background:#7c3aed!important;color:#fff!important;}
 .kzf-BT{background:#be185d!important;color:#fff!important;}
 .kzf-JN{background:#b45309!important;color:#fff!important;}
 .kzf-default{background:#475569!important;color:#fff!important;}
@@ -395,7 +396,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v36</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v37</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -668,13 +669,18 @@ textarea{resize:vertical;min-height:68px;}
       </div>
       <div class="admin-section">
         <div class="admin-section-title">🔑 Passwort zurücksetzen</div>
+        <p style="font-size:13px;color:var(--mu);margin-bottom:10px;line-height:1.5">
+          Passwort-Reset ist nur direkt im Supabase Dashboard möglich:<br>
+          <strong>Authentication → Users → Nutzer wählen → Edit</strong>
+        </p>
         <div style="display:flex;gap:7px">
           <select id="pw-reset-kz" style="flex:1">
             <option value="">Nutzer wählen…</option>
           </select>
-          <input type="password" id="pw-reset-new" placeholder="Neues Passwort" style="flex:1">
         </div>
-        <button class="bsend" onclick="resetPw()" style="margin-top:8px">Passwort setzen</button>
+        <div style="margin-top:8px;padding:10px 12px;background:#fef9c3;border:1px solid #fde047;border-radius:8px;font-size:12px;color:#854d0e">
+          ℹ️ Passwort-Reset erfordert Admin-Zugang im Supabase Dashboard.
+        </div>
       </div>
     </div>
 
@@ -694,11 +700,11 @@ textarea{resize:vertical;min-height:68px;}
 <div class="toast" id="toast"></div>
 <script>
 // ══════════════════════════════════════════════════════════
-// KONFIGURATION – ANPASSEN VOR DEPLOY
+// KONFIGURATION
 // ══════════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://loekjdetgppmxnwnwxkm.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_tvSCErTdFX0L1HKb2h9HPw_7Xid0a0A';
-const IS_KZ = 'IS'; // Admin-Kürzel – bekommt immer alle Rückfragen zu sehen
+const IS_KZ = 'IS'; // Admin-Kürzel
 
 const CHEM_STD = [
   'BZ','KT','BZ 219S','BZ 300','BZ 385','BZ 650',
@@ -712,7 +718,7 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ── STATE ──
 let kz = '', userRolle = '', userId = '';
-let allNutzer = []; // [{id, kuerzel, rolle, email}]
+let allNutzer = [];
 let selZuwSet = new Set();
 let mw = 1, af = null, nurMat = false;
 let fil = {m:'alle', c:'alle', f:'alle', l:'alle'};
@@ -720,9 +726,8 @@ let selKbeKunde = null;
 let inkDirty = false;
 let delPending = null;
 
-// Lokale Datenpuffer (werden aus Supabase geladen)
 let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [];
-let FAVORITEN = new Set(); // Set von meldung_ids die der aktuelle Nutzer favorisiert hat
+let FAVORITEN = new Set();
 
 let cL = [...CHEM_STD], cS = new Set();
 
@@ -745,7 +750,7 @@ function kbeValClass(val){
 let swReg = null;
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw_rkw_meldungen.js', {
-    updateViaCache: 'none'  // Browser prüft SW bei jedem Start neu – kein Cache
+    updateViaCache: 'none'
   }).then(reg=>{
     swReg = reg;
     reg.addEventListener('updatefound',()=>{
@@ -764,10 +769,9 @@ function applyUpdate(){
 }
 
 // ══════════════════════════════════════════════════════════
-// INIT – Nutzerliste laden & Login-Screen zeigen
+// INIT
 // ══════════════════════════════════════════════════════════
 async function init(){
-  // Session wiederherstellen falls vorhanden
   const {data:{session}} = await _sb.auth.getSession();
   if(session){
     await afterLogin(session.user);
@@ -777,20 +781,43 @@ async function init(){
   G('ls').style.display = 'flex';
 }
 
-function buildLoginChips(kzArr){
-  const c = G('login-chips'); c.innerHTML = '';
-  kzArr.forEach(k=>{
-    const b = document.createElement('button');
-    b.className = 'kchip'; b.textContent = k;
-    b.onclick = ()=>pickKz(k);
-    c.appendChild(b);
-  });
-}
+// ── BUG FIX #3: aktiv-Prüfung in afterLogin ──
+async function afterLogin(user){
+  userId = user.id;
+  const {data:profil} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+  if(!profil){
+    await _sb.auth.signOut();
+    G('loading').style.display='none';
+    G('ls').style.display='flex';
+    showErr('Nutzer nicht in Datenbank gefunden.');
+    return;
+  }
+  // BUG FIX #3: Deaktivierte Nutzer abweisen
+  if(profil.aktiv === false){
+    await _sb.auth.signOut();
+    G('loading').style.display='none';
+    G('ls').style.display='flex';
+    showErr('Dieses Konto wurde deaktiviert. Bitte Admin kontaktieren.');
+    return;
+  }
+  kz = profil.kuerzel;
+  userRolle = profil.rolle;
 
-let selKzLogin = '';
-function pickKz(k){
-  selKzLogin = k;
-  document.querySelectorAll('.kchip').forEach(c=>c.classList.toggle('sel', c.textContent===k));
+  G('hkz').textContent = kz;
+  if(userRolle==='admin'){G('hadmin').classList.add('v');G('admin-tab').style.display='flex';}
+
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+  allNutzer = alleN || [];
+  buildZuwPills();
+
+  G('loading').style.display='none';
+  G('ls').style.display='none';
+  G('ap').style.display='flex';
+
+  await loadAll();
+  setupRealtime();
+  setTimeout(subscribePush, 2000);
+  if(userRolle==='admin') loadNutzerAdmin();
 }
 
 async function doLogin(){
@@ -813,61 +840,23 @@ async function doLogin(){
 
 function showErr(msg){const e=G('lerr');e.textContent=msg;e.style.display=msg?'block':'none';}
 
-async function afterLogin(user){
-  userId = user.id;
-  // Eigenes Profil laden
-  const {data:profil} = await _sb.from('nutzer').select('kuerzel,rolle').eq('id',user.id).single();
-  if(!profil){
-    await _sb.auth.signOut();
-    G('loading').style.display='none';
-    G('ls').style.display='flex';
-    showErr('Nutzer nicht in Datenbank gefunden.');
-    return;
-  }
-  kz = profil.kuerzel;
-  userRolle = profil.rolle;
-
-  G('hkz').textContent = kz;
-  if(userRolle==='admin'){G('hadmin').classList.add('v');G('admin-tab').style.display='flex';}
-
-  // Zuw-Pills aufbauen (andere Kürzel)
-  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
-  allNutzer = alleN || [];
-  buildZuwPills();
-
-  G('loading').style.display='none';
-  G('ls').style.display='none';
-  G('ap').style.display='flex';
-
-  // Datum-Felder
-  // Datumsfelder bewusst leer lassen – verhindert versehentliches falsches Datum
-  // Kein Datum = keine Abspeicherung möglich
-
-  await loadAll();
-  setupRealtime();
-  // Push-Abo aktivieren (fragt nur einmal nach Erlaubnis)
-  setTimeout(subscribePush, 2000);
-  if(userRolle==='admin') loadNutzerAdmin();
-}
-
+// ── BUG FIX #2: doLogout ohne login-chips Referenz ──
 async function doLogout(){
-  // Badge beim Abmelden zurücksetzen
   if('clearAppBadge' in navigator) navigator.clearAppBadge();
-  // Push-Abo deaktivieren
   await unsubscribePush();
   await _sb.auth.signOut();
-  kz='';userId='';userRolle='';
-  selKzLogin='';selZuwSet.clear();
+  kz=''; userId=''; userRolle='';
+  selZuwSet.clear();
   inkDirty=false;
   G('ink').value='';
   G('hadmin').classList.remove('v');
   G('admin-tab').style.display='none';
-  document.querySelectorAll('.kchip').forEach(c=>c.classList.remove('sel'));
   G('ap').style.display='none';
-  // Chips neu laden
-  const {data:nutzer} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
-  buildLoginChips((nutzer||[]).map(n=>n.kuerzel));
   G('ls').style.display='flex';
+  // Login-Felder leeren
+  G('lemail').value='';
+  G('lpw').value='';
+  showErr('');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -898,7 +887,6 @@ async function loadAll(){
         werte:e.werte||{}
       }))
     }));
-    // Gemerkt laden
     FAVORITEN = new Set((fav.data||[]).map(x=>x.meldung_id));
     LOG_DATA = (l.data||[]).map(x=>({
       id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
@@ -907,16 +895,10 @@ async function loadAll(){
     }));
     setSyncing('ok');
     renderAll(); updB();
-    // Erinnerungs-Modal prüfen (nach Daten laden)
     setTimeout(()=>pruefeErinnerung(false), 800);
   } catch(e){
     setSyncing('err');
     console.error('loadAll Fehler:', e);
-    const tables = ['meldungen','chemie','freie_angebote','kbe_kunden','loeschlog'];
-    for(const t of tables){
-      const {error:te} = await _sb.from(t).select('id').limit(1);
-      if(te) console.error('Fehler bei Tabelle '+t+':', te.message);
-    }
     toast('⚠️ Ladefehler: '+e.message);
   }
 }
@@ -954,7 +936,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
-    if(swReg) swReg.update(); // SW-Update aktiv prüfen bei Tab-Wechsel
+    if(swReg) swReg.update();
     if(kz) loadAll();
   });
 });
@@ -973,8 +955,6 @@ function swTab(n){
 function ichHabGelesen(e){
   if(e.kuerzel!==kz) return !!(e.gelesen_von&&e.gelesen_von[kz]);
   const letztesBest=e.gelesen_von&&e.gelesen_von[kz]?new Date(e.gelesen_von[kz].ts).getTime():0;
-  // Fremd-Aktivität: Kommentare ODER Bearbeitet-Einträge (auch ohne Text)
-  // → Bearbeitet ohne Kommentar muss den OP trotzdem als "ungelesen" markieren
   const letzterFremdKomm=(e.verlauf||[]).filter(v=>v.kuerzel!==kz&&(v.text||v.typ==='bearbeitet')).reduce((max,v)=>{
     const t=new Date(v.ts).getTime(); return t>max?t:max;
   },0);
@@ -984,7 +964,6 @@ function ichHabGelesen(e){
 function relevanFuerMich(e){
   if(!e.zugewiesen_an||!e.zugewiesen_an.length)return true;
   if(e.zugewiesen_an.includes(kz))return true;
-  // OP ist relevant wenn Empfänger "Bearbeitet" geklickt hat → wie Zuweisung behandeln
   if(e.kuerzel===kz&&e.bearbeitungs_status==='bearbeitet')return true;
   const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
   if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
@@ -994,7 +973,6 @@ function offenFuerMich(e){return relevanFuerMich(e)&&!ichHabGelesen(e);}
 function istExplizitFuerMich(e){
   if(ichHabGelesen(e))return false;
   if(e.zugewiesen_an&&e.zugewiesen_an.includes(kz))return true;
-  // OP bekommt lila "Für mich" Counter wenn Empfänger Bearbeitung abgeschickt hat
   if(e.kuerzel===kz&&e.bearbeitungs_status==='bearbeitet')return true;
   const l=e.verlauf&&e.verlauf.length?e.verlauf[e.verlauf.length-1]:null;
   if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
@@ -1024,7 +1002,6 @@ function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;
 // ══════════════════════════════════════════════════════════
 function buildZuwPills(){
   const pp=G('zuw-pills');pp.innerHTML='';
-  // Ersteller selbst zuerst (mit "(ich)" Label)
   const ichBtn=document.createElement('button');
   ichBtn.className='kz-pill';
   ichBtn.style.cssText='border-style:dashed;opacity:.8';
@@ -1032,7 +1009,6 @@ function buildZuwPills(){
   ichBtn.textContent=kz+' (ich)';
   ichBtn.onclick=()=>toggleZuw(kz);
   pp.appendChild(ichBtn);
-  // Dann alle anderen in Reihenfolge
   const sorted=[...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel));
   sorted.forEach(n=>{
     const b=document.createElement('button');b.className='kz-pill';b.textContent=n.kuerzel;
@@ -1042,7 +1018,6 @@ function buildZuwPills(){
 }
 function toggleZuw(k2){
   if(selZuwSet.has(k2))selZuwSet.delete(k2);else selZuwSet.add(k2);
-  // data-kz nutzen falls vorhanden (für "IS (ich)" Button), sonst textContent
   document.querySelectorAll('#zuw-pills .kz-pill').forEach(b=>{
     const bkz = b.dataset.kz || b.textContent;
     b.classList.toggle('sel', selZuwSet.has(bkz));
@@ -1075,16 +1050,12 @@ G('ccu').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();a
 // ══════════════════════════════════════════════════════════
 // SPEICHERN
 // ══════════════════════════════════════════════════════════
-function setSaving(btnId, saving){const b=G(btnId);if(b){b.disabled=saving;b.textContent=saving?'Speichert…':b.dataset.orig||b.textContent;}}
-
 async function saveMeld(){
   const firma=V('ink'),text=V('mtx');
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!text){alert('Bitte Meldungstext eingeben.');return;}
   G('btn-meld').disabled=true;
   const zuwArr=[...selZuwSet];
-  // Wenn Ersteller sich selbst zuweist → direkt als gelesen markieren
-  // → landet in "Zu bearbeiten" ohne extra Gelesen-Klick
   const gelesen_von={};
   if(zuwArr.includes(kz)){
     gelesen_von[kz]={ts:new Date().toISOString(),kommentar:null};
@@ -1094,7 +1065,6 @@ async function saveMeld(){
     zugewiesen_an:zuwArr,
     gelesen_von,
     verlauf:[],
-    // Wenn nur Ersteller selbst zugewiesen → sofort in_bearbeitung
     bearbeitungs_status: zuwArr.length>0&&zuwArr.every(k2=>k2===kz)?'in_bearbeitung':null
   };
   if(!isOnline()){
@@ -1180,19 +1150,14 @@ async function setGel(id){
     newVerlauf.push({kuerzel:kz,text:kommentar,ts:new Date().toISOString(),neu_zuw:neuZuw});
     if(neuZuw.length){neuZuw.forEach(k2=>{if(newGV[k2])delete newGV[k2];});}
   }
-  // Bearbeitungs-Status-Logik:
-  // a) Ich bin Empfänger + zugewiesen → 'in_bearbeitung' setzen
-  // b) Ich bin Ersteller + Status 'bearbeitet' → 'abgeschlossen' setzen
   const meld=MD.find(x=>x.id===id);
   const updateObj={gelesen_von:newGV,verlauf:newVerlauf};
   if(meld){
     const istEmpfaenger=meld.zugewiesen_an&&meld.zugewiesen_an.includes(kz)&&meld.kuerzel!==kz;
     const istErsteller=meld.kuerzel===kz;
     if(istEmpfaenger&&(!meld.bearbeitungs_status||meld.bearbeitungs_status==='null')){
-      // Empfänger liest → in_bearbeitung
       updateObj.bearbeitungs_status='in_bearbeitung';
     } else if(istErsteller&&meld.bearbeitungs_status==='bearbeitet'){
-      // Ersteller bestätigt nach Bearbeitung → abgeschlossen
       updateObj.bearbeitungs_status='abgeschlossen';
     }
   }
@@ -1339,15 +1304,13 @@ function setF(tab,f,el){
   if(tab==='l')renderLog();
 }
 
-// Kürzel → CSS-Klasse für Farbzuweisung
-// Gewünschte Anzeigereihenfolge: IS vorne (Bindeglied), dann Außendienst, dann Innendienst
-const KZ_ORDER = ['IS','AG','RG','BG','JN','BT'];
+// Kürzel → Farbe. AS ergänzt, Reihenfolge: IS AG RG BG AS JN BT
+const KZ_ORDER = ['IS','AG','RG','BG','AS','JN','BT'];
 function kzSortIdx(k){ const i=KZ_ORDER.indexOf(k); return i===-1?99:i; }
 function kzClass(k){
-  const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BG:'kzf-BG',BT:'kzf-BT',JN:'kzf-JN'};
+  const m={IS:'kzf-IS',AG:'kzf-AG',RG:'kzf-RG',SB:'kzf-SB',BG:'kzf-BG',AS:'kzf-AS',BT:'kzf-BT',JN:'kzf-JN'};
   return m[k]||'kzf-default';
 }
-// Kürzel als farbiges Badge
 function kzBadge(k){
   return '<span class="v2-kz '+kzClass(k)+'">'+esc(k)+'</span>';
 }
@@ -1389,49 +1352,24 @@ async function saveMeldEdit(eid, btn){
 }
 
 // ══════════════════════════════════════════════════════════
-// BEAUFTRAGT – Angebot als beauftragt markieren
-// Erstellt automatisch eine Meldungs-Kopie mit Zuweisung
+// BEAUFTRAGT
 // ══════════════════════════════════════════════════════════
 async function setBeauftragt(id, taEl, pillsDiv){
   const e=FR.find(x=>x.id===id);if(!e)return;
   const kommentar=taEl?taEl.value.trim():'';
   const now=new Date().toISOString();
-
-  // Gewählte Kürzel für Zuweisung
   const neuZuw=[];
   if(pillsDiv) pillsDiv.querySelectorAll('.kz-pill.sel').forEach(b=>neuZuw.push(b.dataset.kz));
-
-  // freie_angebote updaten
   const {error}=await _sb.from('freie_angebote').update({
-    beauftragt:true,
-    beauftragt_kommentar:kommentar||null,
-    beauftragt_von:kz,
-    beauftragt_ts:now
+    beauftragt:true, beauftragt_kommentar:kommentar||null,
+    beauftragt_von:kz, beauftragt_ts:now
   }).eq('id',id);
   if(error){toast('⚠️ Fehler: '+error.message);return;}
-
-  // Lokal updaten
   const idx=FR.findIndex(x=>x.id===id);
-  if(idx>-1){
-    FR[idx].beauftragt=true;
-    FR[idx].beauftragt_kommentar=kommentar||null;
-    FR[idx].beauftragt_von=kz;
-    FR[idx].beauftragt_ts=now;
-  }
-
-  // Meldungs-Kopie anlegen wenn Zuweisung gewählt
+  if(idx>-1){FR[idx].beauftragt=true;FR[idx].beauftragt_kommentar=kommentar||null;FR[idx].beauftragt_von=kz;FR[idx].beauftragt_ts=now;}
   if(neuZuw.length){
     const meldText='🔵 Beauftragt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
-    const meldData={
-      firma:e.firma,
-      text:meldText,
-      kuerzel:kz,
-      zugewiesen_an:neuZuw,
-      gelesen_von:{},
-      verlauf:[]
-    };
-    await _sb.from('meldungen').insert(meldData);
-    // Kein MD.unshift – Realtime lädt die neue Meldung automatisch (verhindert Duplikat)
+    await _sb.from('meldungen').insert({firma:e.firma,text:meldText,kuerzel:kz,zugewiesen_an:neuZuw,gelesen_von:{},verlauf:[]});
     toast('✅ Beauftragt – Meldung an '+neuZuw.join(', ')+' erstellt');
   } else {
     toast('✅ Als beauftragt markiert');
@@ -1440,135 +1378,83 @@ async function setBeauftragt(id, taEl, pillsDiv){
 }
 
 // ══════════════════════════════════════════════════════════
-// BESTELLT – Chemie als bestellt markieren
+// BESTELLT
 // ══════════════════════════════════════════════════════════
 async function setBestellt(id, taEl){
   const e=CH.find(x=>x.id===id);if(!e)return;
   const kommentar=taEl?taEl.value.trim():'';
   const now=new Date().toISOString();
-
   const {error}=await _sb.from('chemie').update({
-    bestellt:true,
-    bestellt_kommentar:kommentar||null,
-    bestellt_von:kz,
-    bestellt_ts:now
+    bestellt:true, bestellt_kommentar:kommentar||null,
+    bestellt_von:kz, bestellt_ts:now
   }).eq('id',id);
   if(error){toast('⚠️ Fehler: '+error.message);return;}
-
   const idx=CH.findIndex(x=>x.id===id);
-  if(idx>-1){
-    CH[idx].bestellt=true;
-    CH[idx].bestellt_kommentar=kommentar||null;
-    CH[idx].bestellt_von=kz;
-    CH[idx].bestellt_ts=now;
-  }
-  toast('✅ Als bestellt markiert');
-  renderC();
+  if(idx>-1){CH[idx].bestellt=true;CH[idx].bestellt_kommentar=kommentar||null;CH[idx].bestellt_von=kz;CH[idx].bestellt_ts=now;}
+  toast('✅ Als bestellt markiert');renderC();
 }
 
 // ══════════════════════════════════════════════════════════
-// BEARBEITET – Empfänger markiert Meldung als bearbeitet
-// → Ersteller bekommt sie wieder als "offen / für mich"
+// BEARBEITET
 // ══════════════════════════════════════════════════════════
 async function setBearbeitet(id, taEl){
   const e=MD.find(x=>x.id===id);if(!e)return;
   const kommentar=taEl?taEl.value.trim():'';
   const now=new Date().toISOString();
-
-  // Verlauf-Eintrag mit Bearbeitungs-Kommentar
   const newVerlauf=[...e.verlauf];
-  newVerlauf.push({
-    kuerzel:kz,
-    text:kommentar||null,
-    bearbeitungs_kommentar:kommentar||null,
-    ts:now,
-    typ:'bearbeitet'
-  });
-
-  // Empfänger als gelesen markieren (Ein-Schritt: gelesen + bearbeitet zusammen)
-  // → kein separater Gelesen-Klick nötig
+  newVerlauf.push({kuerzel:kz,text:kommentar||null,bearbeitungs_kommentar:kommentar||null,ts:now,typ:'bearbeitet'});
   const newGV={...e.gelesen_von};
   newGV[kz]={ts:now, kommentar:kommentar||null};
-
-  // Ersteller-Gelesen-Status zurücksetzen → erscheint als "offen/für mich" beim OP
   if(newGV[e.kuerzel]) delete newGV[e.kuerzel];
-
-  await _sb.from('meldungen').update({
-    bearbeitungs_status:'bearbeitet',
-    verlauf:newVerlauf,
-    gelesen_von:newGV
-  }).eq('id',id);
-
-  // Lokal updaten
+  await _sb.from('meldungen').update({bearbeitungs_status:'bearbeitet',verlauf:newVerlauf,gelesen_von:newGV}).eq('id',id);
   const idx=MD.findIndex(x=>x.id===id);
-  if(idx>-1){
-    MD[idx].bearbeitungs_status='bearbeitet';
-    MD[idx].verlauf=newVerlauf;
-    MD[idx].gelesen_von=newGV;
-  }
+  if(idx>-1){MD[idx].bearbeitungs_status='bearbeitet';MD[idx].verlauf=newVerlauf;MD[idx].gelesen_von=newGV;}
   toast('✅ Als bearbeitet markiert – Ersteller wird informiert');
   renderM();updB();
 }
 
 // ══════════════════════════════════════════════════════════
-// FAVORITEN – Stern togglen
+// FAVORITEN
 // ══════════════════════════════════════════════════════════
 async function toggleFav(meldungId){
   const istFav = FAVORITEN.has(meldungId);
   if(istFav){
-    // Entfernen
     await _sb.from('favoriten').delete().eq('kuerzel',kz).eq('meldung_id',meldungId);
     FAVORITEN.delete(meldungId);
   } else {
-    // Hinzufügen
     await _sb.from('favoriten').insert({kuerzel:kz, meldung_id:meldungId});
     FAVORITEN.add(meldungId);
   }
-  // Nur den Chip neu rendern (kein volles renderM für flüssiges UX)
   renderM(); updB();
   toast(istFav?'☆ Aus Gemerkt entfernt':'⭐ Zu Gemerkt hinzugefügt');
 }
 
 // ══════════════════════════════════════════════════════════
-// ERINNERUNGS-MODAL – Ungelesene Meldungen älter als 3 Tage
+// ERINNERUNGS-MODAL
 // ══════════════════════════════════════════════════════════
 const MODAL_KEY = 'rkw_modal_quittiert';
-const MODAL_PAUSE_MS = 5 * 60 * 1000; // 5 Minuten Ruhe nach Quittieren
+const MODAL_PAUSE_MS = 5 * 60 * 1000;
 
 function pruefeErinnerung(testModus){
-  // Im Testmodus: Pause ignorieren
   if(!testModus){
     const letztes = localStorage.getItem(MODAL_KEY);
     if(letztes && Date.now() - parseInt(letztes) < MODAL_PAUSE_MS) return;
   }
-
   const dreiTageMs = 3 * 24 * 60 * 60 * 1000;
   const jetzt = Date.now();
-
-  // Alle Meldungen die für mich offen sind UND älter als 3 Tage
   const alte = MD.filter(e => {
     if(!offenFuerMich(e)) return false;
-    const alter = jetzt - new Date(e.ts).getTime();
-    return alter > dreiTageMs;
+    return jetzt - new Date(e.ts).getTime() > dreiTageMs;
   });
-
   if(!testModus && !alte.length) return;
-
-  // Modal anzeigen
   const anzahl = alte.length;
   const modal = G('erinnerung-modal');
-  const titel = G('modal-title');
-  const body  = G('modal-body');
-
   if(testModus && !anzahl){
-    titel.textContent = '👀 Test-Vorschau (Admin)';
-    body.textContent  = 'So würde das Pop-up für Nutzer mit ungelesenen Meldungen aussehen. Aktuell hast du keine älteren ungelesenen Meldungen.';
+    G('modal-title').textContent = '👀 Test-Vorschau (Admin)';
+    G('modal-body').textContent  = 'So würde das Pop-up aussehen. Aktuell keine älteren ungelesenen Meldungen.';
   } else {
-    titel.textContent = anzahl === 1 ? '1 ungelesene Meldung' : anzahl + ' ungelesene Meldungen';
-    body.textContent  = (anzahl === 1
-      ? 'Du hast 1 Meldung'
-      : 'Du hast ' + anzahl + ' Meldungen')
-      + ' älter als 3 Tage – bitte lesen und bestätigen.';
+    G('modal-title').textContent = anzahl === 1 ? '1 ungelesene Meldung' : anzahl + ' ungelesene Meldungen';
+    G('modal-body').textContent  = (anzahl === 1 ? 'Du hast 1 Meldung' : 'Du hast ' + anzahl + ' Meldungen') + ' älter als 3 Tage – bitte lesen und bestätigen.';
   }
   modal.style.display = 'flex';
 }
@@ -1581,57 +1467,26 @@ function modalQuittieren(){
 // ══════════════════════════════════════════════════════════
 // IS-ADMIN WEITERLEITEN
 // ══════════════════════════════════════════════════════════
-// Trägt einen Verlauf-Eintrag ein und setzt den Empfänger
-// auf "ungelesen" – identisch zu setGel() mit Weiterleitung,
-// aber auch wenn IS die Meldung bereits gelesen hat.
 async function isWeiterleiten(eid, pillsDiv, ta, box, toggleBtn){
   const e = MD.find(x => x.id === eid);
   if(!e) return;
-
-  // Welche Kürzel sind ausgewählt?
   const neuZuw = [];
   pillsDiv.querySelectorAll('.kz-pill.sel').forEach(b => neuZuw.push(b.dataset.kz));
   if(!neuZuw.length){ toast('⚠️ Bitte mindestens ein Kürzel wählen.'); return; }
-
   const kommentar = ta ? ta.value.trim() : '';
   const now = new Date().toISOString();
-
-  // Verlauf-Eintrag schreiben
   const newVerlauf = [...e.verlauf];
-  newVerlauf.push({
-    kuerzel: kz,
-    text: kommentar || null,
-    ts: now,
-    neu_zuw: neuZuw
-  });
-
-  // Gelesen-Status der Empfänger zurücksetzen (damit sie es als "neu" sehen)
+  newVerlauf.push({kuerzel: kz, text: kommentar || null, ts: now, neu_zuw: neuZuw});
   const newGV = { ...e.gelesen_von };
   neuZuw.forEach(k2 => { if(newGV[k2]) delete newGV[k2]; });
-
-  // IS als gelesen markieren (IS hat es ja gerade bearbeitet)
   newGV[kz] = { ts: now, kommentar: kommentar || null };
-
-  await _sb.from('meldungen').update({
-    gelesen_von: newGV,
-    verlauf: newVerlauf,
-    zugewiesen_an: neuZuw   // Zuweisung auf neue Empfänger setzen
-  }).eq('id', eid);
-
-  // Lokal sofort updaten
+  await _sb.from('meldungen').update({gelesen_von: newGV, verlauf: newVerlauf, zugewiesen_an: neuZuw}).eq('id', eid);
   const idx = MD.findIndex(x => x.id === eid);
-  if(idx > -1){
-    MD[idx].gelesen_von = newGV;
-    MD[idx].verlauf = newVerlauf;
-    MD[idx].zugewiesen_an = neuZuw;
-  }
-
-  // UI zurücksetzen
+  if(idx > -1){MD[idx].gelesen_von = newGV;MD[idx].verlauf = newVerlauf;MD[idx].zugewiesen_an = neuZuw;}
   if(ta) ta.value = '';
   pillsDiv.querySelectorAll('.kz-pill').forEach(b => b.classList.remove('sel'));
   box.style.display = 'none';
   toggleBtn.textContent = '↪ Weiterleiten';
-
   toast('✓ Weitergeleitet an ' + neuZuw.join(', '));
   renderM(); updB();
 }
@@ -1647,13 +1502,9 @@ function renderM(){
   if(fil.m==='gelesen')       d=d.filter(e=>ichHabGelesen(e));
   if(fil.m==='kommentar')     d=d.filter(e=>e.verlauf&&e.verlauf.some(v=>v.text));
   if(fil.m==='fuerMich')      d=d.filter(e=>istExplizitFuerMich(e));
-  // Zu bearbeiten: ich bin zugewiesen UND Status ist in_bearbeitung oder null (noch nicht bearbeitet)
   if(fil.m==='zuBearbeiten')  d=d.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&(e.bearbeitungs_status==='in_bearbeitung'||e.bearbeitungs_status===null)&&ichHabGelesen(e)&&!e.erledigt);
-  // Wird bearbeitet: ich bin Ersteller UND Empfänger hat gelesen (in_bearbeitung)
   if(fil.m==='wirdBearbeitet') d=d.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung');
-  // Gemerkt: nur meine markierten Meldungen
   if(fil.m==='gemerkt') d=d.filter(e=>FAVORITEN.has(e.id));
-
   G('em0').style.display=d.length?'none':'';
   d.forEach(e=>c.appendChild(buildMeldChip(e)));
 }
@@ -1663,12 +1514,10 @@ function buildMeldChip(e){
   const explizit=istExplizitFuerMich(e);
   const offen=offenFuerMich(e);
   const zuwArr=e.zugewiesen_an||[];
-  // Gelesen-Status Chips in definierter Reihenfolge: IS AG RG SB JN BT
   const zeigeKZ=(zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel)).sort((a,b)=>kzSortIdx(a)-kzSortIdx(b));
   const eid=e.id;
 
   const bStatus=offen?'<span class="v2-badge b-neu">● Neu</span>':'<span class="v2-badge b-gel">Gelesen</span>';
-  // Farbige Zuweisung-Badges: jedes Kürzel bekommt seine eigene Farbe
   const bZuw=zuwArr.length?'<span class="v2-badge b-zuw" style="display:inline-flex;align-items:center;gap:3px">→ '+zuwArr.map(k2=>'<span class="v2-kz '+kzClass(k2)+'">'+esc(k2)+'</span>').join('')+'</span>':'';
 
   const metaHeader='<div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;display:flex;gap:6px;align-items:center">'+
@@ -1682,10 +1531,8 @@ function buildMeldChip(e){
 
   const verlaufHtml=(e.verlauf||[]).filter(v=>v.text||v.typ==='bearbeitet').map(v=>{
     const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-    // Bearbeitungs-Einträge farblich hervorheben
     const istBearb=v.typ==='bearbeitet';
     const textTeil=v.text?'<span style="font-weight:600;color:'+(istBearb?'#166534':'var(--tx)')+'">'+esc(v.text)+'</span>':'';
-    // Bearbeitet-Einträge als grüner Balken – bitte bestätigen
     if(istBearb){
       return '<div style="background:#dcfce7;border:1px solid var(--gl);border-radius:8px;padding:8px 11px;display:flex;flex-direction:column;gap:4px">'+
         '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
@@ -1701,9 +1548,6 @@ function buildMeldChip(e){
 
   const istErsteller=e.kuerzel===kz;
   const hatVerlauf=(e.verlauf||[]).some(v=>v.text&&v.kuerzel!==kz);
-  // OP bekommt Gelesen-Button wenn:
-  // a) Normaler Verlauf mit Fremd-Kommentar
-  // b) Empfänger hat "Bearbeitet" geklickt → OP muss bestätigen
   const istBearbeitetFuerOp = istErsteller && e.bearbeitungs_status==='bearbeitet';
   const kannBest=!ichGel&&(
     (!istErsteller&&relevanFuerMich(e)) ||
@@ -1725,95 +1569,56 @@ function buildMeldChip(e){
   if(kannBest){
     const mgBox=document.createElement('div');
     mgBox.className='mein-gel-box';
-
     const topRow=document.createElement('div');
     topRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
     const titel=document.createElement('div');
     titel.className='mein-gel-title';
     titel.textContent=istErsteller?'💬 Antworten':'👁 Bestätigung';
     const bestBtn=document.createElement('button');
-    bestBtn.className='bgel';
-    bestBtn.textContent='✓ Gelesen';
+    bestBtn.className='bgel';bestBtn.textContent='✓ Gelesen';
     bestBtn.onclick=()=>setGel(eid);
     topRow.append(titel,bestBtn);
     mgBox.appendChild(topRow);
-
     const togLink=document.createElement('button');
     togLink.textContent='▸ Kommentar / Weiterleiten';
     togLink.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;width:100%';
     mgBox.appendChild(togLink);
-
     const mgxDiv=document.createElement('div');
     mgxDiv.id='mgx-'+eid;
     mgxDiv.style.cssText='display:none;flex-direction:column;gap:6px';
-
     const gta=document.createElement('textarea');
-    gta.className='gta';
-    gta.id='gta-'+eid;
-    gta.placeholder='Kommentar (optional)…';
-    gta.style.cssText='font-size:16px;min-height:52px';
+    gta.className='gta';gta.id='gta-'+eid;gta.placeholder='Kommentar (optional)…';gta.style.cssText='font-size:16px;min-height:52px';
     mgxDiv.appendChild(gta);
-
     const zuwBox=document.createElement('div');
     zuwBox.className='kom-zuw-box';
     zuwBox.innerHTML='<div class="kom-zuw-lbl">Weiterleiten an (optional):</div>';
-    const pillsDiv=document.createElement('div');
-    pillsDiv.className='kz-pills';
+    const pillsDiv=document.createElement('div');pillsDiv.className='kz-pills';
     [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
-      const pb=document.createElement('button');
-      pb.className='kz-pill ngz-pill';
+      const pb=document.createElement('button');pb.className='kz-pill ngz-pill';
       pb.style.cssText='font-size:12px;padding:5px 8px';
-      pb.dataset.eid=eid;pb.dataset.kz=n.kuerzel;
-      pb.textContent=n.kuerzel;
-      pb.onclick=()=>toggleNgz(pb);
-      pillsDiv.appendChild(pb);
+      pb.dataset.eid=eid;pb.dataset.kz=n.kuerzel;pb.textContent=n.kuerzel;
+      pb.onclick=()=>toggleNgz(pb);pillsDiv.appendChild(pb);
     });
-    zuwBox.appendChild(pillsDiv);
-    mgxDiv.appendChild(zuwBox);
+    zuwBox.appendChild(pillsDiv);mgxDiv.appendChild(zuwBox);
     mgBox.appendChild(mgxDiv);
-
     togLink.onclick=()=>{
       const open=mgxDiv.style.display==='flex';
-      mgxDiv.style.display=open?'none':'flex';
-      mgxDiv.style.flexDirection='column';
-      mgxDiv.style.gap='6px';
+      mgxDiv.style.display=open?'none':'flex';mgxDiv.style.flexDirection='column';mgxDiv.style.gap='6px';
       togLink.textContent=open?'▸ Kommentar / Weiterleiten':'▾ Kommentar / Weiterleiten';
     };
-
     meinBlock=mgBox;
   }
-  // ── BEARBEITUNGS-BLOCK ──
-  // Zeigt dem Empfänger den "Bearbeitet"-Button (nur bei zugewiesenen Meldungen)
-  // und dem Ersteller den "Wird bearbeitet"-Hinweis
+
   const istZugewiesen = zuwArr.length > 0;
   const bs = e.bearbeitungs_status;
-
-  // Für Empfänger: "Bearbeitet"-Box (grün)
-  // Bedingung: ich bin zugewiesen, habe gelesen, Status ist noch nicht 'bearbeitet'/'abgeschlossen'
-  // Bearbeitet-Box sofort sichtbar wenn ich zugewiesen bin –
-  // auch ohne vorherigen Gelesen-Klick (spart einen Schritt)
-  // Selbst-Zuweisung: Ersteller kann sich selbst zuweisen →
-  // er ist gleichzeitig Ersteller UND Empfänger
-  const istSelbstZugewiesen = e.kuerzel === kz && zuwArr.includes(kz);
-  const kannBearbeiten = istZugewiesen &&
-    zuwArr.includes(kz) &&
-    bs !== 'bearbeitet' &&
-    bs !== 'abgeschlossen';
-
-  // Für Ersteller: "Wird bearbeitet"-Hinweis
-  // Zeigen wenn ANDERE zugewiesen sind – egal ob Ersteller sich selbst auch zugewiesen hat
+  const kannBearbeiten = istZugewiesen && zuwArr.includes(kz) && bs !== 'bearbeitet' && bs !== 'abgeschlossen';
   const hatAndereZugewiesene = zuwArr.some(k2 => k2 !== kz);
-  const zeigeWirdBearbeitet = e.kuerzel === kz &&
-    istZugewiesen &&
-    bs === 'in_bearbeitung' &&
-    hatAndereZugewiesene;
-
+  const zeigeWirdBearbeitet = e.kuerzel === kz && istZugewiesen && bs === 'in_bearbeitung' && hatAndereZugewiesene;
 
   const el=document.createElement('div');
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
-  // Stern-Button (privat, nur für mich sichtbar)
   const istFav=FAVORITEN.has(eid);
-  const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\'' +eid+ '\')" title="'+(istFav?'Aus Gemerkt entfernen':'Zu Gemerkt hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
+  const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\''+eid+'\')" title="'+(istFav?'Aus Gemerkt entfernen':'Zu Gemerkt hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
 
   const headerInner=offen||explizit
     ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>'
@@ -1832,137 +1637,72 @@ function buildMeldChip(e){
   if(bearbeitenBtn instanceof Element) body.appendChild(bearbeitenBtn);
   else if(typeof bearbeitenBtn==='string' && bearbeitenBtn) body.insertAdjacentHTML('beforeend',bearbeitenBtn);
 
-  // ── BEARBEITET-Box für Empfänger ──
   if(kannBearbeiten){
-    const bBox=document.createElement('div');
-    bBox.className='bearb-box';
-
-    // Titelzeile + Bearbeitet-Button (immer sichtbar)
+    const bBox=document.createElement('div');bBox.className='bearb-box';
     const bTopRow=document.createElement('div');
     bTopRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
-    const bTit=document.createElement('div');
-    bTit.className='bearb-title';
-    bTit.textContent='🔧 Bearbeitung bestätigen';
-    const bBtn=document.createElement('button');
-    bBtn.className='bbearb';
-    bBtn.textContent='☐ Bearbeiten';
+    const bTit=document.createElement('div');bTit.className='bearb-title';bTit.textContent='🔧 Bearbeitung bestätigen';
+    const bBtn=document.createElement('button');bBtn.className='bbearb';bBtn.textContent='☐ Bearbeiten';
     bBtn.onclick=()=>setBearbeitet(eid,bTa);
-    bTopRow.append(bTit,bBtn);
-    bBox.appendChild(bTopRow);
-
-    // Toggle-Link für Kommentarfeld (eingeklappt wie bei Bestätigen)
+    bTopRow.append(bTit,bBtn);bBox.appendChild(bTopRow);
     const bTogLink=document.createElement('button');
     bTogLink.textContent='▸ Kommentar hinzufügen';
     bTogLink.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;width:100%';
     bBox.appendChild(bTogLink);
-
-    // Eingeklapptes Kommentarfeld
-    const bKommDiv=document.createElement('div');
-    bKommDiv.style.cssText='display:none';
+    const bKommDiv=document.createElement('div');bKommDiv.style.cssText='display:none';
     const bTa=document.createElement('textarea');
-    bTa.className='gta';
-    bTa.id='bearb-ta-'+eid;
-    bTa.placeholder='Kommentar zur Bearbeitung (optional)…';
-    bTa.style.cssText='font-size:16px;min-height:46px';
-    bKommDiv.appendChild(bTa);
-    bBox.appendChild(bKommDiv);
-
-    // Toggle-Logik
-    bTogLink.onclick=()=>{
-      const open=bKommDiv.style.display==='block';
-      bKommDiv.style.display=open?'none':'block';
-      bTogLink.textContent=open?'▸ Kommentar hinzufügen':'▾ Kommentar schließen';
-    };
-
+    bTa.className='gta';bTa.id='bearb-ta-'+eid;bTa.placeholder='Kommentar zur Bearbeitung (optional)…';bTa.style.cssText='font-size:16px;min-height:46px';
+    bKommDiv.appendChild(bTa);bBox.appendChild(bKommDiv);
+    bTogLink.onclick=()=>{const open=bKommDiv.style.display==='block';bKommDiv.style.display=open?'none':'block';bTogLink.textContent=open?'▸ Kommentar hinzufügen':'▾ Kommentar schließen';};
     body.appendChild(bBox);
   }
 
-  // ── "Wird bearbeitet"-Hinweis für Ersteller ──
   if(zeigeWirdBearbeitet){
-    const wbDiv=document.createElement('div');
-    wbDiv.className='wird-bearb-info';
-    // Wer hat "gelesen" geklickt? Aus gelesen_von filtern (nur Zugewiesene)
+    const wbDiv=document.createElement('div');wbDiv.className='wird-bearb-info';
     const gelVon=zuwArr.filter(k2=>e.gelesen_von&&e.gelesen_von[k2]).map(k2=>'<span class="v2-kz '+kzClass(k2)+'">'+esc(k2)+'</span>').join(' ');
     wbDiv.innerHTML='⏳ Wird bearbeitet von: '+gelVon;
     body.appendChild(wbDiv);
   }
 
-  // ── "Abgeschlossen"-Hinweis wenn Empfänger "Bearbeitet" geklickt hat ──
-
   if(userRolle==='admin'){
-    const delB=document.createElement('button');
-    delB.className='edel';delB.textContent='🗑 Löschen';
+    const delB=document.createElement('button');delB.className='edel';delB.textContent='🗑 Löschen';
     delB.onclick=(ev)=>delWithConfirm(ev.target,eid,'m');
     body.appendChild(delB);
   }
 
-  // ── IS-Admin: Weiterleiten-Block – immer sichtbar, auch nach Lesen ──
-  // Ermöglicht IS das nachträgliche Weiterleiten mit Kommentar,
-  // ohne dass die Meldung erst "ungelesen" sein muss.
   if(kz === IS_KZ){
     const wlWrap = document.createElement('div');
     wlWrap.style.cssText = 'border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
-
-    // Toggle-Button
     const wlBtn = document.createElement('button');
     wlBtn.textContent = '↪ Weiterleiten';
     wlBtn.style.cssText = 'font-size:11px;color:var(--bd);background:var(--bp);border:1px solid var(--bo);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-weight:700;letter-spacing:.04em';
     wlWrap.appendChild(wlBtn);
-
-    // Aufklappbarer Bereich
     const wlBox = document.createElement('div');
     wlBox.id = 'wl-box-' + eid;
     wlBox.style.cssText = 'display:none;flex-direction:column;gap:7px;margin-top:8px;background:#f0f9ff;border:1.5px solid var(--bo);border-radius:9px;padding:10px';
-
-    // Titel
     const wlTitel = document.createElement('div');
     wlTitel.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--bd)';
     wlTitel.textContent = '↪ Weiterleiten an…';
     wlBox.appendChild(wlTitel);
-
-    // Kürzel-Pills
     const wlPillsDiv = document.createElement('div');
-    wlPillsDiv.className = 'kz-pills';
-    wlPillsDiv.id = 'wl-pills-' + eid;
+    wlPillsDiv.className = 'kz-pills';wlPillsDiv.id = 'wl-pills-' + eid;
     [...allNutzer].filter(n => n.kuerzel !== kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n => {
-      const pb = document.createElement('button');
-      pb.className = 'kz-pill';
-      pb.style.cssText = 'font-size:12px;padding:5px 8px';
-      pb.dataset.kz = n.kuerzel;
-      pb.textContent = n.kuerzel;
-      pb.onclick = () => pb.classList.toggle('sel');
-      wlPillsDiv.appendChild(pb);
+      const pb = document.createElement('button');pb.className = 'kz-pill';
+      pb.style.cssText = 'font-size:12px;padding:5px 8px';pb.dataset.kz = n.kuerzel;pb.textContent = n.kuerzel;
+      pb.onclick = () => pb.classList.toggle('sel');wlPillsDiv.appendChild(pb);
     });
     wlBox.appendChild(wlPillsDiv);
-
-    // Kommentarfeld
     const wlTa = document.createElement('textarea');
-    wlTa.id = 'wl-ta-' + eid;
-    wlTa.className = 'gta';
-    wlTa.placeholder = 'Kommentar (optional)…';
-    wlTa.style.cssText = 'font-size:16px;min-height:46px';
-    wlBox.appendChild(wlTa);
-
-    // Senden-Button
+    wlTa.id = 'wl-ta-' + eid;wlTa.className = 'gta';wlTa.placeholder = 'Kommentar (optional)…';
+    wlTa.style.cssText = 'font-size:16px;min-height:46px';wlBox.appendChild(wlTa);
     const wlSend = document.createElement('button');
     wlSend.style.cssText = 'padding:7px 14px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer;align-self:flex-start';
     wlSend.textContent = '↪ Weiterleiten';
     wlSend.onclick = () => isWeiterleiten(eid, wlPillsDiv, wlTa, wlBox, wlBtn);
-    wlBox.appendChild(wlSend);
-
-    wlWrap.appendChild(wlBox);
-
-    // Toggle-Logik
-    wlBtn.onclick = () => {
-      const open = wlBox.style.display === 'flex';
-      wlBox.style.display = open ? 'none' : 'flex';
-      wlBox.style.flexDirection = 'column';
-      wlBtn.textContent = open ? '↪ Weiterleiten' : '↾ Schließen';
-    };
-
+    wlBox.appendChild(wlSend);wlWrap.appendChild(wlBox);
+    wlBtn.onclick = () => {const open = wlBox.style.display === 'flex';wlBox.style.display = open ? 'none' : 'flex';wlBox.style.flexDirection = 'column';wlBtn.textContent = open ? '↪ Weiterleiten' : '↾ Schließen';};
     body.appendChild(wlWrap);
   }
-
   return el;
 }
 
@@ -1978,8 +1718,7 @@ function renderC(){
   G('ec0').style.display=d.length?'none':'';
   d.forEach(e=>{
     const eid=e.id;
-    const el=document.createElement('div');
-    el.className='v2-chip'+(e.erledigt?' erl':'');
+    const el=document.createElement('div');el.className='v2-chip'+(e.erledigt?' erl':'');
     const statusBadge=e.erledigt?'<span class="v2-badge b-erl">✓ Erledigt</span>':'<span class="v2-badge b-neu">Offen</span>';
     const produkteHtml=(e.produkte||[]).map(p=>'• '+esc(p)).join('  ');
     const notizHtml=e.notiz?'<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(e.notiz)+'</div>':'';
@@ -1988,12 +1727,9 @@ function renderC(){
       aktionHtml='<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>';
     } else {
       const anrInput='<input class="ani" id="anr-c-'+eid+'" placeholder="Angebotsnummer (optional)" value="'+esc(e.angebotsnr||'')+'">';
-      const erlBtn=document.createElement('button');
-      erlBtn.className='berl';erlBtn.textContent='✓ Erledigt';
-      erlBtn.onclick=()=>setErlC(eid);
+      const erlBtn=document.createElement('button');erlBtn.className='berl';erlBtn.textContent='✓ Erledigt';erlBtn.onclick=()=>setErlC(eid);
       const anrDiv=document.createElement('div');anrDiv.className='anr';
-      anrDiv.appendChild(document.createRange().createContextualFragment(anrInput));
-      anrDiv.appendChild(erlBtn);
+      anrDiv.appendChild(document.createRange().createContextualFragment(anrInput));anrDiv.appendChild(erlBtn);
       aktionHtml=anrDiv;
     }
     const delBtn=(userRolle==='admin')?(()=>{const b=document.createElement('button');b.className='edel';b.textContent='🗑 Löschen';b.onclick=(ev)=>delWithConfirm(ev.target,eid,'c');return b;})():null;
@@ -2001,58 +1737,27 @@ function renderC(){
       '<div class="v2-header"><div class="v2-stripe"></div>'+
       '<div class="v2-header-inner">'+
         '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
-        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+
-          kzBadge(e.kuerzel)+
-          '<span>'+fd(e.ts)+'</span>'+
-        '</div></div>'+
+        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div>'+
         '<div class="v2-badges">'+statusBadge+'</div>'+
       '</div></div>'+
-      '<div class="v2-body">'+
-        '<div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+
-        notizHtml+
-      '</div>';
+      '<div class="v2-body"><div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+notizHtml+'</div>';
     const body=el.querySelector('.v2-body');
-    if(e.erledigt){
-      const div=document.createElement('div');div.innerHTML=aktionHtml;body.appendChild(div);
-    } else {
-      body.appendChild(aktionHtml);
-    }
-    // ── Bestellt-Block Chemie ──
-    // Erst wenn Angebot geschrieben (erledigt=true) kann bestellt werden
+    if(e.erledigt){const div=document.createElement('div');div.innerHTML=aktionHtml;body.appendChild(div);}
+    else{body.appendChild(aktionHtml);}
     if(e.erledigt){
       if(e.bestellt){
-        // Bereits bestellt → blauer Info-Balken
-        const bstDiv=document.createElement('div');
-        bstDiv.className='bestellt-info';
+        const bstDiv=document.createElement('div');bstDiv.className='bestellt-info';
         bstDiv.innerHTML='🔵 Bestellt · <span class="v2-kz '+kzClass(e.bestellt_von||'')+'">'+esc(e.bestellt_von||'')+'</span> · '+fd(e.bestellt_ts)+(e.bestellt_kommentar?' · 💬 '+esc(e.bestellt_kommentar):'');
         body.appendChild(bstDiv);
       } else {
-        // Noch nicht bestellt → roter Button
-        const bstWrap=document.createElement('div');
-        bstWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px;display:flex;flex-direction:column;gap:5px';
-        const bstBtn=document.createElement('button');
-        bstBtn.className='bbestellt';
-        bstBtn.textContent='🔴 Bestellt';
-        const bstKommDiv=document.createElement('div');
-        bstKommDiv.style.display='none';
-        const bstTa=document.createElement('textarea');
-        bstTa.className='gta';
-        bstTa.placeholder='Kommentar (optional)…';
-        bstTa.style.cssText='font-size:16px;min-height:40px';
-        const bstSend=document.createElement('button');
-        bstSend.className='bbestellt aktiv';
-        bstSend.style.cssText='background:#1d4ed8;margin-top:4px;align-self:flex-start;padding:6px 12px';
-        bstSend.textContent='✓ Als bestellt markieren';
+        const bstWrap=document.createElement('div');bstWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px;display:flex;flex-direction:column;gap:5px';
+        const bstBtn=document.createElement('button');bstBtn.className='bbestellt';bstBtn.textContent='🔴 Bestellt';
+        const bstKommDiv=document.createElement('div');bstKommDiv.style.display='none';
+        const bstTa=document.createElement('textarea');bstTa.className='gta';bstTa.placeholder='Kommentar (optional)…';bstTa.style.cssText='font-size:16px;min-height:40px';
+        const bstSend=document.createElement('button');bstSend.className='bbestellt aktiv';bstSend.style.cssText='background:#1d4ed8;margin-top:4px;align-self:flex-start;padding:6px 12px';bstSend.textContent='✓ Als bestellt markieren';
         bstSend.onclick=()=>setBestellt(e.id,bstTa);
-        bstKommDiv.append(bstTa,bstSend);
-        bstWrap.appendChild(bstBtn);
-        bstWrap.appendChild(bstKommDiv);
-        bstBtn.onclick=()=>{
-          const open=bstKommDiv.style.display==='flex';
-          bstKommDiv.style.display=open?'none':'flex';
-          bstKommDiv.style.flexDirection='column';
-          bstBtn.textContent=open?'🔴 Bestellen':'▾ Bestellen';
-        };
+        bstKommDiv.append(bstTa,bstSend);bstWrap.appendChild(bstBtn);bstWrap.appendChild(bstKommDiv);
+        bstBtn.onclick=()=>{const open=bstKommDiv.style.display==='flex';bstKommDiv.style.display=open?'none':'flex';bstKommDiv.style.flexDirection='column';bstBtn.textContent=open?'🔴 Bestellen':'▾ Bestellen';};
         body.appendChild(bstWrap);
       }
     }
@@ -2082,7 +1787,6 @@ function renderF(){
     const meta=e.nurMat
       ?'<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>'
       :'<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+monteurText+'</span><span class="frei-meta-chip std">⏱ '+e.stunden+' h</span></div>';
-
     let rqHtml='';
     if((e.rueckfragen||[]).length){
       rqHtml='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';
@@ -2101,10 +1805,7 @@ function renderF(){
       '<div class="v2-header"><div class="v2-stripe"></div>'+
       '<div class="v2-header-inner">'+
         '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
-        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+
-          kzBadge(e.kuerzel)+
-          '<span>'+fd(e.ts)+'</span>'+
-        '</div></div>'+
+        '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div>'+
         '<div class="v2-badges">'+
           (e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+
           (hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+
@@ -2112,97 +1813,45 @@ function renderF(){
         '</div>'+
       '</div></div>'+
       '<div class="v2-body">'+
-        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+
-        rqHtml+rqBoxHtml+
+        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+rqHtml+rqBoxHtml+
         (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
     const body=el.querySelector('.v2-body');
     if(!e.erledigt){
       const anrDiv=document.createElement('div');anrDiv.className='anr';
-      const anrInp=document.createElement('input');anrInp.className='ani';
-      anrInp.id='anr-f-'+e.id;anrInp.placeholder='Angebotsnummer (optional)';
-      anrInp.value=esc(e.angebotsnr||'');
-      const erlB=document.createElement('button');erlB.className='berl';
-      erlB.textContent='✓ Erledigt';erlB.onclick=()=>setErlF(e.id);
-      const rqB=document.createElement('button');rqB.className='brq';
-      rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
+      const anrInp=document.createElement('input');anrInp.className='ani';anrInp.id='anr-f-'+e.id;
+      anrInp.placeholder='Angebotsnummer (optional)';anrInp.value=esc(e.angebotsnr||'');
+      const erlB=document.createElement('button');erlB.className='berl';erlB.textContent='✓ Erledigt';erlB.onclick=()=>setErlF(e.id);
+      const rqB=document.createElement('button');rqB.className='brq';rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
       anrDiv.append(anrInp,erlB,rqB);body.appendChild(anrDiv);
     }
-    // ── Beauftragt-Block ──
-    // Erst wenn Angebot geschrieben (erledigt=true) kann beauftragt werden
     if(e.erledigt){
       if(e.beauftragt){
-        // Bereits beauftragt → blauer Info-Balken
-        const bauDiv=document.createElement('div');
-        bauDiv.className='beau-box';
-        const bauTit=document.createElement('div');
-        bauTit.className='beau-title';
-        bauTit.textContent='🔵 Beauftragt';
-        bauDiv.appendChild(bauTit);
-        const bauMeta=document.createElement('div');
-        bauMeta.style.cssText='font-size:11px;color:#1d4ed8;display:flex;gap:6px;flex-wrap:wrap';
+        const bauDiv=document.createElement('div');bauDiv.className='beau-box';
+        const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Beauftragt';bauDiv.appendChild(bauTit);
+        const bauMeta=document.createElement('div');bauMeta.style.cssText='font-size:11px;color:#1d4ed8;display:flex;gap:6px;flex-wrap:wrap';
         bauMeta.innerHTML='<span class="v2-kz '+kzClass(e.beauftragt_von||'')+'">'+esc(e.beauftragt_von||'')+'</span><span>'+fd(e.beauftragt_ts)+'</span>';
         bauDiv.appendChild(bauMeta);
-        if(e.beauftragt_kommentar){
-          const bauKomm=document.createElement('div');
-          bauKomm.style.cssText='font-size:12px;color:#1e40af;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #93c5fd';
-          bauKomm.textContent='💬 '+e.beauftragt_kommentar;
-          bauDiv.appendChild(bauKomm);
-        }
+        if(e.beauftragt_kommentar){const bauKomm=document.createElement('div');bauKomm.style.cssText='font-size:12px;color:#1e40af;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #93c5fd';bauKomm.textContent='💬 '+e.beauftragt_kommentar;bauDiv.appendChild(bauKomm);}
         body.appendChild(bauDiv);
       } else {
-        // Noch nicht beauftragt → roter Button + aufklappbares Kommentarfeld
-        const bauWrap=document.createElement('div');
-        bauWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
-        const bauBtn=document.createElement('button');
-        bauBtn.className='bbeau';
-        bauBtn.textContent='🔴 Beauftragt';
-        // Toggle Kommentarfeld
-        const bauKommDiv=document.createElement('div');
-        bauKommDiv.style.display='none';
-        const bauTa=document.createElement('textarea');
-        bauTa.className='gta';
-        bauTa.placeholder='Kommentar zur Beauftragung (optional)…';
-        bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
-        // Zuweisung Pills
-        const bauZuwLbl=document.createElement('div');
-        bauZuwLbl.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:6px;margin-bottom:4px';
-        bauZuwLbl.textContent='Zuweisen an (Techniker):';
-        const bauPills=document.createElement('div');
-        bauPills.className='kz-pills';
-        bauPills.id='bau-pills-'+e.id;
+        const bauWrap=document.createElement('div');bauWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
+        const bauBtn=document.createElement('button');bauBtn.className='bbeau';bauBtn.textContent='🔴 Beauftragt';
+        const bauKommDiv=document.createElement('div');bauKommDiv.style.display='none';
+        const bauTa=document.createElement('textarea');bauTa.className='gta';bauTa.placeholder='Kommentar zur Beauftragung (optional)…';bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
+        const bauZuwLbl=document.createElement('div');bauZuwLbl.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:6px;margin-bottom:4px';bauZuwLbl.textContent='Zuweisen an (Techniker):';
+        const bauPills=document.createElement('div');bauPills.className='kz-pills';bauPills.id='bau-pills-'+e.id;
         [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
-          const pb=document.createElement('button');
-          pb.className='kz-pill';
-          pb.style.cssText='font-size:12px;padding:5px 8px';
-          pb.dataset.kz=n.kuerzel;
-          pb.textContent=n.kuerzel;
-          pb.onclick=()=>pb.classList.toggle('sel');
-          bauPills.appendChild(pb);
+          const pb=document.createElement('button');pb.className='kz-pill';pb.style.cssText='font-size:12px;padding:5px 8px';pb.dataset.kz=n.kuerzel;pb.textContent=n.kuerzel;pb.onclick=()=>pb.classList.toggle('sel');bauPills.appendChild(pb);
         });
-        const bauSendBtn=document.createElement('button');
-        bauSendBtn.className='bbeau aktiv';
-        bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';
-        bauSendBtn.textContent='✓ Beauftragt speichern';
+        const bauSendBtn=document.createElement('button');bauSendBtn.className='bbeau aktiv';bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';bauSendBtn.textContent='✓ Beauftragt speichern';
         bauSendBtn.onclick=()=>setBeauftragt(e.id,bauTa,bauPills);
-        bauKommDiv.append(bauTa,bauZuwLbl,bauPills,bauSendBtn);
-        bauWrap.appendChild(bauBtn);
-        bauWrap.appendChild(bauKommDiv);
-        bauBtn.onclick=()=>{
-          const open=bauKommDiv.style.display==='flex';
-          bauKommDiv.style.display=open?'none':'flex';
-          bauKommDiv.style.flexDirection='column';
-          bauBtn.textContent=open?'🔴 Beauftragt':'▾ Beauftragt';
-        };
+        bauKommDiv.append(bauTa,bauZuwLbl,bauPills,bauSendBtn);bauWrap.appendChild(bauBtn);bauWrap.appendChild(bauKommDiv);
+        bauBtn.onclick=()=>{const open=bauKommDiv.style.display==='flex';bauKommDiv.style.display=open?'none':'flex';bauKommDiv.style.flexDirection='column';bauBtn.textContent=open?'🔴 Beauftragt':'▾ Beauftragt';};
         body.appendChild(bauWrap);
       }
     }
-    if(userRolle==='admin'){
-      const delB=document.createElement('button');delB.className='edel';
-      delB.textContent='🗑 Löschen';
-      delB.onclick=(ev)=>delWithConfirm(ev.target,e.id,'f');
-      body.appendChild(delB);
-    }
+    if(userRolle==='admin'){const delB=document.createElement('button');delB.className='edel';delB.textContent='🗑 Löschen';delB.onclick=(ev)=>delWithConfirm(ev.target,e.id,'f');body.appendChild(delB);}
     c.appendChild(el);
   });
 }
@@ -2238,10 +1887,7 @@ function buildKbeBody(k){
     const eid='kbee-'+k.id+'-'+i;
     h+='<div class="kbe-eintrag"><div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleKbeEintrag(\''+eid+'\')"><div class="kbe-datum">'+esc(e.datum)+'</div><span id="arr-'+eid+'" style="font-size:13px;color:var(--mu)">'+(i===0?'▲':'▼')+'</span></div>';
     h+='<div id="'+eid+'" style="display:'+(i===0?'block':'none')+'">';
-    k.rkws.forEach(r=>{
-      const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';
-      h+='<div class="kbe-rwk-row"><span class="kbe-rkw-name">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'">'+esc(val)+'</span></div>';
-    });
+    k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';h+='<div class="kbe-rwk-row"><span class="kbe-rkw-name">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'">'+esc(val)+'</span></div>';});
     h+='</div></div>';
   });
   return h;
@@ -2254,52 +1900,32 @@ function renderKbeInListe(kbeArr,container){
     const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
     const el=document.createElement('div');el.className='v2-chip kbe-meld';
     const karteId='kbem-'+k.id;
-
     let vorschauHtml='';
     if(letzter){
       vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">';
-      k.rkws.forEach(r=>{
-        const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';
-        vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px">'+
-          '<span style="font-size:22px;color:var(--mu);font-weight:600">'+esc(r.name)+'</span>'+
-          '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span>'+
-          '</div>';
-      });
+      k.rkws.forEach(r=>{const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px"><span style="font-size:22px;color:var(--mu);font-weight:600">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span></div>';});
       vorschauHtml+='</div>';
     }
-
     let aelterHtml='';
     if(k.eintraege.length>1){
       aelterHtml='<div id="'+karteId+'" style="display:none;border-top:1px solid var(--bo);margin-top:8px;padding-top:8px">';
       k.eintraege.slice(1).forEach(e=>{
         aelterHtml+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px">'+esc(e.datum)+'</div>';
-        k.rkws.forEach(r=>{
-          const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';
-          aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+
-            '<span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span>'+
-            '<span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span>'+
-            '</div>';
-        });
+        k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span></div>';});
         aelterHtml+='</div>';
       });
       aelterHtml+='</div>';
     }
-
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe" style="background:#0891b2"></div>'+
       '<div class="v2-header-inner"><div class="v2-firma" style="font-size:26px">'+esc(k.firma)+'</div>'+
       '<div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
       '<div class="v2-body">'+
-        '<div class="v2-meta">'+
-          '<span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+
-          (letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+
-          (k.eintraege.length>1?'<span>'+k.eintraege.length+' Einträge</span>':'')+
-        '</div>'+
+        '<div class="v2-meta"><span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+(letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+(k.eintraege.length>1?'<span>'+k.eintraege.length+' Einträge</span>':'')+'</div>'+
         vorschauHtml+aelterHtml+
       '</div>';
     if(k.eintraege.length>1){
-      const tBtn=document.createElement('button');
-      tBtn.textContent=(k.eintraege.length-1)+' ältere anzeigen';
+      const tBtn=document.createElement('button');tBtn.textContent=(k.eintraege.length-1)+' ältere anzeigen';
       tBtn.style.fontSize='11px';tBtn.style.padding='3px 9px';tBtn.style.border='1px solid var(--bo)';tBtn.style.background='var(--bg)';tBtn.style.borderRadius='6px';tBtn.style.cursor='pointer';tBtn.style.color='var(--mu)';tBtn.style.fontFamily='"Barlow Condensed",sans-serif';tBtn.style.fontWeight='700';tBtn.style.marginTop='5px';
       tBtn.onclick=(ev)=>{ev.stopPropagation();toggleKbeMeld(karteId,tBtn);};
       el.querySelector('.v2-body').appendChild(tBtn);
@@ -2307,223 +1933,95 @@ function renderKbeInListe(kbeArr,container){
     container.appendChild(el);
   });
 }
-
-function toggleKbeMeld(id,btn){
-  const el=document.getElementById(id);if(!el)return;
-  const open=el.style.display!=='none';
-  el.style.display=open?'none':'block';
-  const cnt=el.querySelectorAll('[style*="margin-bottom:8px"]').length||'';
-  btn.textContent=open?(cnt+' ältere anzeigen'):'▲ Weniger';
-}
+function toggleKbeMeld(id,btn){const el=document.getElementById(id);if(!el)return;const open=el.style.display!=='none';el.style.display=open?'none':'block';const cnt=el.querySelectorAll('[style*="margin-bottom:8px"]').length||'';btn.textContent=open?(cnt+' ältere anzeigen'):'▲ Weniger';}
 
 function renderKbeKunden(){
   const q=V('kbe-suche').toLowerCase();
   const g=G('kbe-kunden-grid');g.innerHTML='';
   KBE.filter(k=>!q||k.firma.toLowerCase().includes(q)).forEach(k=>{
-    const wrap=document.createElement('div');
-    wrap.style.cssText='display:inline-flex;align-items:center;margin:0 5px 5px 0;gap:3px';
-    const b=document.createElement('button');
-    b.className='kunde-chip'+(selKbeKunde===k.id?' sel':'');
-    b.style.margin='0';
-    b.textContent=k.firma;
-    b.onclick=()=>selectKbeKunde(k.id);
-    // Button: alle Einträge bearbeiten
-    const eb=document.createElement('button');
-    eb.title='Alle Einträge bearbeiten';
-    eb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0';
-    eb.textContent='✏️';
-    eb.onclick=(ev)=>{ev.stopPropagation();openKbeEdit(k.id);};
-    // Button: letzten Eintrag schnell editieren
-    const lb=document.createElement('button');
-    lb.title='Letzten Eintrag bearbeiten';
-    lb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bl);background:var(--bp);color:var(--bd);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px';
-    lb.textContent='📅 Letzten';
-    lb.onclick=(ev)=>{ev.stopPropagation();openLetztenEdit(k.id);};
-    wrap.appendChild(b);wrap.appendChild(lb);wrap.appendChild(eb);
-    g.appendChild(wrap);
+    const wrap=document.createElement('div');wrap.style.cssText='display:inline-flex;align-items:center;margin:0 5px 5px 0;gap:3px';
+    const b=document.createElement('button');b.className='kunde-chip'+(selKbeKunde===k.id?' sel':'');b.style.margin='0';b.textContent=k.firma;b.onclick=()=>selectKbeKunde(k.id);
+    const eb=document.createElement('button');eb.title='Alle Einträge bearbeiten';eb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0';eb.textContent='✏️';eb.onclick=(ev)=>{ev.stopPropagation();openKbeEdit(k.id);};
+    const lb=document.createElement('button');lb.title='Letzten Eintrag bearbeiten';lb.style.cssText='padding:5px 7px;border-radius:7px;border:1.5px solid var(--bl);background:var(--bp);color:var(--bd);font-size:12px;cursor:pointer;line-height:1;flex-shrink:0;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px';lb.textContent='📅 Letzten';lb.onclick=(ev)=>{ev.stopPropagation();openLetztenEdit(k.id);};
+    wrap.appendChild(b);wrap.appendChild(lb);wrap.appendChild(eb);g.appendChild(wrap);
   });
 }
 
 function openKbeEdit(kid){
   const k=KBE.find(x=>x.id===kid);if(!k)return;
   document.querySelectorAll('.kbe-edit-box').forEach(x=>x.remove());
-  const box=document.createElement('div');
-  box.className='kbe-edit-box';
-  box.style.cssText='background:#fff;border:1.5px solid var(--bo);border-radius:10px;padding:12px;margin-top:8px';
+  const box=document.createElement('div');box.className='kbe-edit-box';box.style.cssText='background:#fff;border:1.5px solid var(--bo);border-radius:10px;padding:12px;margin-top:8px';
   let html='<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:8px">✏️ '+esc(k.firma)+' – Einträge bearbeiten</div>';
   html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:6px">KBE-Einträge</div>';
   k.eintraege.forEach((e,ei)=>{
     html+='<div style="background:var(--bg);border:1px solid var(--bo);border-radius:8px;padding:8px 10px;margin-bottom:6px">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-    html+='<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu)">'+esc(e.datum)+'</span>';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu)">'+esc(e.datum)+'</span>';
     html+='<button onclick="delKbeEintrag(\''+kid+'\',\''+e.id+'\',this)" style="padding:2px 8px;background:var(--rdb);border:1px solid #fca5a5;border-radius:5px;color:var(--rd);font-size:11px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-weight:700">Löschen</button></div>';
-    k.rkws.forEach(r=>{
-      const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'';
-      html+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">';
-      html+='<span style="font-size:12px;color:var(--tx);min-width:90px">'+esc(r.name)+'</span>';
-      html+='<select id="kbee-'+kid+'-'+e.id+'-'+ei+'-'+r.name.replace(/\s/g,'_')+'" style="flex:1;padding:4px 7px;font-size:13px;border:1.5px solid var(--bo);border-radius:6px;background:var(--bg)">';
-      html+='<option value="">–</option>';
-      KBE_WERTE.forEach(v=>html+='<option'+(v===val?' selected':'')+'>'+esc(v)+'</option>');
-      html+='</select></div>';
-    });
+    k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'';html+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><span style="font-size:12px;color:var(--tx);min-width:90px">'+esc(r.name)+'</span><select id="kbee-'+kid+'-'+e.id+'-'+ei+'-'+r.name.replace(/\s/g,'_')+'" style="flex:1;padding:4px 7px;font-size:13px;border:1.5px solid var(--bo);border-radius:6px;background:var(--bg)"><option value="">–</option>'+KBE_WERTE.map(v=>'<option'+(v===val?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select></div>';});
     html+='<button onclick="saveKbeEintragEdit(\''+kid+'\',\''+e.id+'\','+ei+',this)" style="margin-top:4px;padding:5px 12px;background:var(--gn);color:#fff;border:none;border-radius:6px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Speichern</button>';
     html+='</div>';
   });
   html+='<button onclick="this.closest(\'.kbe-edit-box\').remove()" style="margin-top:4px;width:100%;padding:8px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Schließen</button>';
-  box.innerHTML=html;
-  G('kbe-kunden-grid').after(box);
+  box.innerHTML=html;G('kbe-kunden-grid').after(box);
 }
 
 async function saveKbeEintragEdit(kid,eid,ei,btn){
-  const k=KBE.find(x=>x.id===kid);if(!k)return;
-  const e=k.eintraege.find(x=>x.id===eid);if(!e)return;
-  const newWerte={};
-  k.rkws.forEach(r=>{
-    const sel=document.getElementById('kbee-'+kid+'-'+eid+'-'+ei+'-'+r.name.replace(/\s/g,'_'));
-    if(sel&&sel.value)newWerte[r.name]=sel.value;
-  });
-  await _sb.from('kbe_eintraege').update({werte:newWerte}).eq('id',eid);
-  e.werte=newWerte;
-  toast('✓ Eintrag gespeichert');
-  openKbeEdit(kid);
+  const k=KBE.find(x=>x.id===kid);if(!k)return;const e=k.eintraege.find(x=>x.id===eid);if(!e)return;
+  const newWerte={};k.rkws.forEach(r=>{const sel=document.getElementById('kbee-'+kid+'-'+eid+'-'+ei+'-'+r.name.replace(/\s/g,'_'));if(sel&&sel.value)newWerte[r.name]=sel.value;});
+  await _sb.from('kbe_eintraege').update({werte:newWerte}).eq('id',eid);e.werte=newWerte;toast('✓ Eintrag gespeichert');openKbeEdit(kid);
 }
 
 async function delKbeEintrag(kid,eid,btn){
   if(btn.dataset.confirm!=='1'){btn.textContent='Sicher?';btn.dataset.confirm='1';setTimeout(()=>{btn.textContent='Löschen';btn.dataset.confirm='';},3000);return;}
-  await _sb.from('kbe_eintraege').delete().eq('id',eid);
-  const k=KBE.find(x=>x.id===kid);
-  if(k)k.eintraege=k.eintraege.filter(x=>x.id!==eid);
-  toast('✓ Eintrag gelöscht');
-  openKbeEdit(kid);
-  renderKbeListe();
+  await _sb.from('kbe_eintraege').delete().eq('id',eid);const k=KBE.find(x=>x.id===kid);if(k)k.eintraege=k.eintraege.filter(x=>x.id!==eid);toast('✓ Eintrag gelöscht');openKbeEdit(kid);renderKbeListe();
 }
+
 function selectKbeKunde(kid){
   selKbeKunde=kid;renderKbeKunden();
   const k=KBE.find(x=>x.id===kid);if(!k){G('kbe-bestehend-form').style.display='none';return;}
   G('kbe-selkunde-label').textContent=k.firma+' – neuer KBE-Eintrag';
   const c=G('kbe-best-rkws');c.innerHTML='';
-  k.rkws.forEach(r=>{
-    const row=document.createElement('div');row.className='rkw-row';
-    row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
-    c.appendChild(row);
-  });
-  if(!G('kbe-best-add-rkw-btn')){
-    const addBtn=document.createElement('button');
-    addBtn.id='kbe-best-add-rkw-btn';
-    addBtn.className='add-rkw-btn';
-    addBtn.textContent='+ RKW hinzufügen';
-    addBtn.onclick=()=>addRkwRow('kbe-best-rkws');
-    c.parentElement.insertBefore(addBtn, c.nextSibling);
-  }
-  // Datum leer lassen
-  G('kbe-best-datum').value='';
-  G('kbe-bestehend-form').style.display='block';
+  k.rkws.forEach(r=>{const row=document.createElement('div');row.className='rkw-row';row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';c.appendChild(row);});
+  if(!G('kbe-best-add-rkw-btn')){const addBtn=document.createElement('button');addBtn.id='kbe-best-add-rkw-btn';addBtn.className='add-rkw-btn';addBtn.textContent='+ RKW hinzufügen';addBtn.onclick=()=>addRkwRow('kbe-best-rkws');c.parentElement.insertBefore(addBtn, c.nextSibling);}
+  G('kbe-best-datum').value='';G('kbe-bestehend-form').style.display='block';
 }
 
-// ── Letzten KBE-Eintrag editieren ──
-// Öffnet ein Panel direkt unter dem Kunden-Chip mit Datum + Werten des neuesten Eintrags
 function openLetztenEdit(kid){
   const k=KBE.find(x=>x.id===kid);if(!k||!k.eintraege.length)return;
-  const letzter=k.eintraege[0]; // neuester Eintrag
-
-  // Bestehende Edit-Boxen entfernen
+  const letzter=k.eintraege[0];
   document.querySelectorAll('.kbe-letzten-edit-box').forEach(x=>x.remove());
-
-  const box=document.createElement('div');
-  box.className='kbe-letzten-edit-box';
-  box.style.cssText='background:#fff;border:1.5px solid var(--bl);border-radius:10px;padding:13px;margin-top:6px';
-
-  // Titel
-  const titel=document.createElement('div');
-  titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';
-  titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten';
-  box.appendChild(titel);
-
-  // Datum
-  const datumLbl=document.createElement('div');
-  datumLbl.className='sl';datumLbl.style.marginTop='0';
-  datumLbl.textContent='Datum der Probenahme';
-  box.appendChild(datumLbl);
-  const datumInp=document.createElement('input');
-  datumInp.type='date';datumInp.id='edit-letzten-datum-'+kid;
-  // ISO Datum aus dem Eintrag (YYYY-MM-DD)
+  const box=document.createElement('div');box.className='kbe-letzten-edit-box';box.style.cssText='background:#fff;border:1.5px solid var(--bl);border-radius:10px;padding:13px;margin-top:6px';
+  const titel=document.createElement('div');titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten';box.appendChild(titel);
+  const datumLbl=document.createElement('div');datumLbl.className='sl';datumLbl.style.marginTop='0';datumLbl.textContent='Datum der Probenahme';box.appendChild(datumLbl);
+  const datumInp=document.createElement('input');datumInp.type='date';datumInp.id='edit-letzten-datum-'+kid;
   const isoDate=letzter.ts?letzter.ts.split('T')[0]:letzter.datum;
-  // Datum aus DD.MM.YYYY → YYYY-MM-DD falls nötig
-  if(isoDate&&isoDate.includes('-')){
-    datumInp.value=isoDate;
-  } else if(isoDate&&isoDate.includes('.')){
-    const parts=isoDate.split('.');
-    if(parts.length===3) datumInp.value=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-  }
+  if(isoDate&&isoDate.includes('-')){datumInp.value=isoDate;}
+  else if(isoDate&&isoDate.includes('.')){const parts=isoDate.split('.');if(parts.length===3)datumInp.value=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;}
   box.appendChild(datumInp);
-
-  // RKW-Werte
-  const rkwLbl=document.createElement('div');
-  rkwLbl.className='sl';rkwLbl.textContent='RKW-Werte';
-  box.appendChild(rkwLbl);
-
+  const rkwLbl=document.createElement('div');rkwLbl.className='sl';rkwLbl.textContent='RKW-Werte';box.appendChild(rkwLbl);
   k.rkws.forEach(r=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
-    const nameSpan=document.createElement('span');
-    nameSpan.style.cssText='font-size:13px;color:var(--tx);min-width:100px;font-weight:500';
-    nameSpan.textContent=r.name;
-    const sel=document.createElement('select');
-    sel.className='rkw-val-select';
-    sel.id='edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_');
-    sel.style.flex='1';
-    sel.innerHTML='<option value="">– kein Wert</option>'+
-      KBE_WERTE.map(v=>'<option'+(letzter.werte&&letzter.werte[r.name]===v?' selected':'')+'>'+esc(v)+'</option>').join('');
-    row.append(nameSpan,sel);
-    box.appendChild(row);
+    const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    const nameSpan=document.createElement('span');nameSpan.style.cssText='font-size:13px;color:var(--tx);min-width:100px;font-weight:500';nameSpan.textContent=r.name;
+    const sel=document.createElement('select');sel.className='rkw-val-select';sel.id='edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_');sel.style.flex='1';
+    sel.innerHTML='<option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option'+(letzter.werte&&letzter.werte[r.name]===v?' selected':'')+'>'+esc(v)+'</option>').join('');
+    row.append(nameSpan,sel);box.appendChild(row);
   });
-
-  // Buttons
-  const btnRow=document.createElement('div');
-  btnRow.style.cssText='display:flex;gap:8px;margin-top:10px';
-  const saveBtn=document.createElement('button');
-  saveBtn.className='bsend';saveBtn.style.cssText='margin-top:0;flex:1';
-  saveBtn.textContent='💾 Speichern';
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:10px';
+  const saveBtn=document.createElement('button');saveBtn.className='bsend';saveBtn.style.cssText='margin-top:0;flex:1';saveBtn.textContent='💾 Speichern';
   saveBtn.onclick=()=>saveLetztenEdit(kid,letzter.id,datumInp,k,box);
-  const cancelBtn=document.createElement('button');
-  cancelBtn.style.cssText='padding:10px 14px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer';
-  cancelBtn.textContent='Abbrechen';
-  cancelBtn.onclick=()=>box.remove();
-  btnRow.append(saveBtn,cancelBtn);
-  box.appendChild(btnRow);
-
-  // Nach dem Kunden-Chip einfügen
-  const grid=G('kbe-kunden-grid');
-  grid.after(box);
-  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  const cancelBtn=document.createElement('button');cancelBtn.style.cssText='padding:10px 14px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer';cancelBtn.textContent='Abbrechen';cancelBtn.onclick=()=>box.remove();
+  btnRow.append(saveBtn,cancelBtn);box.appendChild(btnRow);
+  G('kbe-kunden-grid').after(box);box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 async function saveLetztenEdit(kid, eid, datumInp, k, box){
-  const datum=datumInp.value;
-  if(!datum){toast('⚠️ Bitte Datum wählen.');return;}
-
-  // Neue Werte sammeln
-  const newWerte={};
-  k.rkws.forEach(r=>{
-    const sel=document.getElementById('edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_'));
-    if(sel&&sel.value) newWerte[r.name]=sel.value;
-  });
-
-  // In Supabase updaten
+  const datum=datumInp.value;if(!datum){toast('⚠️ Bitte Datum wählen.');return;}
+  const newWerte={};k.rkws.forEach(r=>{const sel=document.getElementById('edit-letzten-'+kid+'-'+r.name.replace(/\s/g,'_'));if(sel&&sel.value) newWerte[r.name]=sel.value;});
   const {error}=await _sb.from('kbe_eintraege').update({datum,werte:newWerte}).eq('id',eid);
   if(error){toast('⚠️ Fehler: '+error.message);return;}
-
-  // Lokal updaten
-  const letzter=k.eintraege[0];
-  letzter.ts=datum;
-  letzter.werte=newWerte;
-  const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  letzter.datum=datumStr;
-
-  box.remove();
-  renderKbeListe();
-  renderKbeKunden();
-  toast('✓ Eintrag aktualisiert');
+  const letzter=k.eintraege[0];letzter.ts=datum;letzter.werte=newWerte;
+  letzter.datum=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  box.remove();renderKbeListe();renderKbeKunden();toast('✓ Eintrag aktualisiert');
 }
 
 async function saveNeuerKunde(){
@@ -2537,30 +2035,15 @@ async function saveNeuerKunde(){
   const {data:neuerK,error}=await _sb.from('kbe_kunden').insert({firma,kuerzel_erstellt:kz,rkws}).select().single();
   if(error||!neuerK){toast('⚠️ Fehler: '+(error?.message||''));return;}
   await _sb.from('kbe_eintraege').insert({kunde_id:neuerK.id,datum,werte,kuerzel:kz});
-
-  // Lokal sofort hinzufügen damit Chip gleich erscheint
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  KBE.push({
-    id:neuerK.id, firma, kuerzel_erstellt:kz,
-    rkws,
-    eintraege:[{id:'tmp-'+Date.now(),ts:datum,datum:datumStr,werte}]
-  });
-  // KBE Liste neu sortieren
+  KBE.push({id:neuerK.id, firma, kuerzel_erstellt:kz, rkws, eintraege:[{id:'tmp-'+Date.now(),ts:datum,datum:datumStr,werte}]});
   KBE.sort((a,b)=>a.firma.localeCompare(b.firma,'de'));
-
-  // Felder leeren für nächste Eingabe
-  G('kbe-neukunde').value='';
-  G('kbe-neu-datum').value='';
-  // RKW-Rows zurücksetzen
-  const rkwContainer=G('kbe-neu-rkws');
-  rkwContainer.innerHTML='<div class="rkw-row"><input type="text" placeholder="RKW-Name z. B. RH, Umformung…"><select class="rkw-val-select"><option value="">–</option>'+KBE_WERTE.map(v=>'<option>'+v+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button></div>';
-
-  // UI aktualisieren
-  renderKbeListe();
-  renderKbeKunden();
-  updB();
+  G('kbe-neukunde').value='';G('kbe-neu-datum').value='';
+  G('kbe-neu-rkws').innerHTML='<div class="rkw-row"><input type="text" placeholder="RKW-Name z. B. RH, Umformung…"><select class="rkw-val-select"><option value="">–</option>'+KBE_WERTE.map(v=>'<option>'+v+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button></div>';
+  renderKbeListe();renderKbeKunden();updB();
   toast('✓ Kunde angelegt & KBE gespeichert – Felder bereit für nächsten Eintrag');
 }
+
 async function saveBestKunde(){
   const k=KBE.find(x=>x.id===selKbeKunde);if(!k){alert('Kein Kunde gewählt.');return;}
   const rows=G('kbe-best-rkws').querySelectorAll('.rkw-row');
@@ -2574,15 +2057,13 @@ async function saveBestKunde(){
   k.rkws=neueRkws;
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte});
-  toast('✓ KBE-Werte gespeichert');
-  renderKbeListe();renderKbeKunden();updB();
-  selKbeKunde=null;
-  G('kbe-bestehend-form').style.display='none';
+  toast('✓ KBE-Werte gespeichert');renderKbeListe();renderKbeKunden();updB();
+  selKbeKunde=null;G('kbe-bestehend-form').style.display='none';
   document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
   G('kbe-best-rkws').innerHTML='';
-  const suchfeld=G('kbe-suche');
-  if(suchfeld){suchfeld.value='';suchfeld.focus();renderKbeKunden();}
+  const suchfeld=G('kbe-suche');if(suchfeld){suchfeld.value='';suchfeld.focus();renderKbeKunden();}
 }
+
 function addRkwRow(containerId){
   const c=G(containerId);const row=document.createElement('div');row.className='rkw-row';
   row.innerHTML='<input type="text" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
@@ -2594,54 +2075,27 @@ function toggleKbeNeuKunde(){const body=G('kbe-neu-body');const arrow=G('kbe-neu
 // RENDER LOG
 // ══════════════════════════════════════════════════════════
 function buildGeloeschtChip(logEntry){
-  const p=logEntry.payload||{};
-  const typ=logEntry.typ;
-  const el=document.createElement('div');
-  el.className='v2-chip';
-  el.style.opacity='0.82';
-
+  const p=logEntry.payload||{};const typ=logEntry.typ;
+  const el=document.createElement('div');el.className='v2-chip';el.style.opacity='0.82';
   const kzBadgeLog='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px">'+esc(p.kuerzel||logEntry.geloescht_von||'')+'</span>';
   const datumBadge='<span style="color:#9ca3af;font-size:11px">'+fd(p.ts||null)+'</span>';
   const loeschBadge='<span style="background:#fee2e2;color:#dc2626;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;white-space:nowrap">🗑 '+esc(logEntry.geloescht_von)+' · '+fd(logEntry.ts)+'</span>';
   const typBadge='<span style="background:#6b21a8;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em">'+esc(typ)+'</span>';
-
-  const headerInner=
-    '<div class="v2-header-inner" style="background:#f5f3ff;border-bottom-color:#ddd6fe">'+
-      '<div style="flex:1;min-width:0">'+
-        '<div class="v2-firma" style="color:#5b21b6">'+esc(p.firma||logEntry.firma||'–')+'</div>'+
-        '<div style="font-size:11px;margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
-          kzBadgeLog+datumBadge+
-        '</div>'+
-      '</div>'+
-      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'+
-        typBadge+loeschBadge+
-      '</div>'+
-    '</div>';
-
+  const headerInner='<div class="v2-header-inner" style="background:#f5f3ff;border-bottom-color:#ddd6fe"><div style="flex:1;min-width:0"><div class="v2-firma" style="color:#5b21b6">'+esc(p.firma||logEntry.firma||'–')+'</div><div style="font-size:11px;margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+kzBadgeLog+datumBadge+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'+typBadge+loeschBadge+'</div></div>';
   let bodyHtml='<div class="v2-body">';
-
   if(typ==='Meldung'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
     if(p.bearbeitet_am)bodyHtml+='<div style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:2px">bearbeitet '+fd(p.bearbeitet_am)+'</div>';
     const zuwArr=p.zugewiesen_an||[];
     if(zuwArr.length)bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">→ '+zuwArr.map(esc).join(', ')+'</span></div>';
-    // Gelesen-Status Chips in definierter Reihenfolge: IS AG RG SB JN BT
-  const zeigeKZ=(zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel)).sort((a,b)=>kzSortIdx(a)-kzSortIdx(b));
+    const zeigeKZ=(zuwArr.length?zuwArr:allNutzer.map(n=>n.kuerzel)).sort((a,b)=>kzSortIdx(a)-kzSortIdx(b));
     const gelVon=p.gelesen_von||{};
     bodyHtml+='<div class="v2-status-row"><span class="v2-slabel">Gelesen:</span>';
-    zeigeKZ.forEach(k2=>{
-      bodyHtml+=gelVon[k2]
-        ?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>'
-        :'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';
-    });
-    if(!zeigeKZ.includes(p.kuerzel)&&p.kuerzel)
-      bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(p.kuerzel)+'</span>';
+    zeigeKZ.forEach(k2=>{bodyHtml+=gelVon[k2]?'<span class="gs-chip gs-done">✓ '+esc(k2)+'</span>':'<span class="gs-chip gs-offen">○ '+esc(k2)+'</span>';});
+    if(!zeigeKZ.includes(p.kuerzel)&&p.kuerzel)bodyHtml+='<span class="gs-chip gs-done">✓ '+esc(p.kuerzel)+'</span>';
     bodyHtml+='</div>';
     const verlauf=(p.verlauf||[]).filter(v=>v.text);
-    verlauf.forEach(v=>{
-      const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';
-      bodyHtml+='<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';
-    });
+    verlauf.forEach(v=>{const nz=v.neu_zuw&&v.neu_zuw.length?'<span class="kom-zuw-badge">→ '+v.neu_zuw.map(esc).join(', ')+'</span>':'';bodyHtml+='<div class="kom-zeile"><span class="v2-kz '+kzClass(v.kuerzel)+'">'+esc(v.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(v.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(v.text)+'</span>'+nz+'</div>';});
   } else if(typ==='Chemie'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+(p.produkte||[]).map(x=>'• '+esc(x)).join('  ')+'</div>';
     if(p.notiz)bodyHtml+='<div class="v2-text" style="font-style:italic;color:var(--mu)">'+esc(p.notiz)+'</div>';
@@ -2649,43 +2103,24 @@ function buildGeloeschtChip(logEntry){
     if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
   } else if(typ==='Frei'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">'+esc(p.text||'–')+'</div>';
-    if(p.nurMat||p.nur_mat){
-      bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>';
-    } else if(p.mann){
-      const mt=p.mann===0.5?'½ Monteur':p.mann===1?'1 Monteur':p.mann+' Monteure';
-      bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+esc(mt)+'</span><span class="frei-meta-chip std">⏱ '+esc(p.stunden)+' h</span></div>';
-    }
+    if(p.nurMat||p.nur_mat){bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip matonly">📦 Nur Material</span></div>';}
+    else if(p.mann){const mt=p.mann===0.5?'½ Monteur':p.mann===1?'1 Monteur':p.mann+' Monteure';bodyHtml+='<div class="frei-meta"><span class="frei-meta-chip mann">👷 '+esc(mt)+'</span><span class="frei-meta-chip std">⏱ '+esc(p.stunden)+' h</span></div>';}
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span><span>'+fd(p.ts||null)+'</span></div>';
     if(p.erledigt)bodyHtml+='<div class="erlinfo">✅ '+(p.angebotsnr?'<strong>AN: '+esc(p.angebotsnr)+'</strong> ':'')+esc(p.erledigt_von||'')+' · '+fd(p.erledigt_ts||null)+'</div>';
     const rqs=(p.rueckfragen||[]);
-    if(rqs.length){
-      bodyHtml+='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';
-      rqs.forEach(rq=>{
-        bodyHtml+='<div class="rq-item"><div style="display:flex;gap:6px;align-items:center"><span class="rq-kz">'+esc(rq.kuerzel)+'</span><span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div>';
-        bodyHtml+='<div class="rq-text">'+esc(rq.kommentar)+'</div>';
-        (rq.antworten||[]).forEach(a=>{bodyHtml+='<div class="rq-answer"><strong>'+esc(a.kuerzel)+':</strong> '+esc(a.text)+'</div>';});
-        bodyHtml+='</div>';
-      });
-      bodyHtml+='</div>';
-    }
+    if(rqs.length){bodyHtml+='<div class="rq-block"><div class="rq-title">❓ Rückfragen</div>';rqs.forEach(rq=>{bodyHtml+='<div class="rq-item"><div style="display:flex;gap:6px;align-items:center"><span class="rq-kz">'+esc(rq.kuerzel)+'</span><span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div><div class="rq-text">'+esc(rq.kommentar)+'</div>';(rq.antworten||[]).forEach(a=>{bodyHtml+='<div class="rq-answer"><strong>'+esc(a.kuerzel)+':</strong> '+esc(a.text)+'</div>';});bodyHtml+='</div>';});bodyHtml+='</div>';}
   } else if(typ==='KBE'){
     bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel_erstellt||'')+'</span></div>';
-    if(p.eintraege&&p.eintraege.length){
-      bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px">'+p.eintraege.length+' Einträge · Letzter: '+esc(p.eintraege[0].datum||'')+'</div>';
-    }
-  } else {
-    bodyHtml+='<div class="v2-text">'+esc(logEntry.kurzinfo||'–')+'</div>';
-  }
-
+    if(p.eintraege&&p.eintraege.length){bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px">'+p.eintraege.length+' Einträge · Letzter: '+esc(p.eintraege[0].datum||'')+'</div>';}
+  } else {bodyHtml+='<div class="v2-text">'+esc(logEntry.kurzinfo||'–')+'</div>';}
   bodyHtml+='</div>';
   el.innerHTML='<div class="v2-header"><div class="v2-stripe" style="background:#6b21a8"></div>'+headerInner+'</div>'+bodyHtml;
   return el;
 }
 
 function renderLog(){
-  const c=G('el');
-  c.querySelectorAll('.log-karte,.v2-chip').forEach(e=>e.remove());
+  const c=G('el');c.querySelectorAll('.log-karte,.v2-chip').forEach(e=>e.remove());
   const q=(V('sl-search')||'').toLowerCase();
   let d=LOG_DATA.filter(e=>{
     const p=e.payload||{};
@@ -2699,7 +2134,7 @@ function renderLog(){
 }
 
 // ══════════════════════════════════════════════════════════
-// BADGES – Tab-Counter + App-Icon Badge (v10)
+// BADGES
 // ══════════════════════════════════════════════════════════
 function updB(){
   const ug=MD.filter(e=>offenFuerMich(e)).length;
@@ -2710,7 +2145,6 @@ function updB(){
   if(fm>0){bFm.textContent=fm;bFm.className='tbg v fm';}else bFm.className='tbg';
   const ftOf=G('ft-m-of-cnt');if(ftOf)ftOf.textContent=ug||'';
   const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
-  // KBE Tab bewusst ohne Counter
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
   const of2=FR.filter(e=>!e.erledigt).length;
@@ -2721,59 +2155,30 @@ function updB(){
   if(rqOf>0){bRq.textContent=rqOf;bRq.className='tbg v rq';}else bRq.className='tbg';
   const ftRq=G('ft-rq-cnt');if(ftRq)ftRq.textContent=rqOf||'';
   const ftAnt=G('ft-ant-cnt');if(ftAnt)ftAnt.textContent=rqAnt||'';
-  // Gelöscht-Counter bewusst entfernt – Tab bleibt ruhiger
-
-  // ── Zu bearbeiten (grün) – ich bin zugewiesen + habe gelesen ──
-  const zbCount=MD.filter(e=>
-    e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&
-    e.kuerzel!==kz&&
-    ichHabGelesen(e)&&
-    e.bearbeitungs_status==='in_bearbeitung'
-  ).length;
-  const ftZb=document.getElementById('ft-zb-cnt');
-  if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
-  // Tab-Badge ZB (grün, andere Farbe als ug/fm)
-  const tbmZb=document.getElementById('tbm-zb');
-  if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
-
-  // ── Wird bearbeitet (cyan) – ich bin Ersteller + Empfänger hat gelesen ──
+  const zbCount=MD.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&e.kuerzel!==kz&&ichHabGelesen(e)&&e.bearbeitungs_status==='in_bearbeitung').length;
+  const ftZb=document.getElementById('ft-zb-cnt');if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
+  const tbmZb=document.getElementById('tbm-zb');if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
   const wbCount=MD.filter(e=>e.kuerzel===kz&&e.bearbeitungs_status==='in_bearbeitung').length;
-  const ftWb=document.getElementById('ft-wb-cnt');
-  if(ftWb){if(wbCount>0){ftWb.textContent=wbCount;ftWb.className='tbg wb v';}else ftWb.className='tbg';}
-  // Tab-Badge WB (cyan, andere Farbe als ug/fm)
-  const tbmWb=document.getElementById('tbm-wb');
-  if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
-
-  // ── Gemerkt Counter ──
+  const ftWb=document.getElementById('ft-wb-cnt');if(ftWb){if(wbCount>0){ftWb.textContent=wbCount;ftWb.className='tbg wb v';}else ftWb.className='tbg';}
+  const tbmWb=document.getElementById('tbm-wb');if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
   const favCount = FAVORITEN.size;
-  const ftFav = document.getElementById('ft-fav-cnt');
-  if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
-
-
-  // ── App-Icon Badge: Summe aus "Offen" (rot, ug) + "Für mich" (lila, fm) ──
-  // Zeigt die Gesamtzahl der persönlichen Aufgaben direkt auf dem App-Icon
-  // Wird beim Abmelden in doLogout() explizit zurückgesetzt (clearAppBadge)
+  const ftFav = document.getElementById('ft-fav-cnt');if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
   const badgeGesamt = ug + fm;
-  if('setAppBadge' in navigator){
-    if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);
-    else navigator.clearAppBadge();
-  }
+  if('setAppBadge' in navigator){if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);else navigator.clearAppBadge();}
 }
 
 function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();}
-
-// ── KBE Tab Render ──
 function renderKbeTab(){
-  const c=G('eb');if(!c)return;
-  c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
+  const c=G('eb');if(!c)return;c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=(G('sb-search')?G('sb-search').value||'':'').toLowerCase();
   const d=KBE.filter(k=>!q||k.firma.toLowerCase().includes(q));
-  G('eb0').style.display=d.length?'none':'';
-  renderKbeInListe(d,c);
+  G('eb0').style.display=d.length?'none':'';renderKbeInListe(d,c);
 }
 
 // ══════════════════════════════════════════════════════════
 // ADMIN: NUTZERVERWALTUNG
+// BUG FIX #1: createNutzer verwendet signUp statt admin.createUser
+// BUG FIX #4: allNutzer + Pills nach Anlegen aktualisieren
 // ══════════════════════════════════════════════════════════
 async function loadNutzerAdmin(){
   const {data}=await _sb.from('nutzer').select('id,kuerzel,rolle,aktiv').order('kuerzel');
@@ -2784,87 +2189,106 @@ async function loadNutzerAdmin(){
     item.innerHTML='<div class="nutzer-kz">'+esc(n.kuerzel)+'</div>'+
       '<div class="nutzer-email" style="color:var(--mu)">'+esc(n.rolle)+'</div>'+
       '<span class="nutzer-rolle '+(n.rolle==='admin'?'rolle-admin':'rolle-tech')+'">'+esc(n.rolle)+'</span>'+
-      (n.kuerzel!==kz?'<button class="nutzer-del" onclick="deaktivNutzer(\''+n.id+'\',\''+esc(n.kuerzel)+'\')">Deaktiv.</button>':'<span style="font-size:11px;color:#94a3b8">(Du)</span>');
+      (n.kuerzel!==kz
+        ?'<button class="nutzer-del" onclick="deaktivNutzer(\''+n.id+'\',\''+esc(n.kuerzel)+'\')">Deaktiv.</button>'
+        :'<span style="font-size:11px;color:#94a3b8">(Du)</span>');
     liste.appendChild(item);
     const opt=document.createElement('option');opt.value=n.id;opt.textContent=n.kuerzel;pwSel.appendChild(opt);
   });
 }
 
+// BUG FIX #1: signUp statt admin.createUser (funktioniert mit Anon-Key)
 async function createNutzer(){
-  const newKz=V('new-kz').toUpperCase();
-  const email=V('new-email');
-  const pw=V('new-pw');
-  const rolle=V('new-rolle');
-  if(!newKz||!email||!pw){alert('Bitte alle Felder ausfüllen.');return;}
-  if(newKz.length>4){alert('Kürzel max. 4 Zeichen.');return;}
-  const {data,error}=await _sb.auth.admin?.createUser?.({email,password:pw,email_confirm:true})||{data:null,error:{message:'Admin-API nicht verfügbar. Bitte Nutzer im Supabase Dashboard anlegen.'}};
-  if(error||!data?.user){
-    toast('ℹ️ Nutzer im Supabase Dashboard anlegen: '+email+' / '+pw);
+  const newKz = V('new-kz').toUpperCase();
+  const email  = V('new-email');
+  const pw     = V('new-pw');
+  const rolle  = V('new-rolle');
+  if(!newKz || !email || !pw){ alert('Bitte alle Felder ausfüllen.'); return; }
+  if(newKz.length > 4){ alert('Kürzel max. 4 Zeichen.'); return; }
+
+  // Prüfen ob Kürzel bereits existiert
+  const {data:existing} = await _sb.from('nutzer').select('kuerzel').eq('kuerzel', newKz).maybeSingle();
+  if(existing){ toast('⚠️ Kürzel ' + newKz + ' existiert bereits.'); return; }
+
+  // ① Auth-User anlegen via signUp (funktioniert mit Anon-Key)
+  const {data, error} = await _sb.auth.signUp({ email, password: pw });
+  if(error || !data?.user){
+    toast('⚠️ Fehler: ' + (error?.message || 'Unbekannt'));
     return;
   }
-  await _sb.from('nutzer').insert({id:data.user.id,kuerzel:newKz,rolle});
-  G('new-kz').value='';G('new-email').value='';G('new-pw').value='';
-  toast('✓ Nutzer '+newKz+' angelegt');
+
+  // ② Profil in nutzer-Tabelle eintragen
+  const {error: profErr} = await _sb.from('nutzer').insert({
+    id:      data.user.id,
+    kuerzel: newKz,
+    rolle:   rolle,
+    aktiv:   true
+  });
+  if(profErr){
+    toast('⚠️ Auth OK aber Profil-Fehler: ' + profErr.message);
+    return;
+  }
+
+  // Felder leeren
+  G('new-kz').value=''; G('new-email').value=''; G('new-pw').value='';
+  toast('✓ Nutzer ' + newKz + ' angelegt – kann sich jetzt einloggen');
+
+  // BUG FIX #4: allNutzer und Pills sofort aktualisieren
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv', true).order('kuerzel');
+  allNutzer = alleN || [];
+  buildZuwPills();
+
   loadNutzerAdmin();
 }
 
-async function deaktivNutzer(id,nkz){
+async function deaktivNutzer(id, nkz){
   if(!confirm('Nutzer '+nkz+' deaktivieren?'))return;
   await _sb.from('nutzer').update({aktiv:false}).eq('id',id);
   toast('✓ '+nkz+' deaktiviert');
+
+  // BUG FIX #4: allNutzer und Pills nach Deaktivierung aktualisieren
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv', true).order('kuerzel');
+  allNutzer = alleN || [];
+  buildZuwPills();
+
   loadNutzerAdmin();
 }
 
+// BUG FIX #5: resetPw zeigt ehrlichen Hinweis statt leerer Funktion
 async function resetPw(){
-  const uid2=V('pw-reset-kz');const pw=V('pw-reset-new');
-  if(!uid2||!pw){alert('Bitte Nutzer und neues Passwort wählen.');return;}
-  toast('ℹ️ Passwort-Reset im Supabase Dashboard: Authentication → Users → Edit');
+  toast('ℹ️ Passwort-Reset: Supabase Dashboard → Authentication → Users → Edit');
 }
 
-
 // ══════════════════════════════════════════════════════════
-// PUSH NOTIFICATIONS – Abo verwalten
+// PUSH NOTIFICATIONS
 // ══════════════════════════════════════════════════════════
-
-// VAPID Public Key (muss mit dem in Supabase Secrets übereinstimmen)
 const VAPID_PUBLIC_KEY = 'BGtA-VFh5Qz7iJ5W1cRIpOV4iTr3cOeCnnjYWMsD4mtYZtRi7vquT68Fr_-6F12XpRA-Zv09lbaVPQTqHtRBsww';
 
-// Umwandlung base64url → Uint8Array (für pushManager.subscribe)
 function urlB64ToUint8Array(base64String) {
   const pad = base64String + '='.repeat((4 - base64String.length % 4) % 4);
   const raw = atob(pad.replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-// Push-Abo anlegen und in Supabase speichern
 async function subscribePush() {
   if (!('PushManager' in window) || !swReg) return;
   try {
-    // Prüfen ob bereits abonniert
     let sub = await swReg.pushManager.getSubscription();
     if (!sub) {
-      // Neu abonnieren – Browser zeigt "Benachrichtigungen erlauben" Dialog
       sub = await swReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
       });
     }
-    // Subscription in Supabase speichern (upsert – kein Duplikat)
     const subJson = sub.toJSON();
     await _sb.from('push_subscriptions').upsert({
-      kuerzel: kz,
-      endpoint: subJson.endpoint,
-      subscription: subJson,
-      aktiv: true
+      kuerzel: kz, endpoint: subJson.endpoint, subscription: subJson, aktiv: true
     }, { onConflict: 'kuerzel,endpoint' });
-    console.log('Push-Abo aktiv für', kz);
   } catch(e) {
-    // Nutzer hat abgelehnt oder Browser unterstützt es nicht – kein Problem
     console.log('Push-Abo nicht möglich:', e.message);
   }
 }
 
-// Push-Abo beim Abmelden deaktivieren
 async function unsubscribePush() {
   if (!swReg) return;
   try {
@@ -2872,10 +2296,7 @@ async function unsubscribePush() {
     if (sub) {
       const endpoint = sub.endpoint;
       await sub.unsubscribe();
-      await _sb.from('push_subscriptions')
-        .update({ aktiv: false })
-        .eq('kuerzel', kz)
-        .eq('endpoint', endpoint);
+      await _sb.from('push_subscriptions').update({ aktiv: false }).eq('kuerzel', kz).eq('endpoint', endpoint);
     }
   } catch(e) {
     console.log('Unsubscribe Fehler:', e.message);
@@ -2886,73 +2307,28 @@ async function unsubscribePush() {
 // OFFLINE QUEUE & DETECTION
 // ══════════════════════════════════════════════════════════
 const QUEUE_KEY = 'rkw_offline_queue';
-
 function isOnline(){ return navigator.onLine; }
-
-function showOfflineBanner(show){
-  const b=G('offline-banner');
-  if(b) b.classList.toggle('v', show);
-}
-
-function updateQueueBadge(){
-  const q=getQueue();
-  const el=G('offline-queue-cnt');
-  if(!el)return;
-  if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}
-  else el.style.display='none';
-}
-
-function getQueue(){
-  try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}
-}
-function addToQueue(item){
-  const q=getQueue();
-  q.push({...item, qid: Date.now()+'_'+Math.random()});
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-  updateQueueBadge();
-}
-function removeFromQueue(qid){
-  const q=getQueue().filter(x=>x.qid!==qid);
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
-  updateQueueBadge();
-}
+function showOfflineBanner(show){const b=G('offline-banner');if(b) b.classList.toggle('v', show);}
+function updateQueueBadge(){const q=getQueue();const el=G('offline-queue-cnt');if(!el)return;if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}else el.style.display='none';}
+function getQueue(){try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}}
+function addToQueue(item){const q=getQueue();q.push({...item, qid: Date.now()+'_'+Math.random()});localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
+function removeFromQueue(qid){const q=getQueue().filter(x=>x.qid!==qid);localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
 
 async function flushQueue(){
-  if(!isOnline())return;
-  const q=getQueue();
-  if(!q.length)return;
-  let flushed=0;
+  if(!isOnline())return;const q=getQueue();if(!q.length)return;let flushed=0;
   for(const item of q){
     try{
-      if(item.type==='meldung'){
-        const {error}=await _sb.from('meldungen').insert(item.data);
-        if(!error){removeFromQueue(item.qid);flushed++;}
-      } else if(item.type==='chemie'){
-        const {error}=await _sb.from('chemie').insert(item.data);
-        if(!error){removeFromQueue(item.qid);flushed++;}
-      } else if(item.type==='frei'){
-        const {error}=await _sb.from('freie_angebote').insert(item.data);
-        if(!error){removeFromQueue(item.qid);flushed++;}
-      }
-    } catch(e){ /* weiter versuchen */ }
+      if(item.type==='meldung'){const {error}=await _sb.from('meldungen').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
+      else if(item.type==='chemie'){const {error}=await _sb.from('chemie').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
+      else if(item.type==='frei'){const {error}=await _sb.from('freie_angebote').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
+    } catch(e){}
   }
-  if(flushed>0){
-    toast('✓ '+flushed+' offline gespeicherte Einträge hochgeladen');
-    await loadAll();
-  }
+  if(flushed>0){toast('✓ '+flushed+' offline gespeicherte Einträge hochgeladen');await loadAll();}
   updateQueueBadge();
 }
 
-window.addEventListener('online', ()=>{
-  showOfflineBanner(false);
-  flushQueue();
-  setSyncing('ok');
-});
-window.addEventListener('offline', ()=>{
-  showOfflineBanner(true);
-  setSyncing('err');
-});
-
+window.addEventListener('online', ()=>{showOfflineBanner(false);flushQueue();setSyncing('ok');});
+window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('err');});
 if(!isOnline()) showOfflineBanner(true);
 
 // ══════════════════════════════════════════════════════════
@@ -2960,56 +2336,17 @@ if(!isOnline()) showOfflineBanner(true);
 // ══════════════════════════════════════════════════════════
 (function(){
   let startY=0, pulling=false, threshold=120, triggered=false;
-  const ptr=document.getElementById('ptr');
-  const ptrSpin=document.getElementById('ptr-spin');
-  const ptrTxt=document.getElementById('ptr-txt');
-  const cnt=document.querySelector('.cnt');
+  const ptr=document.getElementById('ptr');const ptrSpin=document.getElementById('ptr-spin');
+  const ptrTxt=document.getElementById('ptr-txt');const cnt=document.querySelector('.cnt');
   if(!ptr||!cnt)return;
-
-  cnt.addEventListener('touchstart',e=>{
-    if(cnt.scrollTop>8)return;
-    startY=e.touches[0].clientY;
-    pulling=true;triggered=false;
-    ptr.classList.add('pulling');
-  },{passive:true});
-
-  cnt.addEventListener('touchmove',e=>{
-    if(!pulling)return;
-    const dy=e.touches[0].clientY-startY;
-    if(dy<0){pulling=false;ptr.style.height='0';return;}
-    const h=Math.min(dy*0.5, threshold+10);
-    ptr.style.height=h+'px';
-    if(dy>threshold&&!triggered){
-      ptrTxt.textContent='Loslassen zum Aktualisieren';
-      ptrSpin.classList.remove('go');
-    } else if(dy<=threshold*1.5){
-      ptrTxt.textContent='Zum Aktualisieren ziehen…';
-    }
-  },{passive:true});
-
-  cnt.addEventListener('touchend',async e=>{
-    if(!pulling)return;
-    pulling=false;
-    ptr.classList.remove('pulling');
-    const dy=e.changedTouches[0].clientY-startY;
-    if(dy>threshold){
-      ptr.style.height=threshold+'px';
-      ptrSpin.classList.add('go');
-      ptrTxt.textContent='Aktualisiere…';
-      if(swReg) swReg.update(); // SW-Update aktiv prüfen
-      await loadAll();
-      ptr.style.height='0';
-      ptrSpin.classList.remove('go');
-    } else {
-      ptr.style.height='0';
-    }
-  },{passive:true});
+  cnt.addEventListener('touchstart',e=>{if(cnt.scrollTop>8)return;startY=e.touches[0].clientY;pulling=true;triggered=false;ptr.classList.add('pulling');},{passive:true});
+  cnt.addEventListener('touchmove',e=>{if(!pulling)return;const dy=e.touches[0].clientY-startY;if(dy<0){pulling=false;ptr.style.height='0';return;}const h=Math.min(dy*0.5, threshold+10);ptr.style.height=h+'px';if(dy>threshold&&!triggered){ptrTxt.textContent='Loslassen zum Aktualisieren';ptrSpin.classList.remove('go');}else if(dy<=threshold*1.5){ptrTxt.textContent='Zum Aktualisieren ziehen…';}},{passive:true});
+  cnt.addEventListener('touchend',async e=>{if(!pulling)return;pulling=false;ptr.classList.remove('pulling');const dy=e.changedTouches[0].clientY-startY;if(dy>threshold){ptr.style.height=threshold+'px';ptrSpin.classList.add('go');ptrTxt.textContent='Aktualisiere…';if(swReg) swReg.update();await loadAll();ptr.style.height='0';ptrSpin.classList.remove('go');}else{ptr.style.height='0';}},{passive:true});
 })();
 
 renderPills();
 updateQueueBadge();
 init();
-
 </script>
 </body>
 </html>
