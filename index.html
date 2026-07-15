@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v37</title>
+<title>Meldungen &amp; Angebote v38</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -396,7 +396,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v37</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v38</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -905,7 +905,7 @@ async function loadAll(){
 
 function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[],bearbeitungs_status:r.bearbeitungs_status||null};}
 function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,bestellt:r.bestellt||false,bestellt_kommentar:r.bestellt_kommentar||null,bestellt_von:r.bestellt_von||null,bestellt_ts:r.bestellt_ts||null};}
-function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
+function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],kommentare:r.kommentare||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
 
 // ══════════════════════════════════════════════════════════
 // REALTIME
@@ -1111,7 +1111,7 @@ async function saveFrei(){
   const nm=G('nur-mat').checked;
   let h=parseFloat(G('fh').value)||1;if(h<=0)h=1;
   G('btn-frei').disabled=true;
-  const freiData={firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[]};
+  const freiData={firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[],kommentare:[]};
   if(!isOnline()){
     addToQueue({type:'frei',data:freiData});
     G('btn-frei').disabled=false;
@@ -1224,6 +1224,29 @@ async function saveRqAntwort(freiId,rqId){
   await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',freiId);
   if(ta)ta.value='';
   toast('✓ Antwort gespeichert');
+}
+
+// ══════════════════════════════════════════════════════════
+// KOMMENTARE (freie Angebote) — v38
+// Jeder Nutzer kann Bearbeitungs-Notizen hinterlassen,
+// z. B. "angefragt bei Prominent am 15.07." – mit Kürzel + Zeitstempel.
+// Sichtbar für alle, beliebig viele Kommentare pro Angebot.
+// ══════════════════════════════════════════════════════════
+async function saveFreiKommentar(freiId){
+  const e=FR.find(x=>x.id===freiId);if(!e)return;
+  const ta=G('fkom-ta-'+freiId);
+  const text=ta?ta.value.trim():'';
+  if(!text){alert('Bitte einen Kommentar eingeben.');return;}
+  const neuerKommentar={kuerzel:kz, text, ts:new Date().toISOString()};
+  const newKomm=[...(e.kommentare||[]), neuerKommentar];
+  const {error}=await _sb.from('freie_angebote').update({kommentare:newKomm}).eq('id',freiId);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  // Lokal updaten
+  const idx=FR.findIndex(x=>x.id===freiId);
+  if(idx>-1)FR[idx].kommentare=newKomm;
+  if(ta)ta.value='';
+  toast('✓ Kommentar gespeichert');
+  renderF();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1368,11 +1391,11 @@ async function setBeauftragt(id, taEl, pillsDiv){
   const idx=FR.findIndex(x=>x.id===id);
   if(idx>-1){FR[idx].beauftragt=true;FR[idx].beauftragt_kommentar=kommentar||null;FR[idx].beauftragt_von=kz;FR[idx].beauftragt_ts=now;}
   if(neuZuw.length){
-    const meldText='🔵 Beauftragt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
+    const meldText='🔵 Bestellt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
     await _sb.from('meldungen').insert({firma:e.firma,text:meldText,kuerzel:kz,zugewiesen_an:neuZuw,gelesen_von:{},verlauf:[]});
-    toast('✅ Beauftragt – Meldung an '+neuZuw.join(', ')+' erstellt');
+    toast('✅ Bestellt – Meldung an '+neuZuw.join(', ')+' erstellt');
   } else {
-    toast('✅ Als beauftragt markiert');
+    toast('✅ Als bestellt markiert');
   }
   renderF();
 }
@@ -1799,6 +1822,17 @@ function renderF(){
       rqHtml+='</div>';
     }
     const rqBoxHtml=!e.erledigt?'<div class="rq-inline-box" id="rq-box-'+e.id+'" style="display:none;flex-direction:column;gap:6px"><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rd)">❓ Rückfrage stellen</div><textarea class="gta" id="rq-ta-'+e.id+'" placeholder="Deine Frage…"></textarea><button class="brq-send" onclick="saveRq(\''+e.id+'\')">Senden</button></div>':'';
+    // ── v38: Bearbeitungs-Kommentare (für alle sichtbar, mit Kürzel + Zeitstempel) ──
+    let kommHtml='';
+    if((e.kommentare||[]).length){
+      kommHtml='<div style="border-top:1px solid var(--bo);margin-top:4px;padding-top:8px;display:flex;flex-direction:column;gap:5px">'+
+        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bd)">💬 Bearbeitungs-Notizen</div>';
+      e.kommentare.forEach(km=>{
+        kommHtml+='<div class="kom-zeile"><span class="v2-kz '+kzClass(km.kuerzel)+'">'+esc(km.kuerzel)+'</span> <span style="color:#94a3b8;font-size:11px">'+fd(km.ts)+'</span>: <span style="font-weight:600;color:var(--tx)">'+esc(km.text)+'</span></div>';
+      });
+      kommHtml+='</div>';
+    }
+    const anzKomm=(e.kommentare||[]).length;
     const el=document.createElement('div');
     el.className='v2-chip'+(e.erledigt?' erl':hatRQ?' rueckfrage':'');
     el.innerHTML=
@@ -1809,11 +1843,12 @@ function renderF(){
         '<div class="v2-badges">'+
           (e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+
           (hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+
+          (anzKomm?'<span class="v2-badge" style="background:var(--bp);color:var(--bd)">💬 '+anzKomm+'</span>':'')+
           '<span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span>'+
         '</div>'+
       '</div></div>'+
       '<div class="v2-body">'+
-        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+rqHtml+rqBoxHtml+
+        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+rqHtml+rqBoxHtml+kommHtml+
         (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
     const body=el.querySelector('.v2-body');
@@ -1825,29 +1860,59 @@ function renderF(){
       const rqB=document.createElement('button');rqB.className='brq';rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
       anrDiv.append(anrInp,erlB,rqB);body.appendChild(anrDiv);
     }
+    // ── v38: Kommentar-Eingabe (eingeklappt, für jeden Nutzer, auf jedem Angebot) ──
+    {
+      const kWrap=document.createElement('div');
+      kWrap.style.cssText='margin-top:2px';
+      const kTog=document.createElement('button');
+      kTog.textContent='▸ 💬 Notiz hinzufügen';
+      kTog.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left';
+      kWrap.appendChild(kTog);
+      const kBox=document.createElement('div');
+      kBox.style.cssText='display:none;flex-direction:column;gap:6px;margin-top:5px;background:var(--bg);border:1.5px solid var(--bo);border-radius:9px;padding:9px';
+      const kTa=document.createElement('textarea');
+      kTa.className='gta';kTa.id='fkom-ta-'+e.id;
+      kTa.placeholder='z. B. angefragt bei Prominent am '+new Date().toLocaleDateString('de-DE')+'…';
+      kTa.style.cssText='font-size:16px;min-height:46px';
+      kBox.appendChild(kTa);
+      const kSend=document.createElement('button');
+      kSend.style.cssText='padding:6px 13px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:"Barlow Condensed",sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start';
+      kSend.textContent='💬 Notiz speichern';
+      kSend.onclick=()=>saveFreiKommentar(e.id);
+      kBox.appendChild(kSend);
+      kWrap.appendChild(kBox);
+      kTog.onclick=()=>{
+        const open=kBox.style.display==='flex';
+        kBox.style.display=open?'none':'flex';
+        kBox.style.flexDirection='column';
+        kTog.textContent=open?'▸ 💬 Notiz hinzufügen':'▾ 💬 Notiz schließen';
+      };
+      body.appendChild(kWrap);
+    }
     if(e.erledigt){
       if(e.beauftragt){
         const bauDiv=document.createElement('div');bauDiv.className='beau-box';
-        const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Beauftragt';bauDiv.appendChild(bauTit);
+        const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Bestellt';bauDiv.appendChild(bauTit);
         const bauMeta=document.createElement('div');bauMeta.style.cssText='font-size:11px;color:#1d4ed8;display:flex;gap:6px;flex-wrap:wrap';
         bauMeta.innerHTML='<span class="v2-kz '+kzClass(e.beauftragt_von||'')+'">'+esc(e.beauftragt_von||'')+'</span><span>'+fd(e.beauftragt_ts)+'</span>';
         bauDiv.appendChild(bauMeta);
         if(e.beauftragt_kommentar){const bauKomm=document.createElement('div');bauKomm.style.cssText='font-size:12px;color:#1e40af;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #93c5fd';bauKomm.textContent='💬 '+e.beauftragt_kommentar;bauDiv.appendChild(bauKomm);}
         body.appendChild(bauDiv);
       } else {
+        // v38: Button heißt jetzt "Bestellt ?" (Funktion unverändert = beauftragt-Workflow)
         const bauWrap=document.createElement('div');bauWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
-        const bauBtn=document.createElement('button');bauBtn.className='bbeau';bauBtn.textContent='🔴 Beauftragt';
+        const bauBtn=document.createElement('button');bauBtn.className='bbeau';bauBtn.textContent='🔴 Bestellt ?';
         const bauKommDiv=document.createElement('div');bauKommDiv.style.display='none';
-        const bauTa=document.createElement('textarea');bauTa.className='gta';bauTa.placeholder='Kommentar zur Beauftragung (optional)…';bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
+        const bauTa=document.createElement('textarea');bauTa.className='gta';bauTa.placeholder='Kommentar zur Bestellung (optional)…';bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
         const bauZuwLbl=document.createElement('div');bauZuwLbl.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:6px;margin-bottom:4px';bauZuwLbl.textContent='Zuweisen an (Techniker):';
         const bauPills=document.createElement('div');bauPills.className='kz-pills';bauPills.id='bau-pills-'+e.id;
         [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
           const pb=document.createElement('button');pb.className='kz-pill';pb.style.cssText='font-size:12px;padding:5px 8px';pb.dataset.kz=n.kuerzel;pb.textContent=n.kuerzel;pb.onclick=()=>pb.classList.toggle('sel');bauPills.appendChild(pb);
         });
-        const bauSendBtn=document.createElement('button');bauSendBtn.className='bbeau aktiv';bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';bauSendBtn.textContent='✓ Beauftragt speichern';
+        const bauSendBtn=document.createElement('button');bauSendBtn.className='bbeau aktiv';bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';bauSendBtn.textContent='✓ Bestellt speichern';
         bauSendBtn.onclick=()=>setBeauftragt(e.id,bauTa,bauPills);
         bauKommDiv.append(bauTa,bauZuwLbl,bauPills,bauSendBtn);bauWrap.appendChild(bauBtn);bauWrap.appendChild(bauKommDiv);
-        bauBtn.onclick=()=>{const open=bauKommDiv.style.display==='flex';bauKommDiv.style.display=open?'none':'flex';bauKommDiv.style.flexDirection='column';bauBtn.textContent=open?'🔴 Beauftragt':'▾ Beauftragt';};
+        bauBtn.onclick=()=>{const open=bauKommDiv.style.display==='flex';bauKommDiv.style.display=open?'none':'flex';bauKommDiv.style.flexDirection='column';bauBtn.textContent=open?'🔴 Bestellt ?':'▾ Bestellt ?';};
         body.appendChild(bauWrap);
       }
     }
