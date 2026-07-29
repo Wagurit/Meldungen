@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v38</title>
+<title>Meldungen &amp; Angebote v41</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --bd:#0369a1;--bm:#0284c7;--bl:#0ea5e9;--bp:#e0f2fe;--bg:#f0f9ff;--bo:#bae6fd;
@@ -228,6 +229,22 @@ textarea{resize:vertical;min-height:68px;}
 .kunde-chip.sel{background:var(--bp);border-color:var(--bl);box-shadow:0 0 0 2px var(--bl);}
 .kunden-grid{display:flex;flex-wrap:wrap;margin-top:6px;}
 .kbe-karte{background:var(--wh);border:1px solid var(--bo);border-radius:10px;padding:12px 13px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.wm-karte{border-left:3px solid #0891b2;}
+.wm-rkw-eingabe{background:#fff;border:1px solid var(--bo);border-radius:8px;padding:9px;margin-bottom:8px;}
+.wm-rkw-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;color:var(--tx);margin-bottom:6px;}
+.wm-feld-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.wm-feld-row:last-child{margin-bottom:0;}
+.wm-feld-lbl{font-size:12px;color:var(--mu);min-width:108px;flex-shrink:0;}
+.wm-hist-block{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bg);}
+.wm-hist-block:last-child{border-bottom:none;}
+.wm-hist-datum{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);margin-bottom:5px;}
+.wm-hist-rkw{padding:5px 0;border-bottom:1px solid var(--bg);}
+.wm-hist-rkw:last-child{border-bottom:none;}
+.wm-hist-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:var(--tx);margin-bottom:2px;}
+.wm-hist-zeile{font-size:12px;color:var(--tx);}
+.wm-delta{color:var(--bm);font-weight:700;}
+.wm-delta-error{color:var(--rd);font-weight:700;background:var(--rdb);padding:1px 6px;border-radius:5px;}
+.wm-eindickung{font-size:11px;color:var(--gn);font-weight:700;margin-top:2px;}
 .kbe-karte-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;}
 .kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;color:var(--bd);}
 .kbe-karte-toggle{font-size:18px;color:var(--mu);transition:transform .2s;}
@@ -396,7 +413,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v38</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v41</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -415,6 +432,7 @@ textarea{resize:vertical;min-height:68px;}
       </span>
     </button>
     <button class="tab" data-tab="b">🔬 KBE</button>
+    <button class="tab" data-tab="wm">🚰 WM</button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Eintragen</button>
@@ -531,9 +549,18 @@ textarea{resize:vertical;min-height:68px;}
     <div class="pnl" id="panel-b">
       <div class="lhdr">
         <div class="ltit">🔬 KBE-Übersicht</div>
-        <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="renderKbeTab()">
+        <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="onKundenSucheInput(this.value)">
       </div>
       <div id="eb"><div class="empty" id="eb0">Noch keine KBE-Einträge</div></div>
+    </div>
+
+    <!-- WM: WASSERZÄHLERSTÄNDE (Zusatzwasser / Abwasser, Betriebstagebuch) -->
+    <div class="pnl" id="panel-wm">
+      <div class="lhdr">
+        <div class="ltit">🚰 Wasserzählerstände</div>
+        <input type="text" class="sin" id="wm-suche" placeholder="🔍 Firma suchen…" oninput="onKundenSucheInput(this.value)">
+      </div>
+      <div id="ewm"><div class="empty" id="ewm0">Noch keine Kunden – zuerst unter „KBE Eintragen" anlegen</div></div>
     </div>
 
     <!-- CHEMIE -->
@@ -576,7 +603,7 @@ textarea{resize:vertical;min-height:68px;}
           <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--bm);letter-spacing:.08em;background:var(--bo);padding:2px 8px;border-radius:6px">MEIST GENUTZT</span>
         </div>
         <div style="padding:14px">
-          <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="renderKbeKunden()">
+          <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="onKundenSucheInput(this.value)">
           <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
           <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
             <div class="sl" id="kbe-selkunde-label"></div>
@@ -726,7 +753,7 @@ let selKbeKunde = null;
 let inkDirty = false;
 let delPending = null;
 
-let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [];
+let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [], WM = [];
 let FAVORITEN = new Set();
 
 let cL = [...CHEM_STD], cS = new Set();
@@ -865,7 +892,7 @@ async function doLogout(){
 async function loadAll(){
   setSyncing('syncing');
   try {
-    const [m,c,f,k,ke,l,fav] = await Promise.all([
+    const [m,c,f,k,ke,l,fav,wm] = await Promise.all([
       _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('chemie').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false}),
@@ -873,16 +900,27 @@ async function loadAll(){
       _sb.from('kbe_eintraege').select('*').order('datum',{ascending:false}),
       _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200),
       _sb.from('favoriten').select('meldung_id').eq('kuerzel',kz),
+      _sb.from('wm_eintraege').select('*').order('datum',{ascending:false}),
     ]);
     MD = (m.data||[]).map(mapMeld);
     CH = (c.data||[]).map(mapChem);
     FR = (f.data||[]).map(mapFrei);
     const kunden = k.data||[];
     const eintr  = ke.data||[];
+    const wmEintr = wm.data||[];
     KBE = kunden.map(k2=>({
       id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
       rkws: k2.rkws||[],
       eintraege: eintr.filter(e=>e.kunde_id===k2.id).map(e=>({
+        id:e.id, ts:e.datum, datum:new Date(e.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
+        werte:e.werte||{}
+      }))
+    }));
+    // WM: nutzt dieselben Kunden/Anlagen (kbe_kunden.rkws) wie KBE, eigene Einträge in wm_eintraege
+    WM = kunden.map(k2=>({
+      id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
+      rkws: k2.rkws||[],
+      eintraege: wmEintr.filter(e=>e.kunde_id===k2.id).map(e=>({
         id:e.id, ts:e.datum, datum:new Date(e.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
         werte:e.werte||{}
       }))
@@ -917,6 +955,7 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'freie_angebote'},()=>reloadTable('freie_angebote'))
     .on('postgres_changes',{event:'*',schema:'public',table:'kbe_kunden'},()=>reloadTable('kbe'))
     .on('postgres_changes',{event:'*',schema:'public',table:'kbe_eintraege'},()=>reloadTable('kbe'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'wm_eintraege'},()=>reloadTable('wm'))
     .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
     .subscribe();
 }
@@ -925,6 +964,7 @@ async function reloadTable(tbl){
   else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
   else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
   else if(tbl==='kbe'){loadAll();}
+  else if(tbl==='wm'){loadAll();}
   else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
 }
 
@@ -1191,6 +1231,34 @@ async function setErlF(id){
   await _sb.from('freie_angebote').update({erledigt:true,angebotsnr:an,erledigt_von:kz,erledigt_ts:now}).eq('id',id);
   e.erledigt=true;e.angebotsnr=an;e.erledigt_von=kz;e.erledigt_ts=now;
   toast('✓ Erledigt');renderF();updB();
+}
+
+// ── v39: Erledigt rückgängig machen (z. B. versehentlich gedrückt) ──
+// Setzt nur erledigt/angebotsnr/erledigt_* + beauftragt/bestellt-Felder zurück.
+// Kommentare (kommentare) und Rückfragen (rueckfragen) bleiben komplett erhalten,
+// weil sie hier nicht angefasst werden.
+async function undoErledigtF(id, btn){
+  if(btn.dataset.confirm!=='1'){
+    btn.textContent='⚠️ Wirklich rückgängig machen?';
+    btn.dataset.confirm='1';
+    setTimeout(()=>{
+      if(btn.dataset.confirm==='1'){
+        btn.textContent='↩ Erledigt rückgängig machen';
+        btn.dataset.confirm='';
+      }
+    },4000);
+    return;
+  }
+  const e=FR.find(x=>x.id===id);if(!e)return;
+  const updateObj={
+    erledigt:false, angebotsnr:null, erledigt_von:null, erledigt_ts:null,
+    beauftragt:false, beauftragt_kommentar:null, beauftragt_von:null, beauftragt_ts:null
+  };
+  const {error}=await _sb.from('freie_angebote').update(updateObj).eq('id',id);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  Object.assign(e, updateObj);
+  toast('↩ Erledigt rückgängig gemacht – Kommentare bleiben erhalten');
+  renderF();updB();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1774,13 +1842,13 @@ function renderC(){
         body.appendChild(bstDiv);
       } else {
         const bstWrap=document.createElement('div');bstWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px;display:flex;flex-direction:column;gap:5px';
-        const bstBtn=document.createElement('button');bstBtn.className='bbestellt';bstBtn.textContent='🔴 Bestellt';
+        const bstBtn=document.createElement('button');bstBtn.className='bbestellt';bstBtn.textContent='🔴 Bestellt ?';
         const bstKommDiv=document.createElement('div');bstKommDiv.style.display='none';
         const bstTa=document.createElement('textarea');bstTa.className='gta';bstTa.placeholder='Kommentar (optional)…';bstTa.style.cssText='font-size:16px;min-height:40px';
         const bstSend=document.createElement('button');bstSend.className='bbestellt aktiv';bstSend.style.cssText='background:#1d4ed8;margin-top:4px;align-self:flex-start;padding:6px 12px';bstSend.textContent='✓ Als bestellt markieren';
         bstSend.onclick=()=>setBestellt(e.id,bstTa);
         bstKommDiv.append(bstTa,bstSend);bstWrap.appendChild(bstBtn);bstWrap.appendChild(bstKommDiv);
-        bstBtn.onclick=()=>{const open=bstKommDiv.style.display==='flex';bstKommDiv.style.display=open?'none':'flex';bstKommDiv.style.flexDirection='column';bstBtn.textContent=open?'🔴 Bestellen':'▾ Bestellen';};
+        bstBtn.onclick=()=>{const open=bstKommDiv.style.display==='flex';bstKommDiv.style.display=open?'none':'flex';bstKommDiv.style.flexDirection='column';bstBtn.textContent=open?'🔴 Bestellt ?':'▾ Bestellen';};
         body.appendChild(bstWrap);
       }
     }
@@ -1890,6 +1958,14 @@ function renderF(){
       body.appendChild(kWrap);
     }
     if(e.erledigt){
+      // ── v39: Rückgängig-Möglichkeit falls versehentlich "Erledigt" gedrückt ──
+      // Setzt nur die Erledigt/Bestellt-Felder zurück; Kommentare & Rückfragen bleiben erhalten.
+      const undoBtn=document.createElement('button');
+      undoBtn.textContent='↩ Erledigt rückgängig machen';
+      undoBtn.style.cssText='font-size:11px;color:var(--rd);background:none;border:none;cursor:pointer;padding:3px 0;font-family:Barlow,sans-serif;text-align:left;margin-top:2px;display:block';
+      undoBtn.onclick=()=>undoErledigtF(e.id, undoBtn);
+      body.appendChild(undoBtn);
+
       if(e.beauftragt){
         const bauDiv=document.createElement('div');bauDiv.className='beau-box';
         const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Bestellt';bauDiv.appendChild(bauTit);
@@ -2000,6 +2076,19 @@ function renderKbeInListe(kbeArr,container){
 }
 function toggleKbeMeld(id,btn){const el=document.getElementById(id);if(!el)return;const open=el.style.display!=='none';el.style.display=open?'none':'block';const cnt=el.querySelectorAll('[style*="margin-bottom:8px"]').length||'';btn.textContent=open?(cnt+' ältere anzeigen'):'▲ Weniger';}
 
+// ── v39: Gemeinsame Kundensuche über KBE-Übersicht, KBE Eintragen und WM hinweg ──
+// Tippen in einem der drei Suchfelder synchronisiert die anderen beiden und
+// rendert alle drei Listen neu, damit der Techniker den Kunden nur einmal sucht.
+function onKundenSucheInput(val){
+  ['sb-search','kbe-suche','wm-suche'].forEach(id=>{
+    const el=G(id);
+    if(el && el.value!==val) el.value=val;
+  });
+  renderKbeTab();
+  renderKbeKunden();
+  renderWmTab();
+}
+
 function renderKbeKunden(){
   const q=V('kbe-suche').toLowerCase();
   const g=G('kbe-kunden-grid');g.innerHTML='';
@@ -2042,7 +2131,7 @@ async function delKbeEintrag(kid,eid,btn){
 }
 
 function selectKbeKunde(kid){
-  selKbeKunde=kid;renderKbeKunden();
+  selKbeKunde=kid;renderKbeKunden();renderWmTab();
   const k=KBE.find(x=>x.id===kid);if(!k){G('kbe-bestehend-form').style.display='none';return;}
   G('kbe-selkunde-label').textContent=k.firma+' – neuer KBE-Eintrag';
   const c=G('kbe-best-rkws');c.innerHTML='';
@@ -2232,12 +2321,367 @@ function updB(){
   if('setAppBadge' in navigator){if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);else navigator.clearAppBadge();}
 }
 
-function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();}
+function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();}
 function renderKbeTab(){
   const c=G('eb');if(!c)return;c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=(G('sb-search')?G('sb-search').value||'':'').toLowerCase();
   const d=KBE.filter(k=>!q||k.firma.toLowerCase().includes(q));
   G('eb0').style.display=d.length?'none':'';renderKbeInListe(d,c);
+}
+
+// ══════════════════════════════════════════════════════════
+// WM: WASSERZÄHLERSTÄNDE (Zusatzwasser / Abwasser) — v39
+// Nutzt dieselben Kunden & Anlagen (RKWs) wie KBE (kbe_kunden.rkws),
+// eigene Werte-Historie in wm_eintraege. Zeigt pro Anlage den Verbrauch
+// (Delta zum letzten Stand) und bei Zusatzwasser+Abwasser die Eindickung.
+// ══════════════════════════════════════════════════════════
+
+// Vorherigen Wert für ein Feld (zusatzwasser/abwasser) einer Anlage suchen.
+// eintraege ist neueste-zuerst sortiert; wir suchen ab idx+1 rückwärts in der Zeit.
+function wmFindPrevValue(eintraege, idx, rkwName, feld){
+  for(let i=idx+1;i<eintraege.length;i++){
+    const w=eintraege[i].werte && eintraege[i].werte[rkwName];
+    if(w && w[feld]!=null && w[feld]!=='') return Number(w[feld]);
+  }
+  return null;
+}
+function wmDelta(cur, prev){
+  if(prev==null || cur==null || isNaN(cur) || isNaN(prev)) return null;
+  return +(cur - prev).toFixed(2);
+}
+function wmEindickung(zDelta, aDelta){
+  if(zDelta==null || aDelta==null || aDelta<=0 || zDelta<=0) return null;
+  return +(zDelta/aDelta).toFixed(1);
+}
+// v41: Bei negativer Differenz (Zählerstand niedriger als beim letzten Mal)
+// ist das fast immer ein Zählerwechsel oder ein Ablesefehler, keine echte
+// Verbrauchszahl. Statt "-970 m³" zeigen wir dann einen klaren Hinweis –
+// beim nächsten Eintrag wird ganz normal wieder gegen DIESEN (auch wenn
+// ungewöhnlichen) Stand verglichen, das ist unverändert die Logik in
+// wmFindPrevValue/wmDelta.
+function wmFmtDelta(d){
+  if(d==null) return '';
+  if(d<0) return ' <span class="wm-delta-error">⚠️ Neuer Zähler oder Fehler</span>';
+  return ' <span class="wm-delta">(Δ +'+d+' m³)</span>';
+}
+
+// ══════════════════════════════════════════════════════════
+// WM: Excel-Export der kompletten Kunden-Historie — v41
+// Eine Zeile pro Anlage & Datum, chronologisch aufsteigend, inkl.
+// Differenz zum letzten Mal und Eindickung (identisch zur App-Anzeige,
+// inkl. "Neuer Zähler / Fehler" bei negativer Differenz).
+// ══════════════════════════════════════════════════════════
+function exportWmHistorieExcel(k){
+  if(typeof XLSX==='undefined'){toast('⚠️ Export-Bibliothek konnte nicht geladen werden.');return;}
+  if(!k.eintraege || !k.eintraege.length){toast('⚠️ Keine Daten zum Exportieren vorhanden.');return;}
+  const rows=[];
+  // Chronologisch aufsteigend (älteste zuerst) für einen gut lesbaren Bericht,
+  // Delta/Eindickung werden aber weiterhin gegen den ORIGINAL-Index (neueste-zuerst)
+  // berechnet, damit dieselbe Logik wie in der App-Anzeige greift.
+  const aufsteigend=[...k.eintraege].reverse();
+  aufsteigend.forEach(e=>{
+    const idxOriginal=k.eintraege.findIndex(x=>x.id===e.id);
+    k.rkws.forEach(r=>{
+      const w=(e.werte && e.werte[r.name])||{};
+      const zCur=w.zusatzwasser!=null?Number(w.zusatzwasser):null;
+      const aCur=w.abwasser!=null?Number(w.abwasser):null;
+      if(zCur==null && aCur==null) return;
+      const zPrev=wmFindPrevValue(k.eintraege, idxOriginal, r.name, 'zusatzwasser');
+      const aPrev=wmFindPrevValue(k.eintraege, idxOriginal, r.name, 'abwasser');
+      const dZ=wmDelta(zCur, zPrev);
+      const dA=wmDelta(aCur, aPrev);
+      const eind=wmEindickung(dZ, dA);
+      rows.push({
+        'Datum': e.datum,
+        'Anlage': r.name,
+        'Zusatzwasser (m³)': zCur!=null?zCur:'',
+        'Zusatzwasser Δ (m³)': dZ==null?'':(dZ<0?'Neuer Zähler / Fehler':dZ),
+        'Abwasser (m³)': aCur!=null?aCur:'',
+        'Abwasser Δ (m³)': dA==null?'':(dA<0?'Neuer Zähler / Fehler':dA),
+        'Eindickung': eind!=null?(eind+'-fach'):''
+      });
+    });
+  });
+  if(!rows.length){toast('⚠️ Keine Daten zum Exportieren vorhanden.');return;}
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:14},{wch:18},{wch:20},{wch:16},{wch:20},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Zählerstände');
+  const dateiname='WM_'+k.firma.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
+  XLSX.writeFile(wb, dateiname);
+  toast('✓ Excel-Datei wird heruntergeladen');
+}
+
+function renderWmTab(){
+  const c=G('ewm');if(!c)return;
+  const q=(G('wm-suche')?G('wm-suche').value||'':'').toLowerCase();
+  c.querySelectorAll('.wm-karte').forEach(e=>e.remove());
+  const d=WM.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  G('ewm0').style.display=d.length?'none':'';
+  d.forEach(k=>c.appendChild(buildWmKarte(k)));
+}
+
+function buildWmKarte(k){
+  const karte=document.createElement('div');
+  karte.className='kbe-karte wm-karte'+(selKbeKunde===k.id?' open':'');
+  karte.dataset.wmId=k.id;
+  const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
+  const infoText=letzter?letzter.datum+'  •  '+k.eintraege.length+' Einträge':'Keine Einträge';
+
+  const header=document.createElement('div');
+  header.className='kbe-karte-header';
+  header.innerHTML='<div style="flex:1;min-width:0"><div class="kbe-karte-firma">'+esc(k.firma)+'</div>'+
+    '<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+infoText+'</div></div>'+
+    '<span class="kbe-karte-toggle">⌄</span>';
+  header.onclick=()=>{
+    selKbeKunde=k.id;
+    karte.classList.toggle('open');
+    renderKbeKunden();
+  };
+  karte.appendChild(header);
+
+  const body=document.createElement('div');
+  body.className='kbe-karte-body';
+
+  // ── Eingabe-Formular (Anlagen untereinander, wie in der KBE-Historie) ──
+  const form=document.createElement('div');
+  form.style.cssText='background:var(--bg);border:1.5px solid var(--bo);border-radius:9px;padding:11px;margin-bottom:12px';
+  const formTitle=document.createElement('div');
+  formTitle.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:8px';
+  formTitle.textContent='📝 Neuer Zählerstand';
+  form.appendChild(formTitle);
+
+  const datumLbl=document.createElement('div');datumLbl.className='sl';datumLbl.style.marginTop='0';datumLbl.textContent='Datum';
+  form.appendChild(datumLbl);
+  const datumInp=document.createElement('input');datumInp.type='date';datumInp.id='wm-datum-'+k.id;
+  datumInp.value=new Date().toISOString().split('T')[0];
+  form.appendChild(datumInp);
+
+  const rkwLbl=document.createElement('div');rkwLbl.className='sl';rkwLbl.textContent='Zählerstände je Anlage';
+  form.appendChild(rkwLbl);
+  const rkwHinweis=document.createElement('div');
+  rkwHinweis.style.cssText='font-size:11px;color:var(--mu);margin-bottom:8px;font-style:italic';
+  rkwHinweis.textContent='Jede Anlage wird einzeln gespeichert – praktisch, wenn du zwischendurch den Standort wechselst.';
+  form.appendChild(rkwHinweis);
+
+  // v39.1: Jede Anlage hat ihren EIGENEN Speichern-Button (statt einem globalen).
+  // Alle Anlagen mit demselben Datum landen serverseitig im selben Verlaufs-Ereignis (siehe saveWmRkwEintrag).
+  k.rkws.forEach(r=>{
+    const row=document.createElement('div');row.className='wm-rkw-eingabe';
+    const rName=document.createElement('div');rName.className='wm-rkw-name';rName.textContent=r.name;
+    row.appendChild(rName);
+    const zWrap=document.createElement('div');zWrap.className='wm-feld-row';
+    const zLbl=document.createElement('span');zLbl.className='wm-feld-lbl';zLbl.textContent='💧 Zusatzwasser';
+    const zInp=document.createElement('input');zInp.type='number';zInp.step='0.01';zInp.id='wm-z-'+k.id+'-'+r.name.replace(/\s/g,'_');zInp.placeholder='Zählerstand m³';
+    zWrap.append(zLbl,zInp);row.appendChild(zWrap);
+    const aWrap=document.createElement('div');aWrap.className='wm-feld-row';
+    const aLbl=document.createElement('span');aLbl.className='wm-feld-lbl';aLbl.textContent='🚱 Abwasser';
+    const aInp=document.createElement('input');aInp.type='number';aInp.step='0.01';aInp.id='wm-a-'+k.id+'-'+r.name.replace(/\s/g,'_');aInp.placeholder='optional';
+    aWrap.append(aLbl,aInp);row.appendChild(aWrap);
+    const rkwSaveBtn=document.createElement('button');
+    rkwSaveBtn.className='bsend';rkwSaveBtn.style.cssText='margin-top:4px;padding:8px;font-size:13px';
+    rkwSaveBtn.textContent='💾 '+r.name+' speichern';
+    rkwSaveBtn.onclick=()=>saveWmRkwEintrag(k, r.name, datumInp);
+    row.appendChild(rkwSaveBtn);
+    form.appendChild(row);
+  });
+  body.appendChild(form);
+
+  // ── Verlauf ──
+  if(letzter){
+    const histRow=document.createElement('div');
+    histRow.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px';
+    const histTitle=document.createElement('div');
+    histTitle.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)';
+    histTitle.textContent='📊 Verlauf';
+    const exportBtn=document.createElement('button');
+    exportBtn.textContent='⬇️ Excel-Export';
+    exportBtn.style.cssText='font-size:11px;padding:4px 10px;border:1.5px solid var(--gl);background:var(--gb);border-radius:7px;color:var(--gn);cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-weight:700;flex-shrink:0';
+    exportBtn.onclick=()=>exportWmHistorieExcel(k);
+    histRow.append(histTitle, exportBtn);
+    body.appendChild(histRow);
+
+    const histWrap=document.createElement('div');
+    k.eintraege.forEach((e,i)=>{
+      const eBox=document.createElement('div');
+      eBox.className='wm-hist-block wm-hist-entry-'+k.id;
+      if(i>0) eBox.style.display='none';
+      let inner='<div class="wm-hist-datum">'+esc(e.datum)+'</div>';
+      k.rkws.forEach(r=>{
+        const w=(e.werte && e.werte[r.name])||{};
+        const zCur=w.zusatzwasser!=null?Number(w.zusatzwasser):null;
+        const aCur=w.abwasser!=null?Number(w.abwasser):null;
+        if(zCur==null && aCur==null) return;
+        const zPrev=wmFindPrevValue(k.eintraege, i, r.name, 'zusatzwasser');
+        const aPrev=wmFindPrevValue(k.eintraege, i, r.name, 'abwasser');
+        const dZ=wmDelta(zCur, zPrev);
+        const dA=wmDelta(aCur, aPrev);
+        const eind=wmEindickung(dZ, dA);
+        inner+='<div class="wm-hist-rkw"><div class="wm-hist-name">'+esc(r.name)+'</div>';
+        if(zCur!=null) inner+='<div class="wm-hist-zeile">💧 Zusatzwasser: <strong>'+zCur+' m³</strong>'+wmFmtDelta(dZ)+'</div>';
+        if(aCur!=null) inner+='<div class="wm-hist-zeile">🚱 Abwasser: <strong>'+aCur+' m³</strong>'+wmFmtDelta(dA)+'</div>';
+        if(eind!=null) inner+='<div class="wm-eindickung">🔄 Eindickung: '+eind+'-fach</div>';
+        inner+='</div>';
+      });
+      eBox.innerHTML=inner;
+      histWrap.appendChild(eBox);
+    });
+    body.appendChild(histWrap);
+
+    if(k.eintraege.length>1){
+      const moreBtn=document.createElement('button');
+      moreBtn.textContent=(k.eintraege.length-1)+' ältere anzeigen';
+      moreBtn.style.cssText='font-size:11px;padding:4px 10px;border:1px solid var(--bo);background:var(--bg);border-radius:6px;color:var(--mu);cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-weight:700;margin-top:2px;margin-bottom:8px';
+      moreBtn.onclick=()=>{
+        const entries=histWrap.querySelectorAll('.wm-hist-entry-'+k.id);
+        const isOpen=moreBtn.dataset.open==='1';
+        entries.forEach((el2,idx)=>{if(idx>0) el2.style.display=isOpen?'none':'block';});
+        moreBtn.dataset.open=isOpen?'':'1';
+        moreBtn.textContent=isOpen?(k.eintraege.length-1)+' ältere anzeigen':'▲ Weniger';
+      };
+      body.appendChild(moreBtn);
+    }
+
+    const editBtn=document.createElement('button');
+    editBtn.textContent='✏️ Letzten Eintrag bearbeiten';
+    editBtn.style.cssText='font-size:11px;padding:5px 10px;border:1.5px solid var(--bl);background:var(--bp);border-radius:7px;color:var(--bd);cursor:pointer;font-family:"Barlow Condensed",sans-serif;font-weight:700;margin-top:2px';
+    editBtn.onclick=()=>openWmLetztenEdit(k);
+    body.appendChild(editBtn);
+  } else {
+    const noData=document.createElement('div');
+    noData.style.cssText='color:#94a3b8;font-size:13px;font-style:italic;padding:4px 0';
+    noData.textContent='Noch keine Einträge';
+    body.appendChild(noData);
+  }
+
+  karte.appendChild(body);
+  return karte;
+}
+
+// ── v39.1: Speichert EINE Anlage. Existiert für dieses Datum bereits ein
+// Ereignis (z.B. weil vorher schon eine andere Anlage desselben Tages
+// gespeichert wurde), wird die Anlage in DASSELBE Ereignis eingemischt
+// statt eine neue Verlaufs-Zeile anzulegen. So landen alle Zählerstände
+// eines Tages als EIN gemeinsames Ereignis im Verlauf – und Eindickung
+// kann berechnet werden, sobald Zusatzwasser UND Abwasser derselben
+// Anlage im selben Ereignis stehen.
+function wmSelbesDatum(ts, datum){
+  if(!ts || !datum) return false;
+  return String(ts).slice(0,10) === String(datum).slice(0,10);
+}
+
+async function saveWmRkwEintrag(k, rkwName, datumInp){
+  const datum=datumInp.value;
+  if(!datum){toast('⚠️ Bitte Datum wählen.');return;}
+  const safeName=rkwName.replace(/\s/g,'_');
+  const zEl=G('wm-z-'+k.id+'-'+safeName);
+  const aEl=G('wm-a-'+k.id+'-'+safeName);
+  const zVal=zEl && zEl.value!==''?parseFloat(zEl.value):null;
+  const aVal=aEl && aEl.value!==''?parseFloat(aEl.value):null;
+  if(zVal==null && aVal==null){toast('⚠️ Bitte einen Zählerstand für '+rkwName+' eingeben.');return;}
+
+  const rkwWerte={};
+  if(zVal!=null) rkwWerte.zusatzwasser=zVal;
+  if(aVal!=null) rkwWerte.abwasser=aVal;
+
+  const wmK=WM.find(x=>x.id===k.id);
+  const bestehend=wmK ? wmK.eintraege.find(e=>wmSelbesDatum(e.ts, datum)) : null;
+
+  if(bestehend){
+    // Ereignis für dieses Datum existiert bereits → Anlage einmischen, Rest unangetastet lassen
+    const neueWerte={...bestehend.werte, [rkwName]:{...(bestehend.werte[rkwName]||{}), ...rkwWerte}};
+    const {error}=await _sb.from('wm_eintraege').update({werte:neueWerte}).eq('id', bestehend.id);
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+    bestehend.werte=neueWerte;
+  } else {
+    // Erstes Mal an diesem Tag → neues Ereignis anlegen
+    const neueWerte={[rkwName]:rkwWerte};
+    const {data:neu,error}=await _sb.from('wm_eintraege').insert({kunde_id:k.id, datum, kuerzel:kz, werte:neueWerte}).select().single();
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+    const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+    if(wmK) wmK.eintraege.unshift({id:neu.id, ts:datum, datum:datumStr, werte:neueWerte});
+  }
+
+  if(zEl) zEl.value='';
+  if(aEl) aEl.value='';
+  selKbeKunde=k.id;
+  toast('✓ '+rkwName+' gespeichert');
+  renderWmTab();
+}
+
+function openWmLetztenEdit(k){
+  const letzter=k.eintraege&&k.eintraege[0];if(!letzter)return;
+  document.querySelectorAll('.wm-letzten-edit-box').forEach(x=>x.remove());
+  const box=document.createElement('div');
+  box.className='wm-letzten-edit-box';
+  box.style.cssText='background:#fff;border:1.5px solid var(--bl);border-radius:10px;padding:13px;margin-top:6px';
+
+  const titel=document.createElement('div');
+  titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';
+  titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten';
+  box.appendChild(titel);
+
+  const datumLbl=document.createElement('div');datumLbl.className='sl';datumLbl.style.marginTop='0';datumLbl.textContent='Datum';
+  box.appendChild(datumLbl);
+  const datumInp=document.createElement('input');datumInp.type='date';datumInp.id='wm-edit-datum-'+k.id;
+  const isoDate=letzter.ts?String(letzter.ts).split('T')[0]:letzter.datum;
+  if(isoDate&&isoDate.includes('-')){datumInp.value=isoDate;}
+  else if(isoDate&&isoDate.includes('.')){const parts=isoDate.split('.');if(parts.length===3)datumInp.value=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;}
+  box.appendChild(datumInp);
+
+  k.rkws.forEach(r=>{
+    const w=(letzter.werte && letzter.werte[r.name])||{};
+    const row=document.createElement('div');row.className='wm-rkw-eingabe';row.style.marginTop='8px';
+    const rName=document.createElement('div');rName.className='wm-rkw-name';rName.textContent=r.name;
+    row.appendChild(rName);
+    const zWrap=document.createElement('div');zWrap.className='wm-feld-row';
+    const zLbl=document.createElement('span');zLbl.className='wm-feld-lbl';zLbl.textContent='💧 Zusatzwasser';
+    const zInp=document.createElement('input');zInp.type='number';zInp.step='0.01';zInp.id='wm-edit-z-'+k.id+'-'+r.name.replace(/\s/g,'_');zInp.value=w.zusatzwasser!=null?w.zusatzwasser:'';
+    zWrap.append(zLbl,zInp);row.appendChild(zWrap);
+    const aWrap=document.createElement('div');aWrap.className='wm-feld-row';
+    const aLbl=document.createElement('span');aLbl.className='wm-feld-lbl';aLbl.textContent='🚱 Abwasser';
+    const aInp=document.createElement('input');aInp.type='number';aInp.step='0.01';aInp.id='wm-edit-a-'+k.id+'-'+r.name.replace(/\s/g,'_');aInp.value=w.abwasser!=null?w.abwasser:'';
+    aWrap.append(aLbl,aInp);row.appendChild(aWrap);
+    box.appendChild(row);
+  });
+
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:8px;margin-top:10px';
+  const saveBtn=document.createElement('button');saveBtn.className='bsend';saveBtn.style.cssText='margin-top:0;flex:1';saveBtn.textContent='💾 Speichern';
+  saveBtn.onclick=()=>saveWmLetztenEdit(k, letzter.id, datumInp, box);
+  const cancelBtn=document.createElement('button');cancelBtn.style.cssText='padding:10px 14px;border:1.5px solid var(--bo);background:transparent;border-radius:8px;color:var(--mu);font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;cursor:pointer';cancelBtn.textContent='Abbrechen';cancelBtn.onclick=()=>box.remove();
+  btnRow.append(saveBtn,cancelBtn);box.appendChild(btnRow);
+
+  const targetBody=document.querySelector('.wm-karte[data-wm-id="'+k.id+'"] .kbe-karte-body');
+  if(targetBody) targetBody.appendChild(box);
+  else G('ewm').appendChild(box);
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function saveWmLetztenEdit(k, eid, datumInp, box){
+  const datum=datumInp.value;
+  if(!datum){toast('⚠️ Bitte Datum wählen.');return;}
+  const werte={};
+  k.rkws.forEach(r=>{
+    const zEl=G('wm-edit-z-'+k.id+'-'+r.name.replace(/\s/g,'_'));
+    const aEl=G('wm-edit-a-'+k.id+'-'+r.name.replace(/\s/g,'_'));
+    const zVal=zEl && zEl.value!==''?parseFloat(zEl.value):null;
+    const aVal=aEl && aEl.value!==''?parseFloat(aEl.value):null;
+    if(zVal!=null || aVal!=null){
+      werte[r.name]={};
+      if(zVal!=null) werte[r.name].zusatzwasser=zVal;
+      if(aVal!=null) werte[r.name].abwasser=aVal;
+    }
+  });
+  const {error}=await _sb.from('wm_eintraege').update({datum, werte}).eq('id',eid);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const wmK=WM.find(x=>x.id===k.id);
+  if(wmK){
+    const e=wmK.eintraege.find(x=>x.id===eid);
+    if(e){e.ts=datum;e.werte=werte;e.datum=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+  }
+  box.remove();
+  toast('✓ Eintrag aktualisiert');
+  renderWmTab();
 }
 
 // ══════════════════════════════════════════════════════════
