@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v41</title>
+<title>Meldungen &amp; Angebote v42</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -413,7 +413,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v41</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v42</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -726,6 +726,56 @@ textarea{resize:vertical;min-height:68px;}
 
 <div class="toast" id="toast"></div>
 <script>
+// ══════════════════════════════════════════════════════════
+// v42: SELBSTHEILUNG BEI VERSIONSWECHSEL
+// Behebt hartnäckige Safari/WebKit-Fälle, in denen ein neuer Service
+// Worker nicht übernimmt und die App an einer alten Version hängen
+// bleibt (bekanntes, dokumentiertes WebKit-Verhalten, kein App-Bug).
+//
+// Läuft NUR einmalig beim Laden, vergleicht APP_VERSION gegen den
+// zuletzt bekannten Wert. Bei Abweichung: Cache-Storage + Service-
+// Worker-Registrierungen löschen, dann EINMALIG neu laden.
+//
+// WICHTIG: rührt NIEMALS localStorage als Ganzes an (also NIE die
+// Offline-Queue rkw_offline_queue oder rkw_modal_quittiert) – nur
+// den eigenen Versions-Marker. Schutz gegen Endlosschleife über
+// ein sessionStorage-Flag (max. 1 Reload-Versuch pro Sitzung).
+//
+// WARTUNGSHINWEIS: Bei jedem künftigen Versions-Bump (Titel, Header)
+// MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
+// Mechanismus nicht.
+// ══════════════════════════════════════════════════════════
+const APP_VERSION = 'v42';
+
+(function selfHealOnVersionMismatch(){
+  try {
+    if (localStorage.getItem('rkw_app_version') === APP_VERSION) return;
+
+    if (sessionStorage.getItem('rkw_selfheal_versuch') === APP_VERSION) {
+      // Schon einmal in dieser Sitzung versucht, Version stimmt aber
+      // immer noch nicht - nicht nochmal neu laden (Schutz vor Loop).
+      localStorage.setItem('rkw_app_version', APP_VERSION);
+      return;
+    }
+    sessionStorage.setItem('rkw_selfheal_versuch', APP_VERSION);
+
+    (async () => {
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+      } catch (e) { /* egal, dann eben ohne vollständige Bereinigung neu laden */ }
+      localStorage.setItem('rkw_app_version', APP_VERSION);
+      location.reload();
+    })();
+  } catch (e) { /* localStorage/sessionStorage evtl. blockiert - dann einfach nichts tun */ }
+})();
+
 // ══════════════════════════════════════════════════════════
 // KONFIGURATION
 // ══════════════════════════════════════════════════════════
