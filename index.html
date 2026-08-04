@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v42</title>
+<title>Meldungen &amp; Angebote v44</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -413,7 +413,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v42</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v43</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -745,7 +745,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v42';
+const APP_VERSION = 'v44';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -993,7 +993,7 @@ async function loadAll(){
 
 function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[],bearbeitungs_status:r.bearbeitungs_status||null};}
 function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,bestellt:r.bestellt||false,bestellt_kommentar:r.bestellt_kommentar||null,bestellt_von:r.bestellt_von||null,bestellt_ts:r.bestellt_ts||null};}
-function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],kommentare:r.kommentare||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
+function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],kommentare:r.kommentare||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
 
 // ══════════════════════════════════════════════════════════
 // REALTIME
@@ -1492,6 +1492,50 @@ async function saveMeldEdit(eid, btn){
   renderM();
 }
 
+// ── v43: Angebot bearbeiten – Ersteller UND Admin dürfen nachträglich ändern ──
+function toggleFreiEdit(eid, btn){
+  const box=document.getElementById('freieditbox-'+eid);
+  if(!box)return;
+  const open=box.style.display==='flex';
+  box.style.display=open?'none':'flex';
+  box.style.flexDirection='column';
+  box.style.gap='6px';
+  btn.textContent=open?'✏️ Bearbeiten':'✏️ Schließen';
+}
+function toggleFreiEditNurMat(eid){
+  const nmEl=document.getElementById('freiedit-nurmat-'+eid);
+  const block=document.getElementById('freiedit-mannstd-'+eid);
+  if(block) block.style.display = (nmEl && nmEl.checked) ? 'none' : 'flex';
+}
+async function saveFreiEdit(eid, btn){
+  const ta=document.getElementById('freiedit-ta-'+eid);
+  if(!ta)return;
+  const newText=ta.value.trim();
+  if(!newText){alert('Text darf nicht leer sein.');return;}
+  const nmEl=document.getElementById('freiedit-nurmat-'+eid);
+  const nm=nmEl?nmEl.checked:false;
+  let mann=null, stunden=null;
+  if(!nm){
+    const mannEl=document.getElementById('freiedit-mann-'+eid);
+    const stdEl=document.getElementById('freiedit-std-'+eid);
+    mann=mannEl?parseFloat(mannEl.value):1;
+    stunden=stdEl?parseFloat(stdEl.value):1;
+    if(!mann||mann<=0)mann=1;
+    if(!stunden||stunden<=0)stunden=1;
+  }
+  const now=new Date().toISOString();
+  btn.disabled=true;btn.textContent='Speichert…';
+  const {error}=await _sb.from('freie_angebote').update({
+    text:newText, nur_mat:nm, mann:nm?null:mann, stunden:nm?null:stunden, bearbeitet_am:now
+  }).eq('id',eid);
+  btn.disabled=false;btn.textContent='Speichern';
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const e=FR.find(x=>x.id===eid);
+  if(e){e.text=newText;e.nurMat=nm;e.mann=nm?null:mann;e.stunden=nm?null:stunden;e.bearbeitet_am=now;}
+  toast('✓ Angebot bearbeitet');
+  renderF();
+}
+
 // ══════════════════════════════════════════════════════════
 // BEAUFTRAGT
 // ══════════════════════════════════════════════════════════
@@ -1951,6 +1995,25 @@ function renderF(){
       kommHtml+='</div>';
     }
     const anzKomm=(e.kommentare||[]).length;
+    // ── v43: Bearbeiten-Berechtigung – Ersteller ODER Admin ──
+    const kannFreiBearbeiten = !e.erledigt && ((e.kuerzel===kz) || (userRolle==='admin'));
+    const freiBearbeitenHtml = kannFreiBearbeiten
+      ? '<div style="border-top:1px solid var(--bo);padding-top:7px;margin-top:3px">'+
+          '<button onclick="toggleFreiEdit(\''+e.id+'\',this)" style="font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 0;font-family:\'Barlow\',sans-serif">✏️ Bearbeiten</button>'+
+          '<div id="freieditbox-'+e.id+'" style="display:none;flex-direction:column;gap:6px;margin-top:6px">'+
+            '<textarea id="freiedit-ta-'+e.id+'" style="width:100%;background:var(--bg);border:1.5px solid var(--bo);border-radius:8px;color:var(--tx);font-size:16px!important;font-family:\'Barlow\',sans-serif;padding:8px 10px;outline:none;resize:vertical;min-height:52px">'+esc(e.text)+'</textarea>'+
+            '<label style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid var(--gl);border-radius:8px;padding:8px 10px;cursor:pointer">'+
+              '<input type="checkbox" id="freiedit-nurmat-'+e.id+'" onchange="toggleFreiEditNurMat(\''+e.id+'\')" '+(e.nurMat?'checked':'')+' style="width:16px;height:16px;accent-color:var(--gn)">'+
+              '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;color:var(--gn)">📦 Nur Material / Ersatzteil</span>'+
+            '</label>'+
+            '<div id="freiedit-mannstd-'+e.id+'" style="display:'+(e.nurMat?'none':'flex')+';gap:8px">'+
+              '<div style="flex:1"><div style="font-size:10px;color:var(--mu);margin-bottom:3px">Monteure</div><input type="number" id="freiedit-mann-'+e.id+'" value="'+(e.mann||1)+'" min="0.5" step="0.5" style="width:100%"></div>'+
+              '<div style="flex:1"><div style="font-size:10px;color:var(--mu);margin-bottom:3px">Stunden</div><input type="number" id="freiedit-std-'+e.id+'" value="'+(e.stunden||1)+'" min="0.5" step="0.5" style="width:100%"></div>'+
+            '</div>'+
+            '<button onclick="saveFreiEdit(\''+e.id+'\',this)" style="padding:7px 13px;background:var(--bd);color:#fff;border:none;border-radius:7px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start">Speichern</button>'+
+          '</div>'+
+        '</div>'
+      : '';
     const el=document.createElement('div');
     el.className='v2-chip'+(e.erledigt?' erl':hatRQ?' rueckfrage':'');
     el.innerHTML=
@@ -1966,7 +2029,9 @@ function renderF(){
         '</div>'+
       '</div></div>'+
       '<div class="v2-body">'+
-        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+meta+rqHtml+rqBoxHtml+kommHtml+
+        '<div class="v2-text" style="font-weight:600">'+esc(e.text)+'</div>'+
+        (e.bearbeitet_am?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-style:italic">bearbeitet '+fd(e.bearbeitet_am)+'</div>':'')+
+        meta+rqHtml+rqBoxHtml+kommHtml+freiBearbeitenHtml+
         (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
     const body=el.querySelector('.v2-body');
