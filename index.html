@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v44</title>
+<title>Meldungen &amp; Angebote v46</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -261,6 +261,7 @@ textarea{resize:vertical;min-height:68px;}
 .kbe-val.v2,.kbe-val.v3{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;}
 .kbe-val.v4{background:#fef9c3;color:#854d0e;border:1px solid #fde047;}
 .kbe-val.v5,.kbe-val.v6{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;}
+.kbe-val.vna{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;font-size:13px;}
 .kbe-edit-btn{font-size:12px;padding:4px 10px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);border-radius:7px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;}
 .kbe-rkw-edit-panel{background:var(--bg);border:1.5px solid var(--bo);border-radius:9px;padding:11px;margin:8px 0;display:none;flex-direction:column;gap:7px;}
 .kbe-rkw-edit-panel.open{display:flex;}
@@ -413,7 +414,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v43</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v46</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -628,7 +629,7 @@ textarea{resize:vertical;min-height:68px;}
           <div id="kbe-neu-rkws">
             <div class="rkw-row">
               <input type="text" placeholder="RKW-Name z. B. RH, Umformung…">
-              <select class="rkw-val-select"><option value="">–</option><option>10⁰</option><option>10²</option><option>10³</option><option>10⁴</option><option>10⁵</option><option>10⁶</option></select>
+              <select class="rkw-val-select"><option value="">–</option><option>10⁰</option><option>10²</option><option>10³</option><option>10⁴</option><option>10⁵</option><option>10⁶</option><option>Nicht auswertbar</option></select>
               <button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>
             </div>
           </div>
@@ -745,7 +746,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v44';
+const APP_VERSION = 'v46';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -788,7 +789,7 @@ const CHEM_STD = [
   'BZ 401','BZ 500','W23','BZ 900',
   'KT 100K','KT 200K','KT 300K','KT 500K','GK','TP','KP','KS'
 ];
-const KBE_WERTE = ['10⁰','10²','10³','10⁴','10⁵','10⁶'];
+const KBE_WERTE = ['10⁰','10²','10³','10⁴','10⁵','10⁶','Nicht auswertbar'];
 
 // ── SUPABASE INIT ──
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -817,9 +818,12 @@ function toast(msg){const t=G('toast');t.textContent=msg;t.classList.add('on');s
 function setSyncing(state){const d=G('sync-dot');if(!d)return;d.className='sync-dot'+(state==='ok'?'':state==='err'?' err':' syncing');}
 function kbeValClass(val){
   if(!val)return '';
-  const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6'};
+  const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6','Nicht auswertbar':'vna'};
   return m[val]||'';
 }
+// "Nicht auswertbar" ist viel länger als "10⁶" - in den großen Anzeige-Pillen (24px)
+// braucht der Text eine kleinere Schrift, sonst läuft er über/verzerrt die Kachel.
+function kbeValFontSize(val){ return val==='Nicht auswertbar' ? '13px' : '24px'; }
 
 // ══════════════════════════════════════════════════════════
 // SERVICE WORKER
@@ -958,12 +962,15 @@ async function loadAll(){
     const kunden = k.data||[];
     const eintr  = ke.data||[];
     const wmEintr = wm.data||[];
+    // v45-FIX: kuerzel PRO EINTRAG mitladen (ging vorher verloren) - die Anzeige
+    // zeigte bislang immer kuerzel_erstellt (wer den KUNDEN einmalig anlegte),
+    // nicht wer die AKTUELLE Messung tatsächlich eingetragen hat.
     KBE = kunden.map(k2=>({
       id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
       rkws: k2.rkws||[],
       eintraege: eintr.filter(e=>e.kunde_id===k2.id).map(e=>({
         id:e.id, ts:e.datum, datum:new Date(e.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
-        werte:e.werte||{}
+        werte:e.werte||{}, kuerzel:e.kuerzel||null
       }))
     }));
     // WM: nutzt dieselben Kunden/Anlagen (kbe_kunden.rkws) wie KBE, eigene Einträge in wm_eintraege
@@ -972,7 +979,7 @@ async function loadAll(){
       rkws: k2.rkws||[],
       eintraege: wmEintr.filter(e=>e.kunde_id===k2.id).map(e=>({
         id:e.id, ts:e.datum, datum:new Date(e.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
-        werte:e.werte||{}
+        werte:e.werte||{}, kuerzel:e.kuerzel||null
       }))
     }));
     FAVORITEN = new Set((fav.data||[]).map(x=>x.meldung_id));
@@ -2141,7 +2148,7 @@ function buildKbeBody(k){
   let h='';
   k.eintraege.forEach((e,i)=>{
     const eid='kbee-'+k.id+'-'+i;
-    h+='<div class="kbe-eintrag"><div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleKbeEintrag(\''+eid+'\')"><div class="kbe-datum">'+esc(e.datum)+'</div><span id="arr-'+eid+'" style="font-size:13px;color:var(--mu)">'+(i===0?'▲':'▼')+'</span></div>';
+    h+='<div class="kbe-eintrag"><div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleKbeEintrag(\''+eid+'\')"><div class="kbe-datum">'+esc(e.datum)+(e.kuerzel?' · <span class="v2-kz" style="font-size:10px;vertical-align:middle">'+esc(e.kuerzel)+'</span>':'')+'</div><span id="arr-'+eid+'" style="font-size:13px;color:var(--mu)">'+(i===0?'▲':'▼')+'</span></div>';
     h+='<div id="'+eid+'" style="display:'+(i===0?'block':'none')+'">';
     k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';h+='<div class="kbe-rwk-row"><span class="kbe-rkw-name">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'">'+esc(val)+'</span></div>';});
     h+='</div></div>';
@@ -2159,15 +2166,15 @@ function renderKbeInListe(kbeArr,container){
     let vorschauHtml='';
     if(letzter){
       vorschauHtml='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">';
-      k.rkws.forEach(r=>{const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px"><span style="font-size:22px;color:var(--mu);font-weight:600">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span></div>';});
+      k.rkws.forEach(r=>{const val=letzter.werte&&letzter.werte[r.name]?letzter.werte[r.name]:'–';vorschauHtml+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bo);border-radius:7px;padding:3px 9px"><span style="font-size:22px;color:var(--mu);font-weight:600">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:'+kbeValFontSize(val)+';padding:5px 14px">'+esc(val)+'</span></div>';});
       vorschauHtml+='</div>';
     }
     let aelterHtml='';
     if(k.eintraege.length>1){
       aelterHtml='<div id="'+karteId+'" style="display:none;border-top:1px solid var(--bo);margin-top:8px;padding-top:8px">';
       k.eintraege.slice(1).forEach(e=>{
-        aelterHtml+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px">'+esc(e.datum)+'</div>';
-        k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:24px;padding:5px 14px">'+esc(val)+'</span></div>';});
+        aelterHtml+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:4px">'+esc(e.datum)+(e.kuerzel?' · <span class="v2-kz" style="font-size:10px">'+esc(e.kuerzel)+'</span>':'')+'</div>';
+        k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'–';aelterHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:12px;color:var(--mu);min-width:90px">'+esc(r.name)+'</span><span class="kbe-val '+kbeValClass(val)+'" style="font-size:'+kbeValFontSize(val)+';padding:5px 14px">'+esc(val)+'</span></div>';});
         aelterHtml+='</div>';
       });
       aelterHtml+='</div>';
@@ -2177,7 +2184,10 @@ function renderKbeInListe(kbeArr,container){
       '<div class="v2-header-inner"><div class="v2-firma" style="font-size:26px">'+esc(k.firma)+'</div>'+
       '<div class="v2-badges"><span class="v2-badge b-kbe">🔬 KBE</span></div></div></div>'+
       '<div class="v2-body">'+
-        '<div class="v2-meta"><span class="v2-kz">'+esc(k.kuerzel_erstellt)+'</span>'+(letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+(k.eintraege.length>1?'<span>'+k.eintraege.length+' Einträge</span>':'')+'</div>'+
+        // v45-FIX: Kürzel des LETZTEN Eintrags zeigen (wer die aktuelle Messung
+        // eingetragen hat), nicht kuerzel_erstellt (wer den Kunden einmalig anlegte -
+        // das war vorher der Bug: fremdes/altes Kürzel wurde angezeigt).
+        '<div class="v2-meta"><span class="v2-kz">'+esc((letzter&&letzter.kuerzel)||k.kuerzel_erstellt)+'</span>'+(letzter?'<span>Letzte Probe: '+esc(letzter.datum)+'</span>':'')+(k.eintraege.length>1?'<span>'+k.eintraege.length+' Einträge</span>':'')+'</div>'+
         vorschauHtml+aelterHtml+
       '</div>';
     if(k.eintraege.length>1){
@@ -2224,7 +2234,7 @@ function openKbeEdit(kid){
   html+='<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:6px">KBE-Einträge</div>';
   k.eintraege.forEach((e,ei)=>{
     html+='<div style="background:var(--bg);border:1px solid var(--bo);border-radius:8px;padding:8px 10px;margin-bottom:6px">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu)">'+esc(e.datum)+'</span>';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu)">'+esc(e.datum)+(e.kuerzel?' · <span class="v2-kz" style="font-size:10px">'+esc(e.kuerzel)+'</span>':'')+'</span>';
     html+='<button onclick="delKbeEintrag(\''+kid+'\',\''+e.id+'\',this)" style="padding:2px 8px;background:var(--rdb);border:1px solid #fca5a5;border-radius:5px;color:var(--rd);font-size:11px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-weight:700">Löschen</button></div>';
     k.rkws.forEach(r=>{const val=e.werte&&e.werte[r.name]?e.werte[r.name]:'';html+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><span style="font-size:12px;color:var(--tx);min-width:90px">'+esc(r.name)+'</span><select id="kbee-'+kid+'-'+e.id+'-'+ei+'-'+r.name.replace(/\s/g,'_')+'" style="flex:1;padding:4px 7px;font-size:13px;border:1.5px solid var(--bo);border-radius:6px;background:var(--bg)"><option value="">–</option>'+KBE_WERTE.map(v=>'<option'+(v===val?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select></div>';});
     html+='<button onclick="saveKbeEintragEdit(\''+kid+'\',\''+e.id+'\','+ei+',this)" style="margin-top:4px;padding:5px 12px;background:var(--gn);color:#fff;border:none;border-radius:6px;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Speichern</button>';
@@ -2260,7 +2270,7 @@ function openLetztenEdit(kid){
   const letzter=k.eintraege[0];
   document.querySelectorAll('.kbe-letzten-edit-box').forEach(x=>x.remove());
   const box=document.createElement('div');box.className='kbe-letzten-edit-box';box.style.cssText='background:#fff;border:1.5px solid var(--bl);border-radius:10px;padding:13px;margin-top:6px';
-  const titel=document.createElement('div');titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten';box.appendChild(titel);
+  const titel=document.createElement('div');titel.style.cssText='font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--bd);margin-bottom:10px';titel.textContent='✏️ '+k.firma+' – Letzten Eintrag bearbeiten'+(letzter.kuerzel?' (eingetragen von '+letzter.kuerzel+')':'');box.appendChild(titel);
   const datumLbl=document.createElement('div');datumLbl.className='sl';datumLbl.style.marginTop='0';datumLbl.textContent='Datum der Probenahme';box.appendChild(datumLbl);
   const datumInp=document.createElement('input');datumInp.type='date';datumInp.id='edit-letzten-datum-'+kid;
   const isoDate=letzter.ts?letzter.ts.split('T')[0]:letzter.datum;
@@ -2305,7 +2315,7 @@ async function saveNeuerKunde(){
   if(error||!neuerK){toast('⚠️ Fehler: '+(error?.message||''));return;}
   await _sb.from('kbe_eintraege').insert({kunde_id:neuerK.id,datum,werte,kuerzel:kz});
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  KBE.push({id:neuerK.id, firma, kuerzel_erstellt:kz, rkws, eintraege:[{id:'tmp-'+Date.now(),ts:datum,datum:datumStr,werte}]});
+  KBE.push({id:neuerK.id, firma, kuerzel_erstellt:kz, rkws, eintraege:[{id:'tmp-'+Date.now(),ts:datum,datum:datumStr,werte,kuerzel:kz}]});
   KBE.sort((a,b)=>a.firma.localeCompare(b.firma,'de'));
   G('kbe-neukunde').value='';G('kbe-neu-datum').value='';
   G('kbe-neu-rkws').innerHTML='<div class="rkw-row"><input type="text" placeholder="RKW-Name z. B. RH, Umformung…"><select class="rkw-val-select"><option value="">–</option>'+KBE_WERTE.map(v=>'<option>'+v+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button></div>';
@@ -2325,7 +2335,7 @@ async function saveBestKunde(){
   const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
   k.rkws=neueRkws;
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte});
+  if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
   toast('✓ KBE-Werte gespeichert');renderKbeListe();renderKbeKunden();updB();
   selKbeKunde=null;G('kbe-bestehend-form').style.display='none';
   document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
@@ -2714,7 +2724,7 @@ async function saveWmRkwEintrag(k, rkwName, datumInp){
     const {data:neu,error}=await _sb.from('wm_eintraege').insert({kunde_id:k.id, datum, kuerzel:kz, werte:neueWerte}).select().single();
     if(error){toast('⚠️ Fehler: '+error.message);return;}
     const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-    if(wmK) wmK.eintraege.unshift({id:neu.id, ts:datum, datum:datumStr, werte:neueWerte});
+    if(wmK) wmK.eintraege.unshift({id:neu.id, ts:datum, datum:datumStr, werte:neueWerte, kuerzel:kz});
   }
 
   if(zEl) zEl.value='';
