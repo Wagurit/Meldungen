@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v46</title>
+<title>Meldungen &amp; Angebote v72</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -221,6 +221,7 @@ textarea{resize:vertical;min-height:68px;}
 
 /* KBE */
 .rkw-row{display:flex;gap:7px;align-items:stretch;margin-bottom:6px;}
+.btb-dipslide-pending{display:flex;align-items:center;white-space:nowrap;font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border:1.5px solid #7dd3fc;border-radius:7px;padding:0 8px;flex-shrink:0;}
 .rkw-row input[type=text]{flex:1;}
 .rkw-val-select{width:110px;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;}
 .rkw-del-btn{padding:0 10px;height:40px;background:var(--rdb);border:1.5px solid #fca5a5;border-radius:8px;color:var(--rd);font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
@@ -245,6 +246,49 @@ textarea{resize:vertical;min-height:68px;}
 .wm-delta{color:var(--bm);font-weight:700;}
 .wm-delta-error{color:var(--rd);font-weight:700;background:var(--rdb);padding:1px 6px;border-radius:5px;}
 .wm-eindickung{font-size:11px;color:var(--gn);font-weight:700;margin-top:2px;}
+
+/* ── BTB: BETRIEBSTAGEBUCH ── */
+.btb-karte{background:#fff;border-radius:10px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;border-left:4px solid #0891b2;}
+.btb-karte-header{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:#f0f9ff;border-bottom:1px solid var(--bo);cursor:pointer;gap:8px;}
+.btb-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:var(--bd);}
+.btb-karte-meta{font-size:11px;color:#94a3b8;margin-top:1px;}
+.btb-karte-toggle{font-size:18px;color:var(--mu);transition:transform .2s;flex-shrink:0;}
+.btb-karte.open .btb-karte-toggle{transform:rotate(180deg);}
+.btb-karte-body{display:none;padding:12px;}
+.btb-karte.open .btb-karte-body{display:block;}
+/* Anlage-Tabs innerhalb einer Karte */
+.btb-anlagen-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.btb-anlage-tab{padding:5px 12px;border-radius:20px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .14s;}
+.btb-anlage-tab.active{background:#0891b2;border-color:#0891b2;color:#fff;}
+.btb-anlage-panel{display:none;}
+.btb-anlage-panel.active{display:block;}
+/* Eingabe-Formular */
+.btb-form{background:var(--bg);border:1.5px solid var(--bo);border-radius:9px;padding:11px;margin-bottom:10px;}
+.btb-form-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0891b2;margin-bottom:8px;}
+.btb-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.btb-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+.btb-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;}
+.btb-feld{}
+.btb-feld-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin-bottom:3px;}
+.btb-last-hint{font-size:10px;color:var(--gn);margin-top:2px;font-style:italic;white-space:nowrap;}
+.btb-feld input,.btb-feld select{font-size:15px!important;padding:8px 10px!important;}
+.btb-dipslide-box{background:#fff;border:1.5px solid #bae6fd;border-radius:8px;padding:9px;margin-top:6px;}
+.btb-dipslide-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#0369a1;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
+.btb-kbe-pill{display:inline-block;padding:5px 14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;}
+/* Verlauf */
+.btb-verlauf-titel{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
+.btb-eintrag{background:#fff;border:1px solid var(--bo);border-radius:8px;padding:9px 11px;margin-bottom:7px;}
+.btb-eintrag-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.btb-eintrag-datum{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;color:var(--bd);}
+.btb-eintrag-kz{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;background:var(--bd);color:#fff;padding:1px 7px;border-radius:4px;letter-spacing:.06em;}
+.btb-row{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:12px;color:var(--mu);}
+.btb-row strong{color:var(--tx);}
+.btb-kbe-ausstehend{display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#854d0e;border:1px solid #fde047;border-radius:6px;font-size:11px;font-weight:700;padding:2px 8px;font-family:'Barlow Condensed',sans-serif;}
+.btb-eintrag-bemerkung{margin-top:5px;font-size:12px;color:var(--tx);font-weight:700;border-top:1px solid var(--bg);padding-top:5px;}
+.btb-wasser-box{margin-top:5px;background:#f0fdf4;border:1px solid var(--gl);border-radius:7px;padding:7px 10px;font-size:12px;}
+.btb-edit-btn{font-size:11px;padding:3px 9px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);border-radius:6px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-top:5px;}
+.btb-del-btn{font-size:11px;padding:3px 9px;border:1.5px solid #fca5a5;background:#fee2e2;color:var(--rd);border-radius:6px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-top:5px;margin-left:4px;}
+
 .kbe-karte-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;}
 .kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;color:var(--bd);}
 .kbe-karte-toggle{font-size:18px;color:var(--mu);transition:transform .2s;}
@@ -287,7 +331,12 @@ textarea{resize:vertical;min-height:68px;}
 /* Listen Filter */
 .lhdr{margin-bottom:10px;}
 .ltit{color:rgba(255,255,255,.85);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;padding:0 2px;}
-.sin{width:100%;background:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;color:var(--tx);font-size:14px;font-family:'Barlow',sans-serif;padding:9px 12px;outline:none;margin-bottom:7px;-webkit-appearance:none;}
+.sin{width:100%;background:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;color:var(--tx);font-size:14px;font-family:'Barlow',sans-serif;padding:9px 34px 9px 12px;outline:none;margin-bottom:0;-webkit-appearance:none;}
+.sin-wrap{position:relative;margin-bottom:7px;}
+.sin-clear{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:none;background:rgba(0,0,0,.08);color:var(--mu);font-size:15px;line-height:1;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;padding:0;}
+.sin-clear:hover{background:rgba(0,0,0,.16);}
+#ink{padding-right:34px;}
+.acw .sin-clear{background:rgba(0,0,0,.06);}
 .sin:focus{background:#fff;}
 .fts{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap;}
 .ft{padding:6px 13px;border-radius:20px;border:1.5px solid var(--bd);background:var(--bd);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
@@ -414,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v46</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v72</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -433,10 +482,10 @@ textarea{resize:vertical;min-height:68px;}
       </span>
     </button>
     <button class="tab" data-tab="b">🔬 KBE</button>
-    <button class="tab" data-tab="wm">🚰 WM</button>
+    <button class="tab" data-tab="btb">📋 BTB <span class="tab-badges"><span class="tbg wb" id="tbb-offen"></span></span></button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
-    <button class="tab" data-tab="k">🔬 KBE Eintragen</button>
+    <button class="tab" data-tab="k">🔬 KBE Auswerten</button>
     <button class="tab" data-tab="l">🗑 Gelöscht</button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
       ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
@@ -451,7 +500,8 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sl">Kundenname</div>
         <div class="acw">
           <input type="text" id="ink" placeholder="Kundenname eingeben…" autocomplete="off"
-            oninput="onKI(this.value)" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
+            oninput="onKI(this.value);btbSyncKundenSuche(this.value,'ink')" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
+          <button class="sin-clear" onclick="btbClearSuche('ink')" tabindex="-1">✕</button>
           <div class="acl" id="acl"></div>
         </div>
         <div class="abts">
@@ -531,7 +581,10 @@ textarea{resize:vertical;min-height:68px;}
     <div class="pnl" id="panel-m">
       <div class="lhdr">
         <div class="ltit">Alle Meldungen</div>
-        <input type="text" class="sin" id="sm" placeholder="🔍 Firma oder Kürzel…" oninput="renderM()">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sm" placeholder="🔍 Firma oder Kürzel…" oninput="renderM();btbSyncKundenSuche(this.value,'sm')">
+          <button class="sin-clear" onclick="btbClearSuche('sm')" tabindex="-1">✕</button>
+        </div>
         <div class="fts">
           <button class="ft active" onclick="setF('m','alle',this)">Alle</button>
           <button class="ft" onclick="setF('m','offen',this)">Offen <span class="ftbg" id="ft-m-of-cnt"></span></button>
@@ -546,29 +599,50 @@ textarea{resize:vertical;min-height:68px;}
       <div id="em"><div class="empty" id="em0">Noch keine Meldungen</div></div>
     </div>
 
-    <!-- KBE ÜBERSICHT (eigener Tab) -->
+    <!-- KBE ÜBERSICHT (historische Daten) -->
     <div class="pnl" id="panel-b">
       <div class="lhdr">
         <div class="ltit">🔬 KBE-Übersicht</div>
-        <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="onKundenSucheInput(this.value)">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="btbSyncKundenSuche(this.value,'sb-search')">
+          <button class="sin-clear" onclick="btbClearSuche('sb-search')" tabindex="-1">✕</button>
+        </div>
       </div>
       <div id="eb"><div class="empty" id="eb0">Noch keine KBE-Einträge</div></div>
     </div>
 
-    <!-- WM: WASSERZÄHLERSTÄNDE (Zusatzwasser / Abwasser, Betriebstagebuch) -->
-    <div class="pnl" id="panel-wm">
-      <div class="lhdr">
-        <div class="ltit">🚰 Wasserzählerstände</div>
-        <input type="text" class="sin" id="wm-suche" placeholder="🔍 Firma suchen…" oninput="onKundenSucheInput(this.value)">
+    <!-- BTB: BETRIEBSTAGEBUCH -->
+    <div class="pnl" id="panel-btb">
+      <div class="lhdr" style="flex-wrap:wrap;gap:6px">
+        <div class="ltit">📋 Betriebstagebuch</div>
+        <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+          <div class="sin-wrap" style="flex:1;margin-bottom:0">
+            <input type="text" class="sin" id="btb-suche" placeholder="🔍 Firma suchen…" oninput="renderBtbTab();btbSyncKundenSuche(this.value,'btb-suche')" style="margin-bottom:0">
+            <button class="sin-clear" onclick="btbClearSuche('btb-suche')" tabindex="-1">✕</button>
+          </div>
+          <button id="btb-filter-offen" onclick="btbToggleFilter()" style="padding:5px 11px;border:1.5px solid #0891b2;border-radius:8px;background:var(--bg);color:#0891b2;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
+            ⏳ Zu berechnen
+          </button>
+        </div>
+        <div style="width:100%">
+          <div class="btb-rnr-toggle" onclick="btbToggleRnrSuche()" style="padding:5px 2px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.04em">🔍 Nach Rechnungsnummer suchen ⌄</div>
+          <div class="btb-rnr-body sin-wrap" style="display:none;margin-bottom:0">
+            <input type="text" class="sin" id="btb-rnr-suche" placeholder="Rechnungsnummer…" oninput="renderBtbTab()" style="margin-bottom:0">
+            <button class="sin-clear" onclick="btbClearSuche('btb-rnr-suche')" tabindex="-1">✕</button>
+          </div>
+        </div>
       </div>
-      <div id="ewm"><div class="empty" id="ewm0">Noch keine Kunden – zuerst unter „KBE Eintragen" anlegen</div></div>
+      <div id="ebtb"><div class="empty" id="ebtb0">Noch keine Kunden</div></div>
     </div>
 
     <!-- CHEMIE -->
     <div class="pnl" id="panel-c">
       <div class="lhdr">
         <div class="ltit">Chemie-Angebote</div>
-        <input type="text" class="sin" id="sc" placeholder="🔍 Firma oder Ersteller…" oninput="renderC()">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sc" placeholder="🔍 Firma oder Ersteller…" oninput="renderC();btbSyncKundenSuche(this.value,'sc')">
+          <button class="sin-clear" onclick="btbClearSuche('sc')" tabindex="-1">✕</button>
+        </div>
         <div class="fts">
           <button class="ft active" onclick="setF('c','alle',this)">Alle</button>
           <button class="ft" onclick="setF('c','offen',this)">Offen</button>
@@ -582,7 +656,10 @@ textarea{resize:vertical;min-height:68px;}
     <div class="pnl" id="panel-f">
       <div class="lhdr">
         <div class="ltit">Angebote</div>
-        <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF()">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF();btbSyncKundenSuche(this.value,'sff')">
+          <button class="sin-clear" onclick="btbClearSuche('sff')" tabindex="-1">✕</button>
+        </div>
         <div class="fts">
           <button class="ft active" onclick="setF('f','alle',this)">Alle</button>
           <button class="ft" onclick="setF('f','offen',this)">Offen</button>
@@ -604,14 +681,20 @@ textarea{resize:vertical;min-height:68px;}
           <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--bm);letter-spacing:.08em;background:var(--bo);padding:2px 8px;border-radius:6px">MEIST GENUTZT</span>
         </div>
         <div style="padding:14px">
-          <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" oninput="onKundenSucheInput(this.value)">
+        <div class="sin-wrap" style="margin-bottom:0">
+          <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" style="padding-right:34px" oninput="btbSyncKundenSuche(this.value,'kbe-suche')">
+          <button class="sin-clear" onclick="btbClearSuche('kbe-suche')" tabindex="-1">✕</button>
+        </div>
           <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
           <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
             <div class="sl" id="kbe-selkunde-label"></div>
             <div id="kbe-best-rkws"></div>
-            <div class="sl">Datum der Probenahme</div>
+            <div class="sl">Datum der Probenahme (= BTB-Besuchsdatum)</div>
             <input type="date" id="kbe-best-datum">
-            <button class="bsend" onclick="saveBestKunde()" style="margin-top:10px">KBE-Werte speichern</button>
+            <div style="margin-top:7px;padding:8px 10px;background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;font-size:12px;color:#0369a1;line-height:1.5">
+              💡 Der KBE-Wert wird automatisch dem BTB-Eintrag mit diesem Datum zugeordnet und dort sichtbar.
+            </div>
+            <button class="bsend" onclick="saveBestKunde()" style="margin-top:10px">KBE-Werte speichern → BTB zuordnen</button>
           </div>
         </div>
       </div>
@@ -642,7 +725,10 @@ textarea{resize:vertical;min-height:68px;}
 
       <div class="lhdr">
         <div class="ltit">KBE-Übersicht</div>
-        <input type="text" class="sin" id="sk" placeholder="🔍 Firma suchen…" oninput="renderKbeListe()">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sk" placeholder="🔍 Firma suchen…" oninput="renderKbeListe();btbSyncKundenSuche(this.value,'sk')">
+          <button class="sin-clear" onclick="btbClearSuche('sk')" tabindex="-1">✕</button>
+        </div>
       </div>
       <div id="ek"><div class="empty" id="ek0">Noch keine KBE-Einträge</div></div>
     </div>
@@ -651,7 +737,10 @@ textarea{resize:vertical;min-height:68px;}
     <div class="pnl" id="panel-l">
       <div class="lhdr">
         <div class="ltit">🗑 Gelöschte Einträge</div>
-        <input type="text" class="sin" id="sl-search" placeholder="🔍 Firma, Typ oder Kürzel…" oninput="renderLog()">
+        <div class="sin-wrap">
+          <input type="text" class="sin" id="sl-search" placeholder="🔍 Firma, Typ oder Kürzel…" oninput="renderLog()">
+          <button class="sin-clear" onclick="btbClearSuche('sl-search')" tabindex="-1">✕</button>
+        </div>
         <div class="fts">
           <button class="ft active" onclick="setF('l','alle',this)">Alle</button>
           <button class="ft" onclick="setF('l','meldung',this)">Meldungen</button>
@@ -746,7 +835,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v46';
+const APP_VERSION = 'v72';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -780,6 +869,113 @@ const APP_VERSION = 'v46';
 // ══════════════════════════════════════════════════════════
 // KONFIGURATION
 // ══════════════════════════════════════════════════════════
+/*
+  SUPABASE SQL – einmalig ausführen (SQL Editor im Dashboard):
+  ═══════════════════════════════════════════════════════════
+
+  -- 1) Neue Tabelle btb_eintraege (Betriebstagebuch)
+  CREATE TABLE btb_eintraege (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    kunde_id uuid REFERENCES kbe_kunden(id) ON DELETE CASCADE,
+    anlage text NOT NULL,
+    datum_btb date NOT NULL,
+    besuch_uhrzeit time,
+    kuerzel text,
+    lf_messung_ist numeric,
+    dh numeric,
+    lf_geraet_ist numeric,
+    lf_geraet_soll numeric,
+    dipslide_basis numeric,
+    dipslide_exponent numeric,
+    kbe_auswertung text,
+    zusatzwasser numeric,
+    abwasser numeric,
+    -- Produkt 1 (z.B. BZ 300)
+    p1_vorgefunden numeric,
+    p1_aufgefuellt numeric,
+    p1_neu numeric,
+    p1_lager numeric,
+    -- Produkt 2 (z.B. KT 300 / LB)
+    p2_vorgefunden numeric,
+    p2_aufgefuellt numeric,
+    p2_neu numeric,
+    p2_lager numeric,
+    -- Produkt 3 (z.B. BZ 219S)
+    p3_vorgefunden numeric,
+    p3_aufgefuellt numeric,
+    p3_neu numeric,
+    p3_lager numeric,
+    schwefelsa boolean DEFAULT false,
+    bemerkung text,
+    dosier_snapshot jsonb,
+    -- Berechnungs-Status (Büro)
+    btb_status text DEFAULT 'offen',
+    rechnung_nr text,
+    berechnet_von text,
+    berechnet_am timestamptz,
+    erstellt_am timestamptz DEFAULT now()
+  );
+  ALTER TABLE btb_eintraege ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "Alle lesen" ON btb_eintraege FOR SELECT USING (true);
+  CREATE POLICY "Alle schreiben" ON btb_eintraege FOR INSERT WITH CHECK (true);
+  CREATE POLICY "Alle updaten" ON btb_eintraege FOR UPDATE USING (true);
+  CREATE POLICY "Alle löschen" ON btb_eintraege FOR DELETE USING (true);
+
+  -- 1b) Neue Tabelle btb_entwurf (Zwischenspeicher vor "FERTIG" — fehlte bisher in dieser Doku!)
+  CREATE TABLE btb_entwurf (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    kunde_id uuid REFERENCES kbe_kunden(id) ON DELETE CASCADE,
+    anlage text NOT NULL,
+    felder jsonb,
+    kuerzel text,
+    erstellt_am timestamptz DEFAULT now(),
+    aktualisiert_am timestamptz DEFAULT now(),
+    UNIQUE (kunde_id, anlage)
+  );
+  ALTER TABLE btb_entwurf ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "entwurf_select" ON btb_entwurf FOR SELECT USING (true);
+  CREATE POLICY "entwurf_insert" ON btb_entwurf FOR INSERT WITH CHECK (true);
+  CREATE POLICY "entwurf_update" ON btb_entwurf FOR UPDATE USING (true);
+  CREATE POLICY "entwurf_delete" ON btb_entwurf FOR DELETE USING (true);
+
+  -- Dosiertage + Dosiermenge pro Produkt, PRO ANLAGE getrennt (v60: keine neue Spalte nötig,
+  -- nur die JSON-Struktur innerhalb der bestehenden jsonb-Spalte ändert sich)
+  -- Format: {"<AnlageSlug>":{"p1":{"tage":["mo","mi","fr"],"menge":6.02,"uhr":"12:00","dauer":30,"geaendert_am":"2026-09-09","block2Aktiv":false,"tage2":[],"menge2":"","uhr2":"","dauer2":"","geaendert_am2":null},"p3":{...}}}
+  -- block2Aktiv=true → 2. unabhängige Dosierzeit (eigene Tage/Uhrzeit/Dauer/Menge, meist an anderen Wochentagen)
+  -- Hinweis: Bestehende (ältere, flache) dosier_info-Werte werden von der neuen Anlage-spezifischen
+  -- Logik nicht mehr gelesen — Dosierzeiten/-tage müssen einmalig neu pro Anlage eingetragen werden.
+  -- Optional zum Aufräumen (nicht zwingend nötig, alte Werte stören nicht, werden nur ignoriert):
+  -- UPDATE kbe_kunden SET dosier_info='{}' WHERE dosier_info IS NOT NULL;
+  ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS dosier_info jsonb DEFAULT '{}';
+
+  -- 2) kbe_kunden um Produktnamen-Spalte erweitern (speichert die 3 Produktbezeichnungen pro Kunde)
+  ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS produkt_namen jsonb DEFAULT '{"p1":"BZ","p2":"KT/LB","p3":""}';
+
+  -- 3) NEU: Globale Mängel-Vorlagen (für ALLE Kunden gemeinsam nutzbar, ersetzt Schwefelsäure-Haken)
+  -- Techniker klappt im Formular "🔧 Mängel-Vorlagen" auf, kreuzt zutreffende an —
+  -- die werden beim Speichern automatisch VOR die handschriftliche Bemerkung gesetzt.
+  CREATE TABLE IF NOT EXISTS btb_maengel_vorlagen (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    text text NOT NULL UNIQUE,
+    erstellt_von text,
+    erstellt_am timestamptz DEFAULT now()
+  );
+  ALTER TABLE btb_maengel_vorlagen ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "maengel_select" ON btb_maengel_vorlagen FOR SELECT USING (true);
+  CREATE POLICY "maengel_insert" ON btb_maengel_vorlagen FOR INSERT WITH CHECK (true);
+  CREATE POLICY "maengel_delete" ON btb_maengel_vorlagen FOR DELETE USING (true);
+  -- Ein paar Beispiel-Vorlagen zum Start (optional, kann direkt im Formular ergänzt werden):
+  INSERT INTO btb_maengel_vorlagen (text) VALUES
+    ('BZ leer'), ('KT leer'), ('Luft im BZ-Dosierschlauch'), ('Luft im KT-Dosierschlauch'),
+    ('Dosierpumpe defekt'), ('Wasserzähler defekt')
+  ON CONFLICT (text) DO NOTHING;
+
+  ═══════════════════════════════════════════════════════════
+  HINWEIS: produkt_namen speichert {"p1":"BZ 300","p2":"KT 300 K","p3":"BZ 219S"}
+  Jeder Eintrag in btb_eintraege speichert die Werte (numeric), der Name
+  steht immer am Kunden → rückwirkende Einträge bleiben korrekt,
+  weil der Name nur für die ANZEIGE ab dem Änderungszeitpunkt gilt.
+*/
 const SUPABASE_URL = 'https://loekjdetgppmxnwnwxkm.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_tvSCErTdFX0L1HKb2h9HPw_7Xid0a0A';
 const IS_KZ = 'IS'; // Admin-Kürzel
@@ -804,7 +1000,9 @@ let selKbeKunde = null;
 let inkDirty = false;
 let delPending = null;
 
-let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [], WM = [];
+let MD = [], CH = [], FR = [], KBE = [], LOG_DATA = [], WM = [], BTB_KUNDEN = [], BTB_ENTWURF = [];
+let btbFilterOffen = false; // Filter: nur "zu berechnen"
+let BTB_MAENGEL = []; // globale Mängel-Vorlagen (für alle Kunden nutzbar)
 let FAVORITEN = new Set();
 
 let cL = [...CHEM_STD], cS = new Set();
@@ -946,7 +1144,7 @@ async function doLogout(){
 async function loadAll(){
   setSyncing('syncing');
   try {
-    const [m,c,f,k,ke,l,fav,wm] = await Promise.all([
+    const [m,c,f,k,ke,l,fav,wm,btb] = await Promise.all([
       _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('chemie').select('*').order('erstellt_am',{ascending:false}),
       _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false}),
@@ -955,7 +1153,13 @@ async function loadAll(){
       _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200),
       _sb.from('favoriten').select('meldung_id').eq('kuerzel',kz),
       _sb.from('wm_eintraege').select('*').order('datum',{ascending:false}),
+      _sb.from('btb_eintraege').select('*').order('datum_btb',{ascending:false}),
     ]);
+    // btb_entwurf separat laden — wenn Tabelle noch nicht existiert nicht abstürzen
+    const btbDraft = await _sb.from('btb_entwurf').select('*').then(r=>r).catch(()=>({data:[]}));
+    // btb_maengel_vorlagen (globale Mängel-Vorlagen) separat laden
+    const btbMaengel = await _sb.from('btb_maengel_vorlagen').select('*').order('text').then(r=>r).catch(()=>({data:[]}));
+    BTB_MAENGEL = btbMaengel.data||[];
     MD = (m.data||[]).map(mapMeld);
     CH = (c.data||[]).map(mapChem);
     FR = (f.data||[]).map(mapFrei);
@@ -982,6 +1186,47 @@ async function loadAll(){
         werte:e.werte||{}, kuerzel:e.kuerzel||null
       }))
     }));
+    // BTB: Betriebstagebuch — pro Kunde, pro Anlage, pro Besuchsdatum
+    const btbEintr = btb.data||[];
+    const btbDraftArr = btbDraft.data||[];
+    BTB_ENTWURF = btbDraftArr;
+    BTB_KUNDEN = kunden.map(k2=>{
+      const entwuerfe = btbDraftArr.filter(e=>e.kunde_id===k2.id);
+      return {
+        id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
+        rkws: k2.rkws||[],
+        produkt_namen: k2.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''},
+        dosier_info: k2.dosier_info||{},
+        entwuerfe,
+        eintraege: btbEintr.filter(e=>e.kunde_id===k2.id).map(e=>({
+          id:e.id,
+          datum_btb: e.datum_btb,
+          datumFmt: new Date(e.datum_btb+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
+          anlage: e.anlage,
+          kuerzel: e.kuerzel||null,
+          lf_messung_ist: e.lf_messung_ist,
+          lf_geraet_ist: e.lf_geraet_ist,
+          lf_geraet_soll: e.lf_geraet_soll,
+          dh: e.dh,
+          dipslide_basis: e.dipslide_basis,
+          dipslide_exponent: e.dipslide_exponent,
+          kbe_auswertung: e.kbe_auswertung||null,
+          zusatzwasser: e.zusatzwasser,
+          abwasser: e.abwasser,
+          p1_vorgefunden: e.p1_vorgefunden, p1_aufgefuellt: e.p1_aufgefuellt, p1_neu: e.p1_neu, p1_lager: e.p1_lager,
+          p2_vorgefunden: e.p2_vorgefunden, p2_aufgefuellt: e.p2_aufgefuellt, p2_neu: e.p2_neu, p2_lager: e.p2_lager,
+          p3_vorgefunden: e.p3_vorgefunden, p3_aufgefuellt: e.p3_aufgefuellt, p3_neu: e.p3_neu, p3_lager: e.p3_lager,
+          schwefelsa: e.schwefelsa,
+          bemerkung: e.bemerkung||'',
+          dosier_snapshot: e.dosier_snapshot||null,
+          btb_status: e.btb_status||'offen',
+          rechnung_nr: e.rechnung_nr||null,
+          berechnet_von: e.berechnet_von||null,
+          berechnet_am: e.berechnet_am||null,
+          besuch_uhrzeit: e.besuch_uhrzeit||null
+        })).sort((a,b)=>b.datum_btb.localeCompare(a.datum_btb))
+      };
+    });
     FAVORITEN = new Set((fav.data||[]).map(x=>x.meldung_id));
     LOG_DATA = (l.data||[]).map(x=>({
       id:x.id, ts:x.geloescht_am, geloescht_von:x.geloescht_von,
@@ -1013,6 +1258,8 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'kbe_kunden'},()=>reloadTable('kbe'))
     .on('postgres_changes',{event:'*',schema:'public',table:'kbe_eintraege'},()=>reloadTable('kbe'))
     .on('postgres_changes',{event:'*',schema:'public',table:'wm_eintraege'},()=>reloadTable('wm'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'btb_eintraege'},()=>reloadTable('btb'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'btb_entwurf'},()=>reloadTable('btb'))
     .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
     .subscribe();
 }
@@ -1022,6 +1269,7 @@ async function reloadTable(tbl){
   else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
   else if(tbl==='kbe'){loadAll();}
   else if(tbl==='wm'){loadAll();}
+  else if(tbl==='btb'){loadAll();}
   else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
 }
 
@@ -2201,17 +2449,37 @@ function renderKbeInListe(kbeArr,container){
 }
 function toggleKbeMeld(id,btn){const el=document.getElementById(id);if(!el)return;const open=el.style.display!=='none';el.style.display=open?'none':'block';const cnt=el.querySelectorAll('[style*="margin-bottom:8px"]').length||'';btn.textContent=open?(cnt+' ältere anzeigen'):'▲ Weniger';}
 
-// ── v39: Gemeinsame Kundensuche über KBE-Übersicht, KBE Eintragen und WM hinweg ──
-// Tippen in einem der drei Suchfelder synchronisiert die anderen beiden und
-// rendert alle drei Listen neu, damit der Techniker den Kunden nur einmal sucht.
-function onKundenSucheInput(val){
-  ['sb-search','kbe-suche','wm-suche'].forEach(id=>{
+// ── Globale Kundensuche: synchronisiert ALLE Such-/Kundenfelder app-weit ──
+// Tippen in einem Feld (Eingabe, Meldungen, Chemie, Angebot, KBE, BTB) überträgt
+// den Text sofort in alle anderen und aktualisiert deren Listen — der Techniker
+// muss einen Kundennamen nur einmal eingeben und sieht in jedem Reiter sofort
+// die zum Kunden passenden Einträge.
+const BTB_SYNC_FELDER=['ink','sm','sc','sff','sb-search','sk','kbe-suche','btb-suche','wm-suche'];
+function btbSyncKundenSuche(val, quellId){
+  BTB_SYNC_FELDER.forEach(id=>{
+    if(id===quellId)return; // Quellfeld nicht anfassen (Cursor-Position beim Tippen bleibt erhalten)
     const el=G(id);
-    if(el && el.value!==val) el.value=val;
+    if(!el||el.value===val)return;
+    el.value=val;
   });
+  if(quellId==='ink'){inkDirty=false;closeAc();}
+  // Alle betroffenen Listen/Reiter neu rendern, damit überall sofort gefiltert ist
+  renderM();
+  renderC();
+  renderF();
   renderKbeTab();
   renderKbeKunden();
+  renderKbeListe();
   renderWmTab();
+  renderBtbTab();
+}
+// Feld leeren per ✕-Button — löst dieselbe Sync-Logik wie beim Tippen aus
+function btbClearSuche(id){
+  const el=G(id);
+  if(!el)return;
+  el.value='';
+  el.focus();
+  el.dispatchEvent(new Event('input',{bubbles:true}));
 }
 
 function renderKbeKunden(){
@@ -2260,9 +2528,32 @@ function selectKbeKunde(kid){
   const k=KBE.find(x=>x.id===kid);if(!k){G('kbe-bestehend-form').style.display='none';return;}
   G('kbe-selkunde-label').textContent=k.firma+' – neuer KBE-Eintrag';
   const c=G('kbe-best-rkws');c.innerHTML='';
-  k.rkws.forEach(r=>{const row=document.createElement('div');row.className='rkw-row';row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…"><select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';c.appendChild(row);});
+  // Offene (gezogene, noch nicht ausgewertete) DipSlide-Proben aus dem BTB-Tab für diesen Kunden finden —
+  // pro Anlage die neueste offene Probe (eintraege ist bereits neueste-zuerst sortiert)
+  const btbKunde=BTB_KUNDEN.find(bk=>bk.id===kid);
+  const offeneDipslides={};
+  if(btbKunde){
+    btbKunde.eintraege.forEach(e=>{
+      if(e.dipslide_basis!=null && !e.kbe_auswertung && !offeneDipslides[e.anlage]){
+        offeneDipslides[e.anlage]=e;
+      }
+    });
+  }
+  k.rkws.forEach(r=>{
+    const row=document.createElement('div');row.className='rkw-row';
+    const offen=offeneDipslides[r.name];
+    if(offen) row.dataset.dipslidePending='1';
+    const checkHtml=offen
+      ?'<span class="btb-dipslide-pending" title="DipSlide gezogen am '+esc(btbFmtDatumDE(offen.datum_btb))+'">🧫✓ '+esc(btbFmtTagMonat(offen.datum_btb))+'</span>'
+      :'';
+    row.innerHTML='<input type="text" value="'+esc(r.name)+'" placeholder="RKW-Name…">'+checkHtml+'<select class="rkw-val-select"><option value="">– kein Wert</option>'+KBE_WERTE.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select><button class="rkw-del-btn" onclick="this.parentElement.remove()">×</button>';
+    c.appendChild(row);
+  });
   if(!G('kbe-best-add-rkw-btn')){const addBtn=document.createElement('button');addBtn.id='kbe-best-add-rkw-btn';addBtn.className='add-rkw-btn';addBtn.textContent='+ RKW hinzufügen';addBtn.onclick=()=>addRkwRow('kbe-best-rkws');c.parentElement.insertBefore(addBtn, c.nextSibling);}
-  G('kbe-best-datum').value='';G('kbe-bestehend-form').style.display='block';
+  // Datum vorbelegen: wenn alle offenen Proben dasselbe Datum haben, dieses übernehmen
+  const alleDaten=[...new Set(Object.values(offeneDipslides).map(e=>e.datum_btb))];
+  G('kbe-best-datum').value=alleDaten.length===1?alleDaten[0]:'';
+  G('kbe-bestehend-form').style.display='block';
 }
 
 function openLetztenEdit(kid){
@@ -2327,16 +2618,32 @@ async function saveBestKunde(){
   const k=KBE.find(x=>x.id===selKbeKunde);if(!k){alert('Kein Kunde gewählt.');return;}
   const rows=G('kbe-best-rkws').querySelectorAll('.rkw-row');
   const rkws=[],werte={};let ok=true;
-  rows.forEach(row=>{const name=(row.querySelector('input[type=text]').value||'').trim();const val=row.querySelector('select').value;if(!name){ok=false;return;}rkws.push({name});if(val)werte[name]=val;});
+  const fehlendeAnlagen=[];
+  rows.forEach(row=>{
+    const name=(row.querySelector('input[type=text]').value||'').trim();
+    const val=row.querySelector('select').value;
+    if(!name){ok=false;return;}
+    rkws.push({name});
+    if(val)werte[name]=val;
+    // Warnung vormerken: DipSlide wurde laut BTB gezogen, aber noch kein Wert eingetragen
+    if(row.dataset.dipslidePending==='1' && !val) fehlendeAnlagen.push(name);
+  });
   if(!ok){alert('Alle RKW brauchen einen Namen.');return;}
   const datum=G('kbe-best-datum').value;if(!datum){alert('Bitte Datum wählen.');return;}
+  if(fehlendeAnlagen.length){
+    if(!confirm('Für folgende Anlage(n) wurde laut BTB eine DipSlide-Probe gezogen, aber noch kein Wert eingetragen:\n\n'+fehlendeAnlagen.join(', ')+'\n\nTrotzdem speichern?'))return;
+  }
   const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
   await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
   const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
   k.rkws=neueRkws;
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
-  toast('✓ KBE-Werte gespeichert');renderKbeListe();renderKbeKunden();updB();
+  // BTB: KBE-Auswertung JEDER Anlage mit Wert dem passenden BTB-Eintrag zuordnen (nicht nur der ersten!)
+  for(const anlageName of Object.keys(werte)){
+    await btbLinkKbe(k.id, anlageName, datum, werte[anlageName]);
+  }
+  toast('✓ KBE-Werte gespeichert und BTB aktualisiert');renderKbeListe();renderKbeKunden();updB();
   selKbeKunde=null;G('kbe-bestehend-form').style.display='none';
   document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
   G('kbe-best-rkws').innerHTML='';
@@ -2444,9 +2751,27 @@ function updB(){
   const ftFav = document.getElementById('ft-fav-cnt');if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
   const badgeGesamt = ug + fm;
   if('setAppBadge' in navigator){if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);else navigator.clearAppBadge();}
+  // BTB: Anzahl Kunden mit Status "offen" (FERTIG gedrückt, noch nicht berechnet)
+  const btbOffenCount = BTB_KUNDEN.filter(k2=>k2.eintraege.some(e=>e.btb_status==='offen')).length;
+  const tbbOffen=G('tbb-offen');
+  if(tbbOffen){if(btbOffenCount>0){tbbOffen.textContent=btbOffenCount;tbbOffen.className='tbg wb v';}else tbbOffen.className='tbg wb';}
+  const ftBtbOffen=G('ft-btb-offen-cnt');
+  if(ftBtbOffen) ftBtbOffen.textContent=btbOffenCount||'';
 }
 
-function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();}
+function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();renderBtbTab();updB();}
+function btbToggleFilter(){
+  btbFilterOffen=!btbFilterOffen;
+  const btn=G('btb-filter-offen');
+  if(btn){btn.style.background=btbFilterOffen?'#0891b2':'var(--bg)';btn.style.color=btbFilterOffen?'#fff':'#0891b2';}
+  renderBtbTab();
+}
+function btbToggleRnrSuche(){
+  const body=G('btb-rnr-body')||document.querySelector('.btb-rnr-body');
+  if(!body)return;
+  body.style.display=body.style.display==='none'?'block':'none';
+  if(body.style.display==='block') G('btb-rnr-suche')?.focus();
+}
 function renderKbeTab(){
   const c=G('eb');if(!c)return;c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=(G('sb-search')?G('sb-search').value||'':'').toLowerCase();
@@ -2807,6 +3132,1122 @@ async function saveWmLetztenEdit(k, eid, datumInp, box){
   box.remove();
   toast('✓ Eintrag aktualisiert');
   renderWmTab();
+}
+
+// ══════════════════════════════════════════════════════════
+// BTB: BETRIEBSTAGEBUCH
+// Ersetzt KBE-Übersicht + WM in einem Tab.
+// Pro Kunde → Pro Anlage (RKW) → Pro Besuchsdatum:
+//   LF, °dH, DipSlide (Probenahme + spätere Auswertung vom Büro),
+//   Wasserzähler (Zusatzwasser + Abwasser opt. → Verbrauch/Eindickung),
+//   BZ, KT/LB, Schwefelsäure, Bemerkung
+// ══════════════════════════════════════════════════════════
+
+// Hilfsfunktion: Vorherigen Wasserzählerstand für eine Anlage suchen
+// Sicherer Slug für HTML-IDs: nur Buchstaben, Zahlen, Unterstrich
+function btbSlug(str){ return String(str||'').replace(/[^a-zA-Z0-9äöüÄÖÜ]/g,'_'); }
+// Datum 'YYYY-MM-DD' → 'DD.MM.YYYY' für Anzeige (z.B. "seit 09.09.2026")
+// ── Enter-Taste springt zum nächsten Eingabefeld (für iPad: schnelle Dateneingabe ohne Tippen aufs Feld) ──
+// Reihenfolge folgt der Lese-/Tab-Reihenfolge im DOM (= visuelle Reihenfolge dank flex-wrap:
+// links nach rechts, am Zeilenende weiter links unten). Nach dem letzten Feld geht's wieder von vorne los.
+function btbSetupEnterNavigation(form){
+  const sel='input:not([type="checkbox"]):not([type="hidden"]):not([readonly]), select';
+  // Zeigt auf dem iPad-Keyboard "Weiter" statt normalem Zeilenumbruch-Symbol an
+  form.querySelectorAll(sel).forEach(el=>{ if(el.tagName==='INPUT') el.setAttribute('enterkeyhint','next'); });
+  form.addEventListener('keydown', ev=>{
+    if(ev.key!=='Enter')return;
+    const t=ev.target;
+    if(t.tagName==='TEXTAREA')return; // Bemerkung: Enter soll normal einen Zeilenumbruch machen
+    if(t.tagName!=='INPUT' && t.tagName!=='SELECT')return;
+    if(t.type==='checkbox')return; // Checkboxen normal per Tippen/Space bedienen
+    ev.preventDefault();
+    // Nur aktuell sichtbare Felder berücksichtigen (z.B. eingeklappter 2. Dosierzeit-Block wird übersprungen)
+    const sichtbar=[...form.querySelectorAll(sel)].filter(el=>el.offsetParent!==null);
+    const idx=sichtbar.indexOf(t);
+    if(idx===-1)return;
+    const next=sichtbar[(idx+1)%sichtbar.length];
+    if(next){ next.focus(); if(typeof next.select==='function') next.select(); }
+  });
+}
+
+function btbFmtDatumDE(iso){
+  if(!iso)return'';
+  const p=iso.split('-');
+  if(p.length!==3)return iso;
+  return p[2]+'.'+p[1]+'.'+p[0];
+}
+// Datum 'YYYY-MM-DD' → 'DD.MM' ohne Jahr, für kompakte Letzter-Wert-Hinweise (z.B. "09.09")
+function btbFmtTagMonat(iso){
+  if(!iso)return'';
+  const p=iso.split('-');
+  if(p.length!==3)return iso;
+  return p[2]+'.'+p[1];
+}
+
+function btbFindPrevWasser(eintraege, aktuellIdx, anlage, feld){
+  for(let i=aktuellIdx+1;i<eintraege.length;i++){
+    const e=eintraege[i];
+    if(e.anlage===anlage && e[feld]!=null && e[feld]!=='') return Number(e[feld]);
+  }
+  return null;
+}
+function btbDelta(cur,prev){
+  if(prev==null||cur==null||isNaN(cur)||isNaN(prev))return null;
+  return +(Number(cur)-Number(prev)).toFixed(2);
+}
+function btbEindickung(zDelta,aDelta){
+  if(zDelta==null||aDelta==null||aDelta<=0||zDelta<=0)return null;
+  return +(zDelta/aDelta).toFixed(1);
+}
+function btbFmtDelta(d){
+  if(d==null)return'';
+  if(d<0)return' <span style="color:var(--rd);font-weight:700">⚠️ Neuer Zähler</span>';
+  return' <span style="color:var(--bm);font-weight:700">(+'+d+' m³)</span>';
+}
+function btbKbeClass(val){
+  if(!val)return'';
+  const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6','Nicht auswertbar':'vna'};
+  return m[val]||'';
+}
+
+// ── Tab rendern ──
+function renderBtbTab(){
+  const c=G('ebtb');if(!c)return;
+  // Offene Karten vor dem Neuaufbau merken
+  const offeneKarten=new Set(
+    [...c.querySelectorAll('.btb-karte.open')].map(el=>el.dataset.btbId)
+  );
+  // Aktive Anlage-Tabs merken: {kundeId → anlageName}
+  const aktiveAnlagen={};
+  c.querySelectorAll('.btb-karte').forEach(karte=>{
+    const kid=karte.dataset.btbId;
+    const aktTab=karte.querySelector('.btb-anlage-tab.active');
+    if(aktTab) aktiveAnlagen[kid]=aktTab.textContent.replace('✓','').trim();
+  });
+  c.querySelectorAll('.btb-karte').forEach(e=>e.remove());
+  const q=(G('btb-suche')?G('btb-suche').value||'':'').toLowerCase();
+  const rnrQ=(G('btb-rnr-suche')?.value||'').trim().toLowerCase();
+  let d=BTB_KUNDEN.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  if(rnrQ) d=d.filter(k=>k.eintraege.some(e=>e.rechnung_nr&&e.rechnung_nr.toLowerCase().includes(rnrQ)));
+  if(btbFilterOffen) d=d.filter(k=>k.eintraege.some(e=>e.btb_status==='offen'));
+  G('ebtb0').style.display=d.length?'none':'';
+  d.forEach(k=>{
+    const karte=buildBtbKarte(k, aktiveAnlagen[k.id]);
+    if(!karte)return;
+    // Offen-Zustand wiederherstellen
+    if(offeneKarten.has(k.id)) karte.classList.add('open');
+    c.appendChild(karte);
+  });
+}
+
+// ── Kunden-Karte bauen ──
+function buildBtbKarte(k, aktiveAnlageName){
+  const karte=document.createElement('div');
+  karte.className='btb-karte';
+  karte.dataset.btbId=k.id;
+
+  const hatEntwurf=k.entwuerfe&&k.entwuerfe.length>0;
+  const hatOffen=k.eintraege.some(e=>e.btb_status==='offen');
+  const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
+
+  let statusBadge='';
+  if(hatEntwurf) statusBadge='<span style="background:#f59e0b;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap">✏️ Entwurf</span>';
+  if(hatOffen) statusBadge='<span style="background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap">⏳ Zu berechnen</span>';
+
+  const infoTxt=letzter?('Letzter Besuch: '+letzter.datumFmt+' · '+k.eintraege.length+' Einträge'):'Noch keine Einträge';
+
+  const header=document.createElement('div');
+  header.className='btb-karte-header';
+  header.innerHTML=
+    '<div class="btb-toggle-area" style="flex:1;min-width:0;cursor:pointer">'+
+      '<div style="display:flex;align-items:center;gap:7px">'+
+        '<div class="btb-karte-firma">'+esc(k.firma)+'</div>'+statusBadge+
+      '</div>'+
+      '<div class="btb-karte-meta">'+esc(infoTxt)+'</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">'+
+      (hatEntwurf
+        ? '<button class="btb-fertig-btn" style="padding:5px 10px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">✅ FERTIG</button>'
+        : ''
+      )+
+      '<span class="btb-karte-toggle btb-toggle-area" style="font-size:18px;color:var(--mu);transition:transform .2s;flex-shrink:0;cursor:pointer">⌄</span>'+
+    '</div>';
+  // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
+  header.querySelectorAll('.btb-toggle-area').forEach(el=>{
+    el.addEventListener('click',()=>karte.classList.toggle('open'));
+  });
+  const fertigBtn=header.querySelector('.btb-fertig-btn');
+  if(fertigBtn){
+    fertigBtn.addEventListener('click',(ev)=>{
+      ev.stopPropagation();
+      btbFertigZumBerechnen(k.id);
+    });
+  }
+  karte.appendChild(header);
+
+  const body=document.createElement('div');
+  body.className='btb-karte-body';
+
+  if(!k.rkws||!k.rkws.length){
+    body.innerHTML='<div style="color:#94a3b8;font-size:13px;font-style:italic">Keine Anlagen definiert – bitte unter „KBE Auswerten" pflegen.</div>';
+    karte.appendChild(body);
+    return karte;
+  }
+
+  // Anlage-Tabs
+  const anlTabs=document.createElement('div');anlTabs.className='btb-anlagen-tabs';
+  const anlPanels=document.createElement('div');
+
+  k.rkws.forEach((r,ri)=>{
+    // Entwurf für diese Anlage?
+    const entwurf=k.entwuerfe.find(e=>e.anlage===r.name);
+    const tabBtn=document.createElement('button');
+    // Aktiven Tab: gespeicherter Zustand wenn vorhanden, sonst erster Tab
+    const istAktiv=aktiveAnlageName ? (r.name===aktiveAnlageName) : (ri===0);
+    tabBtn.className='btb-anlage-tab'+(istAktiv?' active':'');
+    tabBtn.innerHTML=esc(r.name)+(entwurf?'<span style="margin-left:4px;font-size:9px;background:#f59e0b;color:#fff;border-radius:4px;padding:0 4px">✓</span>':'');
+    tabBtn.onclick=()=>{
+      anlTabs.querySelectorAll('.btb-anlage-tab').forEach(x=>x.classList.remove('active'));
+      anlPanels.querySelectorAll('.btb-anlage-panel').forEach(x=>x.classList.remove('active'));
+      tabBtn.classList.add('active');
+      anlPanels.querySelector('.btb-anlage-panel[data-anlage="'+ri+'"]').classList.add('active');
+    };
+    anlTabs.appendChild(tabBtn);
+
+    const panel=document.createElement('div');
+    panel.className='btb-anlage-panel'+(istAktiv?' active':'');
+    panel.dataset.anlage=ri;
+
+    const anlEintraege=k.eintraege.filter(e=>e.anlage===r.name);
+
+    // Formular (mit Entwurf vorbelegen falls vorhanden)
+    panel.appendChild(buildBtbForm(k, r.name, anlEintraege, entwurf));
+
+    // Verlauf
+    if(anlEintraege.length){
+      const verlaufTitel=document.createElement('div');verlaufTitel.className='btb-verlauf-titel';
+      verlaufTitel.innerHTML='<span>📊 Verlauf ('+anlEintraege.length+')</span>';
+      panel.appendChild(verlaufTitel);
+
+      anlEintraege.forEach((e,ei)=>{
+        // Wasserdelta berechnen (gegen alle Einträge dieser Anlage)
+        const allAnlage=k.eintraege.filter(x=>x.anlage===r.name);
+        const idxInAll=allAnlage.findIndex(x=>x.id===e.id);
+        const zPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'zusatzwasser');
+        const aPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'abwasser');
+        const dZ=btbDelta(e.zusatzwasser,zPrev);
+        const dA=btbDelta(e.abwasser,aPrev);
+        const eind=btbEindickung(dZ,dA);
+
+        const eBox=document.createElement('div');eBox.className='btb-eintrag';eBox.dataset.btbEid=e.id;
+        let html='<div class="btb-eintrag-header">';
+        html+='<div class="btb-eintrag-datum">'+esc(e.datumFmt)+'</div>';
+        if(e.kuerzel) html+='<div class="btb-eintrag-kz">'+esc(e.kuerzel)+'</div>';
+        html+='</div>';
+        // Messwerte
+        html+='<div class="btb-row">';
+        if(e.lf_messung_ist!=null) html+='<span>LF: <strong>'+e.lf_messung_ist+' µS/cm</strong></span>';
+        if(e.dh!=null) html+='<span>°dH: <strong>'+e.dh+'</strong></span>';
+        if(e.lf_geraet_ist!=null) html+='<span>Gerät IST: <strong>'+e.lf_geraet_ist+'</strong></span>';
+        if(e.lf_geraet_soll!=null) html+='<span>SOLL: <strong>'+e.lf_geraet_soll+'</strong></span>';
+        html+='</div>';
+        // DipSlide + KBE in einer Zeile
+        if(e.dipslide_basis!=null||e.kbe_auswertung){
+          html+='<div class="btb-row" style="margin-top:4px;align-items:center;gap:6px">';
+          if(e.dipslide_basis!=null){
+            html+='<span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:3px 9px;border-radius:6px;font-size:11px;white-space:nowrap">🧫 DipSlide gezogen</span>';
+          }
+          if(e.kbe_auswertung){
+            html+='<span class="kbe-val '+btbKbeClass(e.kbe_auswertung)+'" style="font-size:14px;padding:3px 12px">🔬 '+esc(e.kbe_auswertung)+'</span>';
+          } else if(e.dipslide_basis!=null){
+            html+='<span class="btb-kbe-ausstehend">⏳ KBE ausstehend</span>';
+          }
+          html+='</div>';
+        }
+        // Produkte (p1 / p2 / p3) — Namen + Dosierdaten aus Kundendaten
+        const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+        // Dosierdaten: Snapshot aus dem Eintrag (historisch korrekt), Fallback auf aktuelle Kundendaten dieser Anlage
+        const di=e.dosier_snapshot||(k.dosier_info||{})[btbSlug(e.anlage)]||{};
+        const hasProd=[1,2,3].some(pn2=>e['p'+pn2+'_vorgefunden']!=null||e['p'+pn2+'_neu']!=null||e['p'+pn2+'_lager']!=null);
+        if(hasProd){
+          html+='<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:6px">';
+          [1,2,3].forEach(pn2=>{
+            const pname=pn['p'+pn2]||'';
+            const vg=e['p'+pn2+'_vorgefunden'];
+            const af=e['p'+pn2+'_aufgefuellt'];
+            const neu=e['p'+pn2+'_neu'];
+            const lg=e['p'+pn2+'_lager'];
+            const dInfo=di['p'+pn2]||null;
+            if(vg==null&&neu==null&&lg==null)return;
+            const colorMap={1:'var(--bd)',2:'#0891b2',3:'#7c3aed'};
+            const bgMap={1:'#e0f2fe',2:'#e0f7ff',3:'#ede9fe'};
+            html+='<div style="background:'+bgMap[pn2]+';border-radius:7px;padding:6px 9px;min-width:100px;flex:1">';
+            html+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+(pname||(pn2===3?'BZ 2':('P'+pn2)))+'</div>';
+            html+='<div style="display:grid;grid-template-columns:max-content max-content;gap:2px 6px;font-size:11px">';
+            if(vg!=null) html+='<span style="color:#64748b">Vgf:</span><span><strong>'+vg+'</strong></span>';
+            if(af!=null) html+='<span style="color:#64748b">Aufgef.:</span><span>+'+af+'</span>';
+            if(neu!=null) html+='<span style="color:var(--gn);font-weight:700">Neu:</span><span style="color:var(--gn);font-weight:800">'+neu+'</span>';
+            if(lg!=null)  html+='<span style="color:#854d0e;font-weight:700">Lager:</span><span style="color:#854d0e;font-weight:800">'+lg+'</span>';
+            html+='</div>';
+            // Dosiertage aus Kundendaten (zeigt was zu diesem Zeitpunkt eingestellt war)
+            if(dInfo&&dInfo.tage&&dInfo.tage.length){
+              const tageStr=dInfo.tage.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+              html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ '+tageStr+(dInfo.menge?' · '+dInfo.menge+' L/Dos':'')+(dInfo.dauer?' · '+dInfo.dauer+' Min':'')+'</div>';
+              if(dInfo.soll!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll s.l.BTB: '+dInfo.soll+'L</div>';
+              if(dInfo.geaendert_am) html+='<div style="font-size:9px;color:#94a3b8;font-style:italic">seit '+btbFmtDatumDE(dInfo.geaendert_am)+'</div>';
+              // 2. Dosierzeit, falls aktiv
+              if(dInfo.block2Aktiv&&dInfo.tage2&&dInfo.tage2.length){
+                const tageStr2=dInfo.tage2.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+                html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ 2. Zeit: '+tageStr2+(dInfo.menge2?' · '+dInfo.menge2+' L/Dos':'')+(dInfo.dauer2?' · '+dInfo.dauer2+' Min':'')+'</div>';
+                if(dInfo.soll2!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll s.l.BTB (2): '+dInfo.soll2+'L</div>';
+                if(dInfo.geaendert_am2) html+='<div style="font-size:9px;color:#94a3b8;font-style:italic">seit '+btbFmtDatumDE(dInfo.geaendert_am2)+'</div>';
+              }
+            }
+            html+='</div>';
+          });
+          if(e.schwefelsa) html+='<span style="align-self:center;font-size:11px;padding:6px 0">H₂SO₄ ✓</span>';
+          html+='</div>';
+        } else if(e.schwefelsa){
+          html+='<div class="btb-row" style="margin-top:4px"><span>H₂SO₄: <strong>✓</strong></span></div>';
+        }
+        // Wasser
+        if(e.zusatzwasser!=null||e.abwasser!=null){
+          html+='<div class="btb-wasser-box">';
+          if(e.zusatzwasser!=null) html+='<div>💧 Zusatzwasser: <strong>'+e.zusatzwasser+' m³</strong>'+btbFmtDelta(dZ)+'</div>';
+          if(e.abwasser!=null) html+='<div>🚱 Abwasser: <strong>'+e.abwasser+' m³</strong>'+btbFmtDelta(dA)+'</div>';
+          if(eind!=null) html+='<div style="color:var(--gn);font-weight:700;font-size:11px">🔄 Eindickung: '+eind+'-fach</div>';
+          html+='</div>';
+        }
+        // Bemerkung
+        if(e.bemerkung) html+='<div class="btb-eintrag-bemerkung">📝 '+esc(e.bemerkung)+'</div>';
+        // Status + Rechnungsnummer (Büro)
+        html+='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
+        if(e.btb_status==='berechnet'){
+          html+='<span style="background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:6px;font-size:11px;font-weight:700;padding:2px 9px;font-family:\'Barlow Condensed\',sans-serif">✅ Berechnet'+(e.rechnung_nr?' · '+esc(e.rechnung_nr):'')+(e.berechnet_von?' · '+esc(e.berechnet_von):'')+(e.berechnet_am?' · '+new Date(e.berechnet_am).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}):'')+'</span>';
+        } else if(e.btb_status==='offen'){
+          html+='<span style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;border-radius:6px;font-size:11px;font-weight:700;padding:2px 9px;font-family:\'Barlow Condensed\',sans-serif">⏳ Zu berechnen</span>';
+          html+='<input type="text" placeholder="Rechnungs-Nr." style="font-size:12px!important;padding:3px 8px!important;border-radius:6px;width:120px" class="btb-rnr-input" data-eid="'+e.id+'">';
+          html+='<button class="btb-berechnet-btn" data-eid="'+e.id+'" data-kid="'+k.id+'" style="padding:3px 10px;border:none;border-radius:6px;background:#0891b2;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif">✓ Berechnet</button>';
+        }
+        html+='</div>';
+        // Edit / Löschen Buttons
+        html+='<div style="display:flex;gap:4px;margin-top:4px">';
+        html+='<button class="btb-edit-btn" data-kid="'+k.id+'" data-anlage="'+esc(r.name)+'" data-eid="'+e.id+'">✏️ Bearbeiten</button>';
+        html+='<button class="btb-del-btn" data-eid="'+e.id+'" data-kid="'+k.id+'">🗑 Löschen</button>';
+        html+='</div>';
+        eBox.innerHTML=html;
+        // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
+        const berechnetBtn=eBox.querySelector('.btb-berechnet-btn');
+        if(berechnetBtn) berechnetBtn.addEventListener('click',()=>btbSetBerechnet(berechnetBtn.dataset.eid,berechnetBtn.dataset.kid));
+        const editBtn=eBox.querySelector('.btb-edit-btn');
+        if(editBtn) editBtn.addEventListener('click',()=>btbEditEintrag(editBtn.dataset.kid,editBtn.dataset.anlage,editBtn.dataset.eid));
+        const delBtn=eBox.querySelector('.btb-del-btn');
+        if(delBtn) delBtn.addEventListener('click',()=>btbDelEintrag(delBtn.dataset.eid,delBtn.dataset.kid));
+        panel.appendChild(eBox);
+      });
+    } else {
+      const noData=document.createElement('div');
+      noData.style.cssText='color:#94a3b8;font-size:13px;font-style:italic;padding:4px 0';
+      noData.textContent='Noch keine Einträge für diese Anlage';
+      panel.appendChild(noData);
+    }
+    anlPanels.appendChild(panel);
+  });
+
+  body.appendChild(anlTabs);
+  body.appendChild(anlPanels);
+  karte.appendChild(body);
+  return karte;
+}
+
+// Hochzahl für Dipslide-Exponent
+function btbExpSup(exp){
+  const map={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶'};
+  return map[String(exp)]||String(exp);
+}
+
+// ── Eingabe-Formular bauen ──
+function buildBtbForm(k, anlageName, anlEintraege, entwurf){
+  const slug=btbSlug(anlageName);
+  const id=k.id;
+  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+  // Entwurf-Felder sanitizen: HTML raus, Numbers als Numbers
+  const rawDv=entwurf?.felder||{};
+  const dvNum=v=>(v!=null&&v!==''&&!isNaN(Number(v)))?Number(v):'';
+  const dvStr=v=>String(v||'').replace(/[<>"'&]/g,c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+  const dv={
+    datum:rawDv.datum||'', uhr:rawDv.uhr||'',
+    lf:dvNum(rawDv.lf), dh:dvNum(rawDv.dh),
+    lfi:dvNum(rawDv.lfi), lfs:dvNum(rawDv.lfs),
+    ds:!!rawDv.ds,
+    zw:dvNum(rawDv.zw), aw:dvNum(rawDv.aw),
+    bem:dvStr(rawDv.bem||''),
+    p1:rawDv.p1||{}, p2:rawDv.p2||{}, p3:rawDv.p3||{}
+  };
+  const today=new Date().toISOString().split('T')[0];
+  const nowT=new Date().toTimeString().slice(0,5);
+  const isAdmin=(userRolle==='admin'||userRolle==='IS');
+  const di=(k.dosier_info||{})[slug]||{};  // Dosierdaten sind PRO ANLAGE gespeichert
+  const TAGE=[{k:'mo',l:'Mo'},{k:'di',l:'Di'},{k:'mi',l:'Mi'},{k:'do',l:'Do'},{k:'fr',l:'Fr'},{k:'sa',l:'Sa'},{k:'so',l:'So'}];
+  const letzterMitWasser=anlEintraege.find(e=>e.zusatzwasser!=null);
+  const prevHinweis=letzterMitWasser
+    ?'<div class="btb-last-hint" style="margin-top:4px">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzterMitWasser.zusatzwasser+' m³</b></div>':'';
+  const letzterMitAbwasser=anlEintraege.find(e=>e.abwasser!=null);
+  const abwHinweis=letzterMitAbwasser
+    ?'<div class="btb-last-hint" style="margin-top:4px">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letzterMitAbwasser.abwasser+' m³</b></div>':'';
+  // Letztes Verbrauch (Delta zum Besuch davor) + letzte Eindickung — zum Vergleich neben dem live berechneten Wert
+  const idxLetzterZW=letzterMitWasser?anlEintraege.findIndex(e=>e.id===letzterMitWasser.id):-1;
+  const zwPrevPrev=idxLetzterZW>=0?btbFindPrevWasser(anlEintraege,idxLetzterZW,anlageName,'zusatzwasser'):null;
+  const letztesVerbrauchZW=letzterMitWasser?btbDelta(letzterMitWasser.zusatzwasser,zwPrevPrev):null;
+  const idxLetzterAW=letzterMitAbwasser?anlEintraege.findIndex(e=>e.id===letzterMitAbwasser.id):-1;
+  const awPrevPrev=idxLetzterAW>=0?btbFindPrevWasser(anlEintraege,idxLetzterAW,anlageName,'abwasser'):null;
+  const letztesVerbrauchAW=letzterMitAbwasser?btbDelta(letzterMitAbwasser.abwasser,awPrevPrev):null;
+  const letzteEindickung=btbEindickung(letztesVerbrauchZW,letztesVerbrauchAW);
+  // Letzte 4 DipSlide-Auswertungen (neueste zuerst), farbcodiert wie in der Historie, ohne Mikroskop-Icon.
+  // Quelle 1: neu verknüpfte BTB-Einträge (kbe_auswertung). Quelle 2: bestehende KBE-Historie (kbe_eintraege) —
+  // damit auch vor der ersten BTB-Auswertung sofort der bisherige Verlauf sichtbar ist.
+  const neueKbeWerte=anlEintraege.filter(e=>e.kbe_auswertung).map(e=>({datum_btb:e.datum_btb,kbe_auswertung:e.kbe_auswertung}));
+  const kbeKunde=KBE.find(x=>x.id===k.id);
+  const alteKbeWerte=[];
+  if(kbeKunde){
+    kbeKunde.eintraege.forEach(e=>{
+      if(e.werte && e.werte[anlageName]) alteKbeWerte.push({datum_btb:e.ts,kbe_auswertung:e.werte[anlageName]});
+    });
+  }
+  const gesehenDaten=new Set();
+  const letzte4Kbe=[];
+  [...neueKbeWerte,...alteKbeWerte].forEach(e=>{
+    if(!gesehenDaten.has(e.datum_btb)){gesehenDaten.add(e.datum_btb);letzte4Kbe.push(e);}
+  });
+  letzte4Kbe.sort((a,b)=>String(b.datum_btb).localeCompare(String(a.datum_btb)));
+  letzte4Kbe.length=Math.min(letzte4Kbe.length,4);
+  const letzte4KbeHtml=letzte4Kbe.length
+    ?'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+      +letzte4Kbe.map(e=>'<span class="kbe-val '+btbKbeClass(e.kbe_auswertung)+'" style="font-size:11px;padding:2px 8px;white-space:nowrap">'+btbFmtTagMonat(e.datum_btb)+': '+esc(e.kbe_auswertung)+'</span>').join('')
+      +'</div>'
+    :'<div style="font-size:11px;color:#94a3b8;font-style:italic">noch keine Auswertung</div>';
+
+  // Produktblöcke als Strings aufbauen
+  const colorMap={1:'var(--bd)',2:'#0891b2',3:'#7c3aed'};
+  const bgMap={1:'#e0f2fe',2:'#cffafe',3:'#ede9fe'};
+  let prodBlocks='';
+  [1,2,3].forEach(pn2=>{
+    const pname=pn['p'+pn2]||'';
+    const label=pname||(pn2===3?'BZ 2 / Zusatz':('Produkt '+pn2));
+    const dvP=dv['p'+pn2]||{};
+    const hasDosier=(pn2===1||pn2===3);
+    // Letzte bekannte Werte je Feld (ohne Datum, nur der Wert — Techniker weiß dass es "letztes Mal" ist)
+    const letzterVG=anlEintraege.find(e=>e['p'+pn2+'_vorgefunden']!=null);
+    const letzterAF=anlEintraege.find(e=>e['p'+pn2+'_aufgefuellt']!=null);
+    const letzterNEU=anlEintraege.find(e=>e['p'+pn2+'_neu']!=null);
+    const letzterLG=anlEintraege.find(e=>e['p'+pn2+'_lager']!=null);
+    const hintVG=letzterVG?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterVG.datum_btb)+': <b>'+letzterVG['p'+pn2+'_vorgefunden']+'</b></div>':'';
+    const hintAF=letzterAF?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterAF.datum_btb)+': <b>'+letzterAF['p'+pn2+'_aufgefuellt']+'</b></div>':'';
+    const hintNEU=letzterNEU?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterNEU.datum_btb)+': <b>'+letzterNEU['p'+pn2+'_neu']+'</b></div>':'';
+    const hintLG=letzterLG?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterLG.datum_btb)+': <b>'+letzterLG['p'+pn2+'_lager']+'</b></div>':'';
+    const dInfo=di['p'+pn2]||{tage:[],menge:'',uhr:'',dauer:'',geaendert_am:null,block2Aktiv:false,tage2:[],menge2:'',uhr2:'',dauer2:'',geaendert_am2:null};
+    let dosierHtml='';
+    if(hasDosier){
+      const block1Html=btbBuildDosierZeile(pn2,'',dInfo,colorMap,TAGE,anlEintraege,dv,today,nowT);
+      const dInfoBlock2={tage:dInfo.tage2||[],menge:dInfo.menge2||'',uhr:dInfo.uhr2||'',dauer:dInfo.dauer2||'',geaendert_am:dInfo.geaendert_am2||null};
+      const block2Html=btbBuildDosierZeile(pn2,'2',dInfoBlock2,colorMap,TAGE,anlEintraege,dv,today,nowT);
+      dosierHtml='<div style="margin-top:7px;padding-top:7px;border-top:1px solid '+colorMap[pn2]+'33">'
+        +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Dosiertage</div>'
+        +block1Html
+        +'<label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer;font-size:11px;font-weight:700;color:'+colorMap[pn2]+'">'
+        +'<input type="checkbox" class="btb-dosier-block2-toggle" data-pnr="'+pn2+'" data-dosier="p'+pn2+'b2" '+(dInfo.block2Aktiv?'checked':'')+' style="width:15px;height:15px;accent-color:'+colorMap[pn2]+'">'
+        +'+ 2. Dosierzeit (an anderen Tagen)</label>'
+        +'<div class="btb-dosier-block2" data-pnr="'+pn2+'" style="display:'+(dInfo.block2Aktiv?'block':'none')+';margin-top:6px;padding-top:6px;border-top:1px dashed '+colorMap[pn2]+'55">'
+        +block2Html
+        +'</div></div>';
+    }
+    prodBlocks+='<div data-prod="'+pn2+'" style="background:'+bgMap[pn2]+';border:1.5px solid '+colorMap[pn2]+'33;border-radius:8px;padding:9px;margin-top:7px">'
+      +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">🧪 '+esc(label)+'</div>'
+      +'<div class="btb-grid-4">'
+      +'<div class="btb-feld"><div class="btb-feld-lbl">Vorgefunden</div>'
+      +'<input type="number" step="1" class="btb-vg" placeholder="–" value="'+(dvP.vg!=null?dvP.vg:'')+'">'+hintVG+'</div>'
+      +'<div class="btb-feld"><div class="btb-feld-lbl">Aufgefüllt (opt.)</div>'
+      +'<input type="number" step="1" class="btb-af" placeholder="–" value="'+(dvP.af!=null?dvP.af:'')+'">'+hintAF+'</div>'
+      +'<div class="btb-feld"><div class="btb-feld-lbl">Neu (errechnet)</div>'
+      +'<input type="number" step="1" class="btb-neu" placeholder="–" value="'+(dvP.neu!=null?dvP.neu:'')+'" style="background:#dcfce7;color:#15803d;font-weight:700" tabindex="-1">'+hintNEU+'</div>'
+      +'<div class="btb-feld"><div class="btb-feld-lbl">Lager</div>'
+      +'<input type="number" step="1" class="btb-lg" placeholder="–" value="'+(dvP.lg!=null?dvP.lg:'')+'">'+hintLG+'</div>'
+      +'</div>'+dosierHtml+'</div>';
+  });
+
+  // Produktnamen-Editor
+  const pEditHtml='<div style="margin-top:6px;border:1px dashed var(--bo);border-radius:8px;overflow:hidden">'
+    +'<div class="btb-pname-toggle" '
+    +'style="padding:7px 10px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.05em">⚙️ Produktbezeichnungen ändern</div>'
+    +'<div class="btb-pname-body" style="display:none;padding:9px;background:var(--bg)">'
+    +'<div class="btb-grid-3">'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 1</div><input type="text" data-pname="1" value="'+esc(pn.p1||'BZ')+'" placeholder="z.B. BZ 300"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" data-pname="2" value="'+esc(pn.p2||'KT/LB')+'" placeholder="z.B. KT 300 K"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" data-pname="3" value="'+esc(pn.p3||'')+'" placeholder="z.B. BZ 219S"></div>'
+    +'</div>'
+    +'<button data-action="saveprod" style="margin-top:7px;padding:6px 14px;border:none;border-radius:7px;background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Speichern</button>'
+    +'</div></div>';
+
+  // Alles in EINEM innerHTML= setzen — kein mehrfaches +=
+  const form=document.createElement('div');
+  form.className='btb-form';
+  form.innerHTML=
+    '<div class="btb-form-title">'+(entwurf?'✏️ Entwurf – ':'📝 Neuer BTB-Eintrag – ')+esc(anlageName)+'</div>'
+    // Datum + Uhrzeit (Uhrzeit vorerst für alle versteckt — wird später anderswo genutzt)
+    +'<div class="btb-grid" style="margin-top:6px">'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Datum BTB</div>'
+    +'<input type="date" id="btb-datum-'+id+'-'+slug+'" value="'+(dv.datum||today)+'" style="font-size:15px!important;padding:8px 10px!important"></div>'
+    +'<input type="hidden" id="btb-uhr-'+id+'-'+slug+'" value="'+(dv.uhr||nowT)+'">'
+    +'</div>'
+    // LF + dH
+    +'<div class="btb-grid" style="margin-top:7px">'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="number" step="1" id="btb-lf-'+id+'-'+slug+'" placeholder="z.B. 999" value="'+(dv.lf||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="number" step="0.1" id="btb-dh-'+id+'-'+slug+'" placeholder="z.B. 17,2" value="'+(dv.dh||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="number" step="1" id="btb-lfi-'+id+'-'+slug+'" placeholder="z.B. 991" value="'+(dv.lfi||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="number" step="1" id="btb-lfs-'+id+'-'+slug+'" placeholder="z.B. 1000" value="'+(dv.lfs||'')+'"></div>'
+    +'</div>'
+    // DipSlide
+    +'<div class="btb-dipslide-box" style="margin-top:7px">'
+    +'<div class="btb-dipslide-title">🧫 DipSlide</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#0369a1;font-weight:600;white-space:nowrap">'
+    +'<input type="checkbox" id="btb-ds-'+id+'-'+slug+'"'+(dv.ds?' checked':'')+' style="width:17px;height:17px;accent-color:#0891b2;flex-shrink:0"> Dip-Slide gezogen</label>'
+    +letzte4KbeHtml
+    +'</div>'
+    +'</div>'
+    // Wasserzähler: schmale Eingaben + live Verbrauch + Eindickung
+    +'<div style="background:#f0fdf4;border:1.5px solid var(--gl);border-radius:8px;padding:9px;margin-top:7px">'
+    +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">💧 Wasserzähler</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
+    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Zusatzwasser</div>'
+    +'<input type="number" step="1" id="btb-zw-'+id+'-'+slug+'" class="btb-zw-input" placeholder="Zähler" value="'+(dv.zw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
+    +'<input type="text" readonly class="btb-zw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
+    +(letztesVerbrauchZW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letztesVerbrauchZW+'</b></div>':'')
+    +'</div>'
+    +'</div>'
+    +prevHinweis
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;margin-top:7px">'
+    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Abwasser opt.</div>'
+    +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
+    +'<input type="text" readonly class="btb-aw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
+    +(letztesVerbrauchAW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letztesVerbrauchAW+'</b></div>':'')
+    +'</div>'
+    +'<div class="btb-feld" style="width:92px"><div class="btb-feld-lbl" style="color:#7c3aed">Eindickung</div>'
+    +'<input type="text" readonly class="btb-eindickung-live" value="–" style="width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;font-weight:800;text-align:center;cursor:default">'
+    +(letzteEindickung!=null?'<div class="btb-last-hint" style="text-align:center;color:#7c3aed">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzteEindickung+'-fach</b></div>':'')
+    +'</div>'
+    +'</div>'
+    +abwHinweis
+    +'</div>'
+    // Produkte
+    +prodBlocks
+    // Mängel-Vorlagen (ersetzt Schwefelsäure-Haken) + Bemerkung
+    +'<div style="margin-top:7px">'
+    +'<div style="border:1px dashed var(--bo);border-radius:8px;overflow:hidden;margin-bottom:8px">'
+    +'<div class="btb-maengel-toggle" style="padding:7px 10px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.05em">🔧 Mängel-Vorlagen</div>'
+    +'<div class="btb-maengel-body" style="display:none;padding:9px;background:var(--bg)">'
+    +'<div class="btb-maengel-liste" style="display:flex;flex-direction:column;gap:6px">'
+    +BTB_MAENGEL.map(mv=>
+      '<label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--tx);cursor:pointer">'
+      +'<input type="checkbox" class="btb-mangel-cb" data-text="'+esc(mv.text)+'" style="width:16px;height:16px;accent-color:var(--bd);flex-shrink:0">'
+      +'<span style="flex:1">'+esc(mv.text)+'</span>'
+      +'<button type="button" class="btb-mangel-del" data-id="'+mv.id+'" style="border:none;background:transparent;color:#fca5a5;font-size:14px;cursor:pointer;padding:2px 6px">✕</button>'
+      +'</label>'
+    ).join('')
+    +'</div>'
+    +'<div style="display:flex;gap:6px;margin-top:9px">'
+    +'<input type="text" class="btb-mangel-neu-input" placeholder="Neue Vorlage…" style="flex:1;font-size:13px!important;padding:7px 10px!important">'
+    +'<button type="button" class="btb-mangel-neu-btn" style="padding:7px 12px;border:none;border-radius:7px;background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Hinzufügen</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="btb-feld-lbl">Bemerkung / Mängel</div>'
+    +'<textarea id="btb-bem-'+id+'-'+slug+'" class="btb-bem-input" placeholder="z.B. LF-Untergrenze erreicht…" style="min-height:46px;font-size:14px!important">'+(dv.bem||'')+'</textarea>'
+    +'</div>'
+    +pEditHtml;
+
+  // Live-Berechnung: Verbrauch (Zusatzwasser/Abwasser) + Eindickung, aktualisiert bei jeder Eingabe
+  const btbUpdateWasserLive=()=>{
+    const zwEl=form.querySelector('.btb-zw-input');
+    const awEl=form.querySelector('.btb-aw-input');
+    const zwVerbEl=form.querySelector('.btb-zw-verbrauch');
+    const awVerbEl=form.querySelector('.btb-aw-verbrauch');
+    const eindEl=form.querySelector('.btb-eindickung-live');
+    const zwCur=zwEl&&zwEl.value!==''?parseFloat(zwEl.value):null;
+    const awCur=awEl&&awEl.value!==''?parseFloat(awEl.value):null;
+    const dZ=letzterMitWasser?btbDelta(zwCur,letzterMitWasser.zusatzwasser):null;
+    const dA=letzterMitAbwasser?btbDelta(awCur,letzterMitAbwasser.abwasser):null;
+    if(zwVerbEl) zwVerbEl.value=dZ!=null?(dZ<0?'⚠️ neu':dZ+' m³'):'–';
+    if(awVerbEl) awVerbEl.value=dA!=null?(dA<0?'⚠️ neu':dA+' m³'):'–';
+    const eind=btbEindickung(dZ,dA);
+    if(eindEl) eindEl.value=eind!=null?eind+'-fach':'–';
+  };
+  form.querySelectorAll('.btb-zw-input, .btb-aw-input').forEach(el=>{
+    el.addEventListener('input', btbUpdateWasserLive);
+  });
+  btbUpdateWasserLive(); // initial anzeigen, falls Entwurf-Werte schon vorbelegt sind
+
+  // Berechnung: VG+AF=NEU via addEventListener (robuster als oninput-Attribut)
+  form.querySelectorAll('.btb-vg, .btb-af').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const grid=el.closest('.btb-grid-4');if(!grid)return;
+      const vg=parseFloat(grid.querySelector('.btb-vg')?.value)||0;
+      const af=parseFloat(grid.querySelector('.btb-af')?.value)||0;
+      const vgStr=grid.querySelector('.btb-vg')?.value||'';
+      const afStr=grid.querySelector('.btb-af')?.value||'';
+      const neu=grid.querySelector('.btb-neu');
+      if(neu) neu.value=(!vgStr&&!afStr)?'':(+(vg+af).toFixed(2));
+    });
+  });
+  // Dosier-Checkboxen via addEventListener (nach innerHTML= sicher registrierbar)
+  form.querySelectorAll('[data-dosier]').forEach(el=>{
+    el.addEventListener('change',()=>btbSaveDosierFromForm(form,id,k,slug));
+  });
+  // 2. Dosierzeit-Block: sofort ein-/ausblenden (ohne auf Speichern-Roundtrip zu warten)
+  form.querySelectorAll('.btb-dosier-block2-toggle').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const pnr=el.dataset.pnr;
+      const block2=form.querySelector('.btb-dosier-block2[data-pnr="'+pnr+'"]');
+      if(block2) block2.style.display=el.checked?'block':'none';
+    });
+  });
+  // Produktnamen: Toggle-Bereich auf-/zuklappen
+  const pToggle=form.querySelector('.btb-pname-toggle');
+  if(pToggle) pToggle.addEventListener('click',()=>{
+    const body=pToggle.nextElementSibling;
+    if(body) body.style.display=body.style.display==='none'?'block':'none';
+  });
+  // Produktnamen-Speichern Button
+  const pBtn=form.querySelector('[data-action="saveprod"]');
+  if(pBtn) pBtn.addEventListener('click',()=>{
+    const p1=form.querySelector('[data-pname="1"]')?.value.trim()||'';
+    const p2=form.querySelector('[data-pname="2"]')?.value.trim()||'';
+    const p3=form.querySelector('[data-pname="3"]')?.value.trim()||'';
+    _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',id)
+      .then(({error})=>{if(error)toast('⚠️ '+error.message);else{toast('✓ Bezeichnungen gespeichert');loadAll();}});
+  });
+
+  // Mängel-Vorlagen: Toggle-Bereich auf-/zuklappen
+  const mToggle=form.querySelector('.btb-maengel-toggle');
+  if(mToggle) mToggle.addEventListener('click',()=>{
+    const body=mToggle.nextElementSibling;
+    if(body) body.style.display=body.style.display==='none'?'block':'none';
+  });
+
+  // ── Live-Sync: angekreuzte Mängel-Vorlagen ↔ Bemerkungsfeld, ohne Neuladen ──
+  // Merkt sich den zuletzt automatisch eingefügten Text-Anteil, um ihn beim
+  // An-/Abhaken sauber zu entfernen/ersetzen, ohne handschriftlichen Text anzutasten.
+  let letzterAutoText='';
+  const bemInput=form.querySelector('.btb-bem-input');
+  function btbUpdateBemerkungLive(){
+    if(!bemInput)return;
+    let rest=bemInput.value;
+    if(letzterAutoText && rest.startsWith(letzterAutoText)){
+      rest=rest.slice(letzterAutoText.length);
+      if(rest.startsWith('\n')) rest=rest.slice(1);
+    }
+    const checked=[...form.querySelectorAll('.btb-mangel-cb:checked')].map(cb=>cb.dataset.text);
+    const neuerAutoText=checked.join(', ');
+    letzterAutoText=neuerAutoText;
+    bemInput.value=neuerAutoText+(neuerAutoText&&rest?'\n':'')+rest;
+  }
+  // Eine einzelne Mängel-Checkbox + ihren Löschen-Button verkabeln (für bestehende UND neu hinzugefügte)
+  function btbWireMangelZeile(label){
+    const cb=label.querySelector('.btb-mangel-cb');
+    const delBtn=label.querySelector('.btb-mangel-del');
+    if(cb) cb.addEventListener('change', btbUpdateBemerkungLive);
+    if(delBtn) delBtn.addEventListener('click', async(ev)=>{
+      ev.stopPropagation();
+      if(!confirm('Diese Mängel-Vorlage für alle Kunden löschen?'))return;
+      const {error}=await _sb.from('btb_maengel_vorlagen').delete().eq('id',delBtn.dataset.id);
+      if(error){toast('⚠️ '+error.message);return;}
+      // War sie angehakt? Erst sauber aus dem Bemerkungsfeld entfernen, dann Zeile löschen
+      if(cb&&cb.checked){cb.checked=false;btbUpdateBemerkungLive();}
+      const idx=BTB_MAENGEL.findIndex(m=>m.id===delBtn.dataset.id);
+      if(idx>=0) BTB_MAENGEL.splice(idx,1);
+      label.remove();
+      toast('✓ Vorlage gelöscht');
+    });
+  }
+  form.querySelectorAll('.btb-maengel-liste label').forEach(btbWireMangelZeile);
+
+  // Neue Mängel-Vorlage anlegen — ohne Neuladen: sofort einfügen, anhaken, Text erscheint live
+  const mNeuBtn=form.querySelector('.btb-mangel-neu-btn');
+  if(mNeuBtn) mNeuBtn.addEventListener('click',async()=>{
+    const inp=form.querySelector('.btb-mangel-neu-input');
+    const text=(inp?.value||'').trim();
+    if(!text){toast('⚠️ Bitte Text eingeben');return;}
+    const {data,error}=await _sb.from('btb_maengel_vorlagen').insert({text,erstellt_von:kz}).select().single();
+    if(error){toast('⚠️ '+error.message);return;}
+    BTB_MAENGEL.push(data);
+    inp.value='';
+    const liste=form.querySelector('.btb-maengel-liste');
+    if(liste){
+      const label=document.createElement('label');
+      label.style.cssText='display:flex;align-items:center;gap:7px;font-size:13px;color:var(--tx);cursor:pointer';
+      label.innerHTML='<input type="checkbox" class="btb-mangel-cb" data-text="'+esc(data.text)+'" style="width:16px;height:16px;accent-color:var(--bd);flex-shrink:0">'
+        +'<span style="flex:1">'+esc(data.text)+'</span>'
+        +'<button type="button" class="btb-mangel-del" data-id="'+data.id+'" style="border:none;background:transparent;color:#fca5a5;font-size:14px;cursor:pointer;padding:2px 6px">✕</button>';
+      liste.appendChild(label);
+      btbWireMangelZeile(label);
+      // Neu angelegte Vorlage ist naheliegenderweise gleich gemeint → sofort anhaken
+      const neueCb=label.querySelector('.btb-mangel-cb');
+      neueCb.checked=true;
+      btbUpdateBemerkungLive();
+    }
+    toast('✓ Vorlage angelegt');
+  });
+
+  // Zwischenspeichern-Button
+  const saveBtn=document.createElement('button');
+  saveBtn.className='bsend';saveBtn.style.marginTop='10px';
+  saveBtn.textContent=entwurf?'💾 Entwurf aktualisieren':'💾 Anlage zwischenspeichern';
+  saveBtn.addEventListener('click',()=>saveBtbEntwurf(k, anlageName, form));
+  form.appendChild(saveBtn);
+
+  // Enter-Taste springt zum nächsten Feld (links→rechts, dann nächste Zeile) — für iPad-Bedienung
+  btbSetupEnterNavigation(form);
+
+  return form;
+}
+
+// Neu-Wert live errechnen
+// Neu-Wert errechnen — über CSS-Klassen, zuverlässig nach einmaligem innerHTML=
+function btbCalcNeuInline(el){
+  const grid=el.closest('.btb-grid-4');if(!grid)return;
+  const vgStr=grid.querySelector('.btb-vg')?.value||'';
+  const afStr=grid.querySelector('.btb-af')?.value||'';
+  const neuEl=grid.querySelector('.btb-neu');
+  if(!neuEl)return;
+  if(!vgStr&&!afStr){neuEl.value='';return;}
+  neuEl.value=+(( parseFloat(vgStr)||0 )+( parseFloat(afStr)||0 )).toFixed(2);
+}
+
+function btbCalcNeu(id, slug, pnr){
+  // slug nochmal sicher normalisieren (falls Sonderzeichen im Aufruf)
+  const s=btbSlug(slug);
+  const vgEl=G('btb-p'+pnr+'vg-'+id+'-'+s)||G('btb-p'+pnr+'vg-'+id+'-'+slug);
+  const afEl=G('btb-p'+pnr+'af-'+id+'-'+s)||G('btb-p'+pnr+'af-'+id+'-'+slug);
+  const neuEl=G('btb-p'+pnr+'neu-'+id+'-'+s)||G('btb-p'+pnr+'neu-'+id+'-'+slug);
+  if(!neuEl)return;
+  const vgStr=vgEl?.value??'';
+  const afStr=afEl?.value??'';
+  if(vgStr===''&&afStr===''){neuEl.value='';return;}
+  const vg=parseFloat(vgStr)||0;
+  const af=parseFloat(afStr)||0;
+  neuEl.value=+(vg+af).toFixed(2);
+}
+
+// ── Dos-Soll-Berechnung ──
+// Berechnet wie viele Dosierungen seit letztem BTB hätten stattfinden sollen
+// und multipliziert mit Menge → Soll-Verbrauch in Litern
+// dInfo: {tage, menge, uhr} — EIN Dosier-Block (wird pro Block separat aufgerufen)
+function btbBerechneSoll(anlEintraege, dInfo, datumNeu, uhrNeu){
+  if(!dInfo||!dInfo.tage||!dInfo.tage.length||!dInfo.menge) return null;
+  // Letzter BTB-Eintrag mit Datum für diese Anlage
+  const letzter=anlEintraege.find(e=>e.datum_btb);
+  if(!letzter) return null;
+  const vonDt=new Date(letzter.datum_btb+'T'+(letzter.besuch_uhrzeit||'00:00'));
+  const bisDt=new Date(datumNeu+'T'+(uhrNeu||'23:59'));
+  if(isNaN(vonDt)||isNaN(bisDt)||bisDt<=vonDt) return null;
+  // Dosiertage auf Wochentag-Index mappen
+  const tagMap={mo:1,di:2,mi:3,do:4,fr:5,sa:6,so:0};
+  const aktTage=new Set(dInfo.tage.map(t=>tagMap[t]).filter(x=>x!=null));
+  const uhr=dInfo.uhr||'00:00'; // keine Uhrzeit → einmal pro Tag (00:00)
+  // Jeden Tag von von+1 bis bis durchgehen
+  let count=0;
+  const cur=new Date(vonDt);
+  cur.setDate(cur.getDate()+1);cur.setHours(0,0,0,0);
+  while(cur<=bisDt){
+    if(aktTage.has(cur.getDay())){
+      const [hh,mm]=uhr.split(':').map(Number);
+      const dosDt=new Date(cur);dosDt.setHours(hh,mm,0,0);
+      if(dosDt>vonDt && dosDt<=bisDt) count++;
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  return +(count * Number(dInfo.menge)).toFixed(2);
+}
+
+// ── Ein Dosier-Zeitblock als HTML aufbauen (wird für Block 1 UND optionalen Block 2 genutzt) ──
+// suffix: '' für Block 1, '2' für Block 2 — steuert die data-dosier-Attributnamen
+function btbBuildDosierZeile(pn2, suffix, dInfoBlock, colorMap, TAGE, anlEintraege, dv, today, nowT){
+  const tageChecks=TAGE.map(t=>{
+    const chk=dInfoBlock.tage&&dInfoBlock.tage.includes(t.k)?'checked':'';
+    return '<label style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font-size:11px;font-weight:700;color:'+colorMap[pn2]+'">'
+      +'<input type="checkbox" data-dosier="p'+pn2+'t'+suffix+t.k+'" '+chk
+      +' style="width:15px;height:15px;accent-color:'+colorMap[pn2]+';margin:0">'
+      +t.l+'</label>';
+  }).join('');
+  const dosSoll=btbBerechneSoll(anlEintraege,dInfoBlock,dv.datum||today,dv.uhr||nowT);
+  const dosSollVal=dosSoll!=null?dosSoll.toFixed(1)+'L':'–';
+  const seitTxt=dInfoBlock.geaendert_am?('seit '+btbFmtDatumDE(dInfoBlock.geaendert_am)):'';
+  return '<div class="btb-dosier-seit" data-pnr="'+pn2+'" data-block="'+(suffix||'1')+'" style="font-size:9px;color:#94a3b8;font-style:italic;text-align:right;margin-bottom:3px">'+seitTxt+'</div>'
+    +'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'+tageChecks+'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">'
+    +'<div class="btb-feld" style="width:92px"><div class="btb-feld-lbl">Uhrzeit</div>'
+    +'<input type="time" data-dosier="p'+pn2+'u'+suffix+'" value="'+(dInfoBlock.uhr||'')+'" style="font-size:13px!important;padding:5px 4px!important;width:100%;box-sizing:border-box"></div>'
+    +'<div class="btb-feld" style="width:56px"><div class="btb-feld-lbl">Dauer min</div>'
+    +'<input type="number" step="1" data-dosier="p'+pn2+'dauer'+suffix+'" value="'+(dInfoBlock.dauer||'')+'" placeholder="min" style="font-size:12px!important;padding:5px 4px!important;font-weight:700;text-align:center;width:100%;box-sizing:border-box"></div>'
+    +'<div class="btb-feld" style="width:64px"><div class="btb-feld-lbl">pro Dos. (L)</div>'
+    +'<input type="number" step="0.01" data-dosier="p'+pn2+'dos'+suffix+'" value="'+(dInfoBlock.menge||'')+'" placeholder="L" style="font-size:12px!important;padding:5px 4px!important;font-weight:700;text-align:center;width:100%;box-sizing:border-box"></div>'
+    +'<div class="btb-feld" style="width:74px"><div class="btb-feld-lbl" style="color:#7c3aed">Soll s.l. BTB</div>'
+    +'<input type="text" readonly value="'+dosSollVal+'" style="font-size:12px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:7px;cursor:default"></div>'
+    +'</div>';
+}
+
+// ── Dosiertage + Uhrzeit PRO ANLAGE am Kunden speichern ──
+// dosier_info-Struktur: { "<anlageSlug>": { p1:{tage,menge,uhr,dauer,geaendert_am,block2Aktiv,tage2,menge2,uhr2,dauer2,geaendert_am2}, p3:{...} } }
+async function btbSaveDosierFromForm(form, id, k, anlageSlug){
+  const alleInfo=Object.assign({},k.dosier_info||{});
+  const anlInfo=Object.assign({},alleInfo[anlageSlug]||{});
+  const heute=new Date().toISOString().split('T')[0];
+  [1,3].forEach(pnr=>{
+    const alt=anlInfo['p'+pnr]||{};
+    // Block 1 (immer aktiv)
+    const tage=[];
+    ['mo','di','mi','do','fr','sa','so'].forEach(t=>{
+      const cb=form.querySelector('[data-dosier="p'+pnr+'t'+t+'"]');
+      if(cb?.checked) tage.push(t);
+    });
+    const menge=parseFloat(form.querySelector('[data-dosier="p'+pnr+'dos"]')?.value)||'';
+    const uhr=form.querySelector('[data-dosier="p'+pnr+'u"]')?.value||'';
+    const dauer=parseFloat(form.querySelector('[data-dosier="p'+pnr+'dauer"]')?.value)||'';
+    const altTageStr=(alt.tage||[]).join(',');
+    const hatSichGeaendert=altTageStr!==tage.join(',')||(alt.menge||'')!==menge||(alt.uhr||'')!==uhr||(alt.dauer||'')!==dauer;
+    const geaendert_am=hatSichGeaendert?heute:(alt.geaendert_am||heute);
+
+    // Block 2 (optional, an anderen Tagen)
+    const block2Aktiv=form.querySelector('[data-dosier="p'+pnr+'b2"]')?.checked||false;
+    const tage2=[];
+    ['mo','di','mi','do','fr','sa','so'].forEach(t=>{
+      const cb=form.querySelector('[data-dosier="p'+pnr+'t2'+t+'"]');
+      if(cb?.checked) tage2.push(t);
+    });
+    const menge2=parseFloat(form.querySelector('[data-dosier="p'+pnr+'dos2"]')?.value)||'';
+    const uhr2=form.querySelector('[data-dosier="p'+pnr+'u2"]')?.value||'';
+    const dauer2=parseFloat(form.querySelector('[data-dosier="p'+pnr+'dauer2"]')?.value)||'';
+    const altTage2Str=(alt.tage2||[]).join(',');
+    const hatSichBlock2Geaendert=altTage2Str!==tage2.join(',')||(alt.menge2||'')!==menge2||(alt.uhr2||'')!==uhr2||(alt.dauer2||'')!==dauer2;
+    const geaendert_am2=hatSichBlock2Geaendert?heute:(alt.geaendert_am2||heute);
+
+    anlInfo['p'+pnr]={tage,menge,uhr,dauer,geaendert_am,block2Aktiv,tage2,menge2,uhr2,dauer2,geaendert_am2};
+
+    // "seit"-Anzeigen im Formular sofort live aktualisieren (beide Blöcke)
+    const seitEl1=form.querySelector('.btb-dosier-seit[data-pnr="'+pnr+'"][data-block="1"]');
+    if(seitEl1) seitEl1.textContent='seit '+btbFmtDatumDE(geaendert_am);
+    const seitEl2=form.querySelector('.btb-dosier-seit[data-pnr="'+pnr+'"][data-block="2"]');
+    if(seitEl2) seitEl2.textContent='seit '+btbFmtDatumDE(geaendert_am2);
+  });
+  alleInfo[anlageSlug]=anlInfo;
+  k.dosier_info=alleInfo;
+  _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',id)
+    .then(({error})=>{if(error) toast('⚠️ Dosierdaten: '+error.message);});
+}
+
+// ── Entwurf zwischenspeichern (Supabase btb_entwurf) ──
+async function saveBtbEntwurf(k, anlageName, formEl){
+  const slug=btbSlug(anlageName);
+  const id=k.id;
+  const toN=elId=>{const v=G(elId)?.value;return(v===''||v==null)?null:Number(v);};
+  const toS=elId=>G(elId)?.value||null;
+  // Produkt-Daten per CSS-Klassen direkt aus formEl lesen (kein globaler ID-Lookup nötig)
+  const getProd=pnr=>{
+    const block=formEl.querySelector('[data-prod="'+pnr+'"]');
+    if(!block)return{};
+    const n=cls=>{const x=parseFloat(block.querySelector('.btb-'+cls)?.value);return isNaN(x)?null:x;};
+    return{vg:n('vg'),af:n('af'),neu:n('neu'),lg:n('lg')};
+  };
+
+  // Bemerkung: enthält bereits live zusammengeführten Mängel-Text (siehe btbUpdateBemerkungLive),
+  // beim Speichern nur noch direkt auslesen — kein erneutes Zusammenfügen nötig
+  const bemGesamt=(toS('btb-bem-'+id+'-'+slug)||'').trim();
+
+  const felder={
+    datum:toS('btb-datum-'+id+'-'+slug), uhr:toS('btb-uhr-'+id+'-'+slug),
+    lf:toN('btb-lf-'+id+'-'+slug), dh:toN('btb-dh-'+id+'-'+slug),
+    lfi:toN('btb-lfi-'+id+'-'+slug), lfs:toN('btb-lfs-'+id+'-'+slug),
+    ds:G('btb-ds-'+id+'-'+slug)?.checked||false,
+    zw:toN('btb-zw-'+id+'-'+slug), aw:toN('btb-aw-'+id+'-'+slug),
+    bem:bemGesamt,
+    p1:getProd(1), p2:getProd(2), p3:getProd(3),
+  };
+
+  // Bestehenden Entwurf für diese Anlage suchen
+  const vorhanden=k.entwuerfe.find(e=>e.anlage===anlageName);
+  let error;
+  if(vorhanden){
+    ({error}=await _sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',vorhanden.id));
+  } else {
+    ({error}=await _sb.from('btb_entwurf').insert({kunde_id:id,anlage:anlageName,felder,kuerzel:kz}));
+  }
+  if(error){
+    toast('⚠️ Speichern fehlgeschlagen: '+error.message+' (SQL ausgeführt?)');
+    console.error('BTB Entwurf Fehler:',error);
+    return;
+  }
+  console.log('BTB Entwurf gespeichert:', felder);
+  toast('✅ '+anlageName+' gespeichert');
+  await loadAll();
+  requestAnimationFrame(()=>{
+    const karte=document.querySelector('.btb-karte[data-btb-id="'+id+'"]');
+    if(karte&&!karte.classList.contains('open')) karte.classList.add('open');
+    // Zu den Anlagen-Tabs hochspringen — Techniker kann direkt nächste Anlage wählen oder FERTIG drücken
+    const ziel=karte&&(karte.querySelector('.btb-anlagen-tabs')||karte.querySelector('.btb-karte-header'));
+    if(ziel) ziel.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+}
+
+// ── FERTIG: alle Entwürfe → btb_eintraege mit Status "offen" ──
+async function btbFertigZumBerechnen(kid){
+  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  if(!k){toast('⚠️ Kunde nicht gefunden');return;}
+  if(!k.entwuerfe||!k.entwuerfe.length){
+    toast('⚠️ Kein Entwurf vorhanden – bitte zuerst Anlage zwischenspeichern');
+    return;
+  }
+  if(!confirm('Alle '+k.entwuerfe.length+' Anlage(n) als „FERTIG" übertragen?\nDer Innendienst kann dann die Rechnung eintragen.'))return;
+
+  const rows=k.entwuerfe.map(e=>{
+    const dv=e.felder||{};
+    const dsGezogen=dv.ds||false;
+    const datumFuerRow=dv.datum||new Date().toISOString().split('T')[0];
+    // Dosier-Snapshot dieser Anlage + errechneten Soll-Wert (s.l. BTB) pro Produkt mitloggen
+    const dosierRoh=(k.dosier_info||{})[btbSlug(e.anlage)]||{};
+    const anlHistorie=k.eintraege.filter(x=>x.anlage===e.anlage);
+    const dosierSnapMitSoll={};
+    Object.keys(dosierRoh).forEach(pk=>{
+      const dInfo=dosierRoh[pk];
+      const soll=(dInfo&&dInfo.tage&&dInfo.tage.length&&dInfo.menge)
+        ?btbBerechneSoll(anlHistorie,dInfo,datumFuerRow,dv.uhr||'23:59')
+        :null;
+      let soll2=null;
+      if(dInfo&&dInfo.block2Aktiv&&dInfo.tage2&&dInfo.tage2.length&&dInfo.menge2){
+        soll2=btbBerechneSoll(anlHistorie,{tage:dInfo.tage2,menge:dInfo.menge2,uhr:dInfo.uhr2},datumFuerRow,dv.uhr||'23:59');
+      }
+      dosierSnapMitSoll[pk]=Object.assign({},dInfo,{soll,soll2});
+    });
+    return {
+      kunde_id:kid, anlage:e.anlage, datum_btb:datumFuerRow,
+      besuch_uhrzeit:dv.uhr||null, kuerzel:e.kuerzel||kz,
+      lf_messung_ist:dv.lf, dh:dv.dh, lf_geraet_ist:dv.lfi, lf_geraet_soll:dv.lfs,
+      dipslide_basis:dsGezogen?10:null, dipslide_exponent:dsGezogen?0:null,
+      kbe_auswertung:null, // wird später automatisch durch btbLinkKbe() aus der KBE-Auswertung gesetzt
+      zusatzwasser:dv.zw, abwasser:dv.aw,
+      p1_vorgefunden:dv.p1?.vg, p1_aufgefuellt:dv.p1?.af, p1_neu:dv.p1?.neu, p1_lager:dv.p1?.lg,
+      p2_vorgefunden:dv.p2?.vg, p2_aufgefuellt:dv.p2?.af, p2_neu:dv.p2?.neu, p2_lager:dv.p2?.lg,
+      p3_vorgefunden:dv.p3?.vg, p3_aufgefuellt:dv.p3?.af, p3_neu:dv.p3?.neu, p3_lager:dv.p3?.lg,
+      schwefelsa:false, bemerkung:dv.bem||'',
+      dosier_snapshot:dosierSnapMitSoll,
+      btb_status:'offen'
+    };
+  });
+
+  console.log('FERTIG: Übertrage', rows.length, 'Einträge:', rows);
+  const {error:insErr}=await _sb.from('btb_eintraege').insert(rows);
+  if(insErr){toast('⚠️ FERTIG fehlgeschlagen: '+insErr.message);console.error('FERTIG Fehler:',insErr);return;}
+  // Entwürfe löschen
+  const ids=k.entwuerfe.map(e=>e.id);
+  await _sb.from('btb_entwurf').delete().in('id',ids);
+  toast('✅ BTB übergeben – Innendienst kann jetzt berechnen');
+  // Chip schließen, bevor neu gerendert wird — sonst bleibt er (wie zwischengespeicherte Karten) offen
+  const karteEl=document.querySelector('.btb-karte[data-btb-id="'+kid+'"]');
+  if(karteEl) karteEl.classList.remove('open');
+  await loadAll();
+}
+
+// ── Berechnet: Rechnungsnummer eintragen + Status setzen ──
+async function btbSetBerechnet(eid, kid){
+  const rnr=(document.querySelector('.btb-rnr-input[data-eid="'+eid+'"]')?.value||'').trim();
+  if(!rnr){toast('⚠️ Bitte zuerst Rechnungsnummer eintragen.');return;}
+  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  const eintrag=k?.eintraege.find(x=>x.id===eid);
+  if(!eintrag){toast('⚠️ Eintrag nicht gefunden');return;}
+  // Alle Anlagen desselben Besuchsdatums werden gemeinsam abgerechnet →
+  // Rechnungsnummer auf alle offenen Anlagen dieses Datums übertragen
+  const geschwister=k.eintraege.filter(e=>e.datum_btb===eintrag.datum_btb && e.btb_status==='offen');
+  const ids=geschwister.length?geschwister.map(e=>e.id):[eid];
+  const {error}=await _sb.from('btb_eintraege').update({
+    btb_status:'berechnet', rechnung_nr:rnr,
+    berechnet_von:kz, berechnet_am:new Date().toISOString()
+  }).in('id',ids);
+  if(error){toast('⚠️ '+error.message);return;}
+  toast('✅ '+ids.length+' Anlage(n) als berechnet markiert · RNr: '+rnr);
+  await loadAll();
+}
+
+
+// Produktnamen für Kunden speichern
+async function btbSaveProdNamen(kid){
+  const p1=(G('btb-pn1-'+kid)?.value||'').trim();
+  const p2=(G('btb-pn2-'+kid)?.value||'').trim();
+  const p3=(G('btb-pn3-'+kid)?.value||'').trim();
+  const {error}=await _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',kid);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  toast('✓ Produktbezeichnungen gespeichert');
+  G('btb-pedit-'+kid).style.display='none';
+  await loadAll();
+}
+
+
+
+// ── Eintrag löschen ──
+async function btbDelEintrag(eid, kid){
+  if(!confirm('BTB-Eintrag wirklich löschen?'))return;
+  const {error}=await _sb.from('btb_eintraege').delete().eq('id',eid);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  toast('✓ Eintrag gelöscht');
+  await loadAll();
+}
+
+// ── Eintrag bearbeiten (öffnet Inline-Edit-Overlay) ──
+function btbEditEintrag(kid, anlageName, eid){
+  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  if(!k)return;
+  const e=k.eintraege.find(x=>x.id===eid);
+  if(!e)return;
+
+  // Bestehende Edit-Panels schließen
+  document.querySelectorAll('.btb-edit-panel').forEach(x=>x.remove());
+
+  // Edit-Panel direkt nach dem Eintrag einfügen
+  const eintragEl=document.querySelector('[data-btb-eid="'+eid+'"]');
+
+  const panel=document.createElement('div');
+  panel.className='btb-edit-panel btb-form';
+  panel.style.cssText='border:2px solid var(--bl);margin-top:-4px;border-radius:0 0 9px 9px';
+
+  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+  let prodEditHtml='';
+  [1,2,3].forEach(pn2=>{
+    const pname=pn['p'+pn2]||'';
+    prodEditHtml+=
+      '<div style="background:'+(pn2===1?'#e0f2fe':pn2===2?'#cffafe':'#ede9fe')+';border-radius:7px;padding:7px;margin-top:6px">'+
+      '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+(pn2===1?'var(--bd)':pn2===2?'#0891b2':'#7c3aed')+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+
+      (pname||(pn2===3?'BZ 2 / Zusatz':('Produkt '+pn2)))+'</div>'+
+      '<div class="btb-grid-4">'+
+      '<div class="btb-feld"><div class="btb-feld-lbl">Vorgefunden</div>'+
+      '<input type="number" id="edit-p'+pn2+'vg" class="edit-vg-input" data-pnr="'+pn2+'" value="'+(e['p'+pn2+'_vorgefunden']!=null?e['p'+pn2+'_vorgefunden']:'')+'"></div>'+
+      '<div class="btb-feld"><div class="btb-feld-lbl">Aufgefüllt</div>'+
+      '<input type="number" id="edit-p'+pn2+'af" class="edit-af-input" data-pnr="'+pn2+'" value="'+(e['p'+pn2+'_aufgefuellt']!=null?e['p'+pn2+'_aufgefuellt']:'')+'"></div>'+
+      '<div class="btb-feld"><div class="btb-feld-lbl">Neu</div>'+
+      '<input type="number" id="edit-p'+pn2+'neu" value="'+(e['p'+pn2+'_neu']!=null?e['p'+pn2+'_neu']:'')+'" style="background:#fff;font-weight:700"></div>'+
+      '<div class="btb-feld"><div class="btb-feld-lbl">Lager</div>'+
+      '<input type="number" id="edit-p'+pn2+'lg" value="'+(e['p'+pn2+'_lager']!=null?e['p'+pn2+'_lager']:'')+'" ></div>'+
+      '</div></div>';
+  });
+
+  panel.innerHTML='<div class="btb-form-title" style="color:var(--bd)">✏️ Bearbeiten – '+esc(anlageName)+' · '+esc(e.datumFmt)+'</div>'+
+    '<div class="btb-grid" style="margin-top:6px">'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="number" id="edit-lf" value="'+(e.lf_messung_ist!=null?e.lf_messung_ist:'')+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="number" step="0.1" id="edit-dh" value="'+(e.dh!=null?e.dh:'')+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="number" id="edit-lfi" value="'+(e.lf_geraet_ist!=null?e.lf_geraet_ist:'')+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="number" id="edit-lfs" value="'+(e.lf_geraet_soll!=null?e.lf_geraet_soll:'')+'"></div>'+
+    '</div>'+
+    '<div class="btb-dipslide-box" style="margin-top:7px">'+
+    '<div class="btb-dipslide-title">🧫 DipSlide</div>'+
+    '<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
+    '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#0369a1;font-weight:600;cursor:pointer;flex:1;min-width:160px;padding-top:6px">'+
+    '<input type="checkbox" id="edit-ds"'+(e.dipslide_basis!=null?' checked':'')+' style="width:16px;height:16px;accent-color:#0891b2;flex-shrink:0">'+
+    ' Dip-Slide gezogen</label>'+
+    '<div style="flex:1;min-width:130px"><div class="btb-feld-lbl" style="color:#0369a1">KBE-Auswertung</div>'+
+    '<select id="edit-kbe" style="font-size:14px!important;padding:7px 10px!important"><option value="">– ausstehend –</option>'+
+    ['10⁰','10²','10³','10⁴','10⁵','10⁶','Nicht auswertbar'].map(v=>'<option value="'+v+'"'+(e.kbe_auswertung===v?' selected':'')+'>'+v+'</option>').join('')+
+    '</select></div></div></div>'+
+    '<div style="background:#f0fdf4;border:1.5px solid var(--gl);border-radius:8px;padding:8px;margin-top:7px">'+
+    '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;color:var(--gn);text-transform:uppercase;margin-bottom:5px">💧 Wasserzähler</div>'+
+    '<div class="btb-grid">'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Zusatzwasser (m³)</div><input type="number" id="edit-zw" value="'+(e.zusatzwasser!=null?e.zusatzwasser:'')+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Abwasser (m³)</div><input type="number" id="edit-aw" value="'+(e.abwasser!=null?e.abwasser:'')+'"></div></div></div>'+
+    prodEditHtml+
+    '<div class="btb-feld-lbl" style="margin-top:6px">Bemerkung</div>'+
+    '<textarea id="edit-bem" style="min-height:46px;font-size:14px!important">'+esc(e.bemerkung)+'</textarea>'+
+    '<div style="display:flex;gap:7px;margin-top:8px">'+
+    '<button class="bsend btb-saveedit-btn" style="flex:1;padding:9px">💾 Speichern</button>'+
+    '<button class="btb-edit-btn btb-canceledit-btn" style="padding:9px 14px">Abbrechen</button>'+
+    '</div>';
+
+  // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
+  panel.querySelectorAll('.edit-vg-input, .edit-af-input').forEach(el=>{
+    el.addEventListener('input',()=>editCalcNeu(el.dataset.pnr));
+  });
+  const saveEditBtn=panel.querySelector('.btb-saveedit-btn');
+  if(saveEditBtn) saveEditBtn.addEventListener('click',()=>btbSaveEdit(eid,kid));
+  const cancelEditBtn=panel.querySelector('.btb-canceledit-btn');
+  if(cancelEditBtn) cancelEditBtn.addEventListener('click',()=>panel.remove());
+  // Enter-Taste springt zum nächsten Feld — auch im Bearbeiten-Panel (iPad)
+  btbSetupEnterNavigation(panel);
+
+  // Nach dem Eintrag einfügen oder am Panel-Ende
+  if(eintragEl&&eintragEl.parentNode){
+    eintragEl.parentNode.insertBefore(panel, eintragEl.nextSibling);
+  }
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// Neu-Wert live im Edit-Panel errechnen
+function editCalcNeu(pnr){
+  const vgStr=G('edit-p'+pnr+'vg')?.value??'';
+  const afStr=G('edit-p'+pnr+'af')?.value??'';
+  const neuEl=G('edit-p'+pnr+'neu');
+  if(!neuEl)return;
+  if(vgStr===''&&afStr===''){neuEl.value='';return;}
+  const vg=parseFloat(vgStr)||0;
+  const af=parseFloat(afStr)||0;
+  neuEl.value=+(vg+af).toFixed(2);
+}
+
+async function btbSaveEdit(eid, kid){
+  const toN=id=>{const v=G(id)?.value;return(v===''||v==null)?null:Number(v);};
+  const toStr=id=>{const v=G(id)?.value;return(v===''||v==null)?null:v;};
+  const dsChecked=G('edit-ds')?.checked||false;
+  const kbeVal=toStr('edit-kbe');
+
+  const payload={
+    lf_messung_ist: toN('edit-lf'),
+    dh: toN('edit-dh'),
+    lf_geraet_ist: toN('edit-lfi'),
+    lf_geraet_soll: toN('edit-lfs'),
+    dipslide_basis: dsChecked ? 10 : null,
+    dipslide_exponent: dsChecked ? 0 : null,
+    kbe_auswertung: kbeVal||null,
+    zusatzwasser: toN('edit-zw'),
+    abwasser: toN('edit-aw'),
+    p1_vorgefunden: toN('edit-p1vg'), p1_aufgefuellt: toN('edit-p1af'), p1_neu: toN('edit-p1neu'), p1_lager: toN('edit-p1lg'),
+    p2_vorgefunden: toN('edit-p2vg'), p2_aufgefuellt: toN('edit-p2af'), p2_neu: toN('edit-p2neu'), p2_lager: toN('edit-p2lg'),
+    p3_vorgefunden: toN('edit-p3vg'), p3_aufgefuellt: toN('edit-p3af'), p3_neu: toN('edit-p3neu'), p3_lager: toN('edit-p3lg'),
+    bemerkung: G('edit-bem')?.value||''
+  };
+
+  const {error}=await _sb.from('btb_eintraege').update(payload).eq('id',eid);
+  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  toast('✓ BTB-Eintrag aktualisiert');
+  document.querySelector('.btb-edit-panel')?.remove();
+  await loadAll();
+}
+
+// ══════════════════════════════════════════════════════════
+// BTB: KBE-AUSWERTUNG DEM PASSENDEN BTB-DATUM ZUORDNEN
+// Wenn saveBestKunde() einen KBE-Wert speichert, suchen wir
+// automatisch den BTB-Eintrag mit demselben Datum und tragen
+// kbe_auswertung ein.
+// ══════════════════════════════════════════════════════════
+async function btbLinkKbe(kunde_id, anlageName, datum, kbeWert){
+  if(!kunde_id||!datum||!kbeWert||!anlageName)return;
+  // Passenden BTB-Eintrag suchen (gleicher Kunde, GLEICHE ANLAGE, gleiches Datum)
+  const {data:treffer}=await _sb.from('btb_eintraege')
+    .select('id,kbe_auswertung')
+    .eq('kunde_id',kunde_id)
+    .eq('datum_btb',datum)
+    .eq('anlage',anlageName)
+    .maybeSingle();
+  if(!treffer){
+    // Keine passende Anlage/kein BTB-Eintrag zu diesem Datum → nichts zu tun, KBE-Eintrag läuft separat
+    return;
+  }
+  await _sb.from('btb_eintraege').update({kbe_auswertung:kbeWert}).eq('id',treffer.id);
 }
 
 // ══════════════════════════════════════════════════════════
