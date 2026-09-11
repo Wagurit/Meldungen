@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v73</title>
+<title>Meldungen &amp; Angebote v74</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v73</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v74</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -842,7 +842,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -954,6 +954,11 @@ const APP_VERSION = 'v73';
   -- Optional zum Aufräumen (nicht zwingend nötig, alte Werte stören nicht, werden nur ignoriert):
   -- UPDATE kbe_kunden SET dosier_info='{}' WHERE dosier_info IS NOT NULL;
   ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS dosier_info jsonb DEFAULT '{}';
+
+  -- Wasserzähler-Gruppen: mehrere Anlagen teilen sich einen Zusatz-/Abwasserzähler.
+  -- Format: {"zusatzwasser":[["Halle A","Halle B"]],"abwasser":[]}
+  -- Anlagen, die in keiner Gruppe stehen, haben einen eigenen Zähler.
+  ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS wasserzaehler_gruppen jsonb DEFAULT '{}';
 
   -- 2) kbe_kunden um Produktnamen-Spalte erweitern (speichert die 3 Produktbezeichnungen pro Kunde)
   ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS produkt_namen jsonb DEFAULT '{"p1":"BZ","p2":"KT/LB","p3":""}';
@@ -1204,6 +1209,7 @@ async function loadAll(){
         rkws: k2.rkws||[],
         produkt_namen: k2.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''},
         dosier_info: k2.dosier_info||{},
+        wasserzaehler_gruppen: k2.wasserzaehler_gruppen||{},
         entwuerfe,
         eintraege: btbEintr.filter(e=>e.kunde_id===k2.id).map(e=>({
           id:e.id,
@@ -1241,12 +1247,25 @@ async function loadAll(){
       payload:x.payload||null
     }));
     setSyncing('ok');
+    btbSaveSnapshot(); // Offline-Snapshot aktualisieren, solange Netz da ist
     renderAll(); updB();
     setTimeout(()=>pruefeErinnerung(false), 800);
   } catch(e){
     setSyncing('err');
     console.error('loadAll Fehler:', e);
-    toast('⚠️ Ladefehler: '+e.message);
+    // Kein Netz (oder Fehler beim Laden) → auf zuletzt gespeicherten Offline-Snapshot zurückfallen,
+    // damit der Techniker seine Kunden/Historie trotzdem sieht und weiterarbeiten kann
+    const snap=btbLoadSnapshot();
+    if(snap){
+      BTB_KUNDEN=snap.BTB_KUNDEN||[];
+      KBE=snap.KBE||[];
+      BTB_MAENGEL=snap.BTB_MAENGEL||[];
+      const zeit=snap.gespeichert_am?new Date(snap.gespeichert_am).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'unbekannt';
+      toast('📥 Offline — Datenstand vom '+zeit);
+      renderAll(); updB();
+    } else {
+      toast('⚠️ Kein Netz und noch kein Offline-Stand vorhanden');
+    }
   }
 }
 
@@ -1338,10 +1357,18 @@ function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS
 // ══════════════════════════════════════════════════════════
 // AUTOCOMPLETE
 // ══════════════════════════════════════════════════════════
-function allK(){const s=new Set();[...MD,...CH,...FR].forEach(e=>s.add(e.firma));KBE.forEach(k=>s.add(k.firma));return[...s].sort((a,b)=>a.localeCompare(b,'de'));}
+function allK(){
+  const s=new Set();
+  [...MD,...CH,...FR].forEach(e=>{ if(e.firma) s.add(e.firma.trim()); });
+  KBE.forEach(k=>{ if(k.firma) s.add(k.firma.trim()); });
+  return[...s].sort((a,b)=>a.localeCompare(b,'de'));
+}
 function onKI(v){
-  const l=G('acl'),k2=allK().filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x!==v);
-  if(!k2.length||!v){l.classList.remove('open');return;}
+  const l=G('acl');
+  const vTrim=(v||'').trim();
+  const vLower=vTrim.toLowerCase();
+  const k2=vLower?allK().filter(x=>x.toLowerCase().includes(vLower)&&x!==vTrim):[];
+  if(!k2.length||!vLower){l.classList.remove('open');return;}
   l.innerHTML=k2.slice(0,7).map(x=>'<div class="aci" onmousedown="pickK(\''+esc(x)+'\')">'+esc(x)+'</div>').join('');
   l.classList.add('open');
 }
@@ -1357,8 +1384,9 @@ function btbSetupSucheAutocomplete(inputId){
   const inp=G(inputId),acl=G('acl-'+inputId);
   if(!inp||!acl)return;
   function zeigeVorschlaege(){
-    const v=inp.value;
-    const treffer=v?allK().filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x!==v):[];
+    const vTrim=(inp.value||'').trim();
+    const vLower=vTrim.toLowerCase();
+    const treffer=vLower?allK().filter(x=>x.toLowerCase().includes(vLower)&&x!==vTrim):[];
     if(!treffer.length){acl.classList.remove('open');return;}
     acl.innerHTML=treffer.slice(0,7).map(x=>'<div class="aci" onmousedown="btbPickSucheVorschlag(\''+inputId+'\',\''+esc(x)+'\')">'+esc(x)+'</div>').join('');
     acl.classList.add('open');
@@ -3218,6 +3246,57 @@ function btbFmtTagMonat(iso){
   return p[2]+'.'+p[1];
 }
 
+// ── Wasserzähler-Gruppen: mehrere Anlagen teilen sich einen Zähler ──
+// Struktur pro Kunde: {zusatzwasser:[["Halle A","Halle B"]], abwasser:[...]}
+// Anlagen, die in KEINER Gruppe stehen, haben einen eigenen Zähler.
+function btbFindGruppenPartner(k, typ, anlageName){
+  const gruppen=(k.wasserzaehler_gruppen||{})[typ]||[];
+  const gruppe=gruppen.find(g=>g.includes(anlageName));
+  return gruppe?gruppe.filter(a=>a!==anlageName):[];
+}
+function btbSetGruppenMitgliedschaft(k, typ, anlageName, partnerName, geteilt){
+  const alle=Object.assign({}, k.wasserzaehler_gruppen||{});
+  let gruppen=(alle[typ]||[]).map(g=>[...g]);
+  let meineGruppe=gruppen.find(g=>g.includes(anlageName));
+  if(!meineGruppe){ meineGruppe=[anlageName]; gruppen.push(meineGruppe); }
+  if(geteilt){
+    gruppen.forEach(g=>{ if(g!==meineGruppe){ const idx=g.indexOf(partnerName); if(idx>=0) g.splice(idx,1); } });
+    if(!meineGruppe.includes(partnerName)) meineGruppe.push(partnerName);
+  } else {
+    const idx=meineGruppe.indexOf(partnerName);
+    if(idx>=0) meineGruppe.splice(idx,1);
+  }
+  gruppen=gruppen.filter(g=>g.length>1); // Gruppen mit nur 1 Mitglied = kein geteilter Zähler mehr
+  alle[typ]=gruppen;
+  k.wasserzaehler_gruppen=alle;
+  return alle;
+}
+// Überträgt einen gespeicherten Zählerwert auf alle Anlagen, die sich den Zähler mit
+// anlageName teilen — legt bei Bedarf einen minimalen Entwurf für die Partner-Anlage an.
+async function btbPropagateSharedMeter(k, anlageName, typ, wert, datum, uhr){
+  if(wert==null)return;
+  const partner=btbFindGruppenPartner(k, typ, anlageName);
+  if(!partner.length)return;
+  const feldName = typ==='zusatzwasser' ? 'zw' : 'aw';
+  for(const partnerName of partner){
+    const pEntwurf=k.entwuerfe.find(e=>e.anlage===partnerName);
+    const pId=pEntwurf?pEntwurf.id:btbUuid();
+    const neueFelder=Object.assign({datum,uhr}, pEntwurf?pEntwurf.felder:{}, {[feldName]:wert});
+    if(pEntwurf){ pEntwurf.felder=neueFelder; }
+    else { k.entwuerfe.push({id:pId, anlage:partnerName, felder:neueFelder, kuerzel:kz}); }
+    if(isOnline()){
+      try{
+        if(pEntwurf) await _sb.from('btb_entwurf').update({felder:neueFelder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',pId);
+        else await _sb.from('btb_entwurf').insert({id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz});
+      }catch(e){
+        addToQueue({type:'btb_entwurf_upsert', data:{id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz}});
+      }
+    } else {
+      addToQueue({type:'btb_entwurf_upsert', data:{id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz}});
+    }
+  }
+}
+
 function btbFindPrevWasser(eintraege, aktuellIdx, anlage, feld){
   for(let i=aktuellIdx+1;i<eintraege.length;i++){
     const e=eintraege[i];
@@ -3529,6 +3608,19 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   const letzterMitAbwasser=anlEintraege.find(e=>e.abwasser!=null);
   const abwHinweis=letzterMitAbwasser
     ?'<div class="btb-last-hint" style="margin-top:4px">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letzterMitAbwasser.abwasser+' m³</b></div>':'';
+  // Zähler-teilen: andere Anlagen des Kunden + aktuell zugeordnete Partner (separat für Zusatz-/Abwasser)
+  const andereAnlagen=(k.rkws||[]).map(r=>r.name).filter(n=>n!==anlageName);
+  const zwPartner=btbFindGruppenPartner(k,'zusatzwasser',anlageName);
+  const awPartner=btbFindGruppenPartner(k,'abwasser',anlageName);
+  const btbShareHtml=(typ, partnerListe)=>{
+    if(!andereAnlagen.length)return'';
+    return '<div class="btb-share-toggle" data-typ="'+typ+'" style="margin-top:5px;font-size:10px;color:var(--gn);cursor:pointer;font-weight:700">🔗 Zähler teilen mit anderen Anlagen'+(partnerListe.length?' ('+partnerListe.length+')':'')+' ⌄</div>'
+      +'<div class="btb-share-body" data-typ="'+typ+'" style="display:none;margin-top:4px;padding:7px;background:#fff;border-radius:6px;border:1px dashed var(--gl)">'
+      +andereAnlagen.map(name=>'<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0;cursor:pointer">'
+        +'<input type="checkbox" class="btb-share-cb" data-typ="'+typ+'" data-partner="'+esc(name)+'"'+(partnerListe.includes(name)?' checked':'')+' style="width:15px;height:15px;accent-color:var(--gn);flex-shrink:0">'
+        +esc(name)+'</label>').join('')
+      +'</div>';
+  };
   // Letztes Verbrauch (Delta zum Besuch davor) + letzte Eindickung — zum Vergleich neben dem live berechneten Wert
   const idxLetzterZW=letzterMitWasser?anlEintraege.findIndex(e=>e.id===letzterMitWasser.id):-1;
   const zwPrevPrev=idxLetzterZW>=0?btbFindPrevWasser(anlEintraege,idxLetzterZW,anlageName,'zusatzwasser'):null;
@@ -3661,6 +3753,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'</div>'
     +'</div>'
     +prevHinweis
+    +btbShareHtml('zusatzwasser', zwPartner)
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;margin-top:7px">'
     +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Abwasser opt.</div>'
     +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box"></div>'
@@ -3674,6 +3767,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'</div>'
     +'</div>'
     +abwHinweis
+    +btbShareHtml('abwasser', awPartner)
     +'</div>'
     // Produkte
     +prodBlocks
@@ -3722,6 +3816,30 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     el.addEventListener('input', btbUpdateWasserLive);
   });
   btbUpdateWasserLive(); // initial anzeigen, falls Entwurf-Werte schon vorbelegt sind
+
+  // Zähler teilen: Ausklapp-Bereich auf-/zuklappen
+  form.querySelectorAll('.btb-share-toggle').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      const body=t.nextElementSibling;
+      if(body) body.style.display=body.style.display==='none'?'block':'none';
+    });
+  });
+  // Zähler teilen: Checkbox ändert die Gruppenzuordnung, wird sofort (auch offline) gespeichert
+  form.querySelectorAll('.btb-share-cb').forEach(cb=>{
+    cb.addEventListener('change', async()=>{
+      const typ=cb.dataset.typ, partnerName=cb.dataset.partner;
+      const neueGruppen=btbSetGruppenMitgliedschaft(k, typ, anlageName, partnerName, cb.checked);
+      btbSaveSnapshot();
+      if(isOnline()){
+        const {error}=await _sb.from('kbe_kunden').update({wasserzaehler_gruppen:neueGruppen}).eq('id',id);
+        if(error){ addToQueue({type:'kbe_kunden_update', data:{id, patch:{wasserzaehler_gruppen:neueGruppen}}}); toast('⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen'); }
+        else { toast('✓ Zähler-Zuordnung gespeichert'); }
+      } else {
+        addToQueue({type:'kbe_kunden_update', data:{id, patch:{wasserzaehler_gruppen:neueGruppen}}});
+        toast('📥 Offline gespeichert — wird hochgeladen sobald online');
+      }
+    });
+  });
 
   // Berechnung: VG+AF=NEU via addEventListener (robuster als oninput-Attribut)
   form.querySelectorAll('.btb-vg, .btb-af').forEach(el=>{
@@ -3977,8 +4095,18 @@ async function btbSaveDosierFromForm(form, id, k, anlageSlug){
   });
   alleInfo[anlageSlug]=anlInfo;
   k.dosier_info=alleInfo;
-  _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',id)
-    .then(({error})=>{if(error) toast('⚠️ Dosierdaten: '+error.message);});
+  btbSaveSnapshot();
+  if(isOnline()){
+    _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',id)
+      .then(({error})=>{
+        if(error){
+          addToQueue({type:'kbe_kunden_update', data:{id, patch:{dosier_info:alleInfo}}});
+          toast('⚠️ Kein Netz — Dosierdaten gespeichert, werden automatisch hochgeladen');
+        }
+      });
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id, patch:{dosier_info:alleInfo}}});
+  }
 }
 
 // ── Entwurf zwischenspeichern (Supabase btb_entwurf) ──
@@ -4009,22 +4137,42 @@ async function saveBtbEntwurf(k, anlageName, formEl){
     p1:getProd(1), p2:getProd(2), p3:getProd(3),
   };
 
-  // Bestehenden Entwurf für diese Anlage suchen
+  // Bestehenden Entwurf für diese Anlage suchen (lokal — funktioniert auch offline)
   const vorhanden=k.entwuerfe.find(e=>e.anlage===anlageName);
-  let error;
-  if(vorhanden){
-    ({error}=await _sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',vorhanden.id));
+  const entwurfId=vorhanden?vorhanden.id:btbUuid();
+
+  // Lokal SOFORT aktualisieren (optimistisch) — die Oberfläche zeigt den neuen Stand
+  // unabhängig vom Netzstatus direkt, das ist die Grundlage für Offline-Nutzung
+  if(vorhanden){ vorhanden.felder=felder; vorhanden.kuerzel=kz; }
+  else { k.entwuerfe.push({id:entwurfId, anlage:anlageName, felder, kuerzel:kz}); }
+  // Zusatz-/Abwasserwert an Anlagen weitergeben, die sich denselben Zähler teilen
+  await btbPropagateSharedMeter(k, anlageName, 'zusatzwasser', felder.zw, felder.datum, felder.uhr);
+  await btbPropagateSharedMeter(k, anlageName, 'abwasser', felder.aw, felder.datum, felder.uhr);
+  btbSaveSnapshot();
+
+  const online=isOnline();
+  let fehler=null;
+  if(online){
+    try{
+      if(vorhanden){
+        ({error:fehler}=await _sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',entwurfId));
+      } else {
+        ({error:fehler}=await _sb.from('btb_entwurf').insert({id:entwurfId,kunde_id:id,anlage:anlageName,felder,kuerzel:kz}));
+      }
+    }catch(e){ fehler=e; }
+  }
+  if(!online || fehler){
+    // Offline oder Netzfehler → in die Warteschlange, wird automatisch nachgeholt sobald wieder online
+    addToQueue({type:'btb_entwurf_upsert', data:{id:entwurfId, kunde_id:id, anlage:anlageName, felder, kuerzel:kz, istUpdate:!!vorhanden}});
+    toast(online?'⚠️ Kein Netz — trotzdem gespeichert, wird automatisch hochgeladen':'📥 Offline gespeichert — wird hochgeladen sobald online');
+    console.log('BTB Entwurf in Warteschlange:', felder);
   } else {
-    ({error}=await _sb.from('btb_entwurf').insert({kunde_id:id,anlage:anlageName,felder,kuerzel:kz}));
+    toast('✅ '+anlageName+' gespeichert');
+    console.log('BTB Entwurf gespeichert:', felder);
   }
-  if(error){
-    toast('⚠️ Speichern fehlgeschlagen: '+error.message+' (SQL ausgeführt?)');
-    console.error('BTB Entwurf Fehler:',error);
-    return;
-  }
-  console.log('BTB Entwurf gespeichert:', felder);
-  toast('✅ '+anlageName+' gespeichert');
-  await loadAll();
+
+  if(online && !fehler){ await loadAll(); }
+  else { renderAll(); updB(); }
   requestAnimationFrame(()=>{
     const karte=document.querySelector('.btb-karte[data-btb-id="'+id+'"]');
     if(karte&&!karte.classList.contains('open')) karte.classList.add('open');
@@ -4064,6 +4212,7 @@ async function btbFertigZumBerechnen(kid){
       dosierSnapMitSoll[pk]=Object.assign({},dInfo,{soll,soll2});
     });
     return {
+      id:btbUuid(), // clientseitig erzeugt — funktioniert auch offline, Supabase übernimmt die id 1:1
       kunde_id:kid, anlage:e.anlage, datum_btb:datumFuerRow,
       besuch_uhrzeit:dv.uhr||null, kuerzel:e.kuerzel||kz,
       lf_messung_ist:dv.lf, dh:dv.dh, lf_geraet_ist:dv.lfi, lf_geraet_soll:dv.lfs,
@@ -4079,17 +4228,51 @@ async function btbFertigZumBerechnen(kid){
     };
   });
 
-  console.log('FERTIG: Übertrage', rows.length, 'Einträge:', rows);
-  const {error:insErr}=await _sb.from('btb_eintraege').insert(rows);
-  if(insErr){toast('⚠️ FERTIG fehlgeschlagen: '+insErr.message);console.error('FERTIG Fehler:',insErr);return;}
-  // Entwürfe löschen
-  const ids=k.entwuerfe.map(e=>e.id);
-  await _sb.from('btb_entwurf').delete().in('id',ids);
-  toast('✅ BTB übergeben – Innendienst kann jetzt berechnen');
+  const entwurfIds=k.entwuerfe.map(e=>e.id);
+
+  // Lokal SOFORT übernehmen (optimistisch) — funktioniert unabhängig vom Netzstatus.
+  // Gleiche Feldform wie beim normalen Laden (mit datumFmt), damit Verlauf/Hinweise sofort korrekt sind.
+  rows.forEach(r=>{
+    k.eintraege.unshift({
+      id:r.id, datum_btb:r.datum_btb,
+      datumFmt:new Date(r.datum_btb+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
+      anlage:r.anlage, kuerzel:r.kuerzel,
+      lf_messung_ist:r.lf_messung_ist, lf_geraet_ist:r.lf_geraet_ist, lf_geraet_soll:r.lf_geraet_soll, dh:r.dh,
+      dipslide_basis:r.dipslide_basis, dipslide_exponent:r.dipslide_exponent, kbe_auswertung:r.kbe_auswertung,
+      zusatzwasser:r.zusatzwasser, abwasser:r.abwasser,
+      p1_vorgefunden:r.p1_vorgefunden, p1_aufgefuellt:r.p1_aufgefuellt, p1_neu:r.p1_neu, p1_lager:r.p1_lager,
+      p2_vorgefunden:r.p2_vorgefunden, p2_aufgefuellt:r.p2_aufgefuellt, p2_neu:r.p2_neu, p2_lager:r.p2_lager,
+      p3_vorgefunden:r.p3_vorgefunden, p3_aufgefuellt:r.p3_aufgefuellt, p3_neu:r.p3_neu, p3_lager:r.p3_lager,
+      schwefelsa:r.schwefelsa, bemerkung:r.bemerkung, dosier_snapshot:r.dosier_snapshot,
+      btb_status:r.btb_status, rechnung_nr:null, berechnet_von:null, berechnet_am:null, besuch_uhrzeit:r.besuch_uhrzeit
+    });
+  });
+  k.entwuerfe=k.entwuerfe.filter(e=>!entwurfIds.includes(e.id));
+  btbSaveSnapshot();
+
+  const online=isOnline();
+  let fehler=null;
+  if(online){
+    console.log('FERTIG: Übertrage', rows.length, 'Einträge:', rows);
+    try{
+      const {error:insErr}=await _sb.from('btb_eintraege').insert(rows);
+      if(insErr){ fehler=insErr; }
+      else { await _sb.from('btb_entwurf').delete().in('id',entwurfIds); }
+    }catch(e){ fehler=e; }
+  }
+  if(!online || fehler){
+    addToQueue({type:'btb_fertig', data:{rows, entwurf_ids:entwurfIds}});
+    toast(online?'⚠️ Kein Netz — trotzdem übertragen, wird automatisch hochgeladen':'📥 Offline übertragen — wird hochgeladen sobald online');
+    if(fehler) console.error('FERTIG Fehler (in Warteschlange gelegt):', fehler);
+  } else {
+    toast('✅ BTB übergeben – Innendienst kann jetzt berechnen');
+  }
+
   // Chip schließen, bevor neu gerendert wird — sonst bleibt er (wie zwischengespeicherte Karten) offen
   const karteEl=document.querySelector('.btb-karte[data-btb-id="'+kid+'"]');
   if(karteEl) karteEl.classList.remove('open');
-  await loadAll();
+  if(online && !fehler){ await loadAll(); }
+  else { renderAll(); updB(); }
 }
 
 // ── Berechnet: Rechnungsnummer eintragen + Status setzen ──
@@ -4418,6 +4601,36 @@ async function unsubscribePush() {
 const QUEUE_KEY = 'rkw_offline_queue';
 function isOnline(){ return navigator.onLine; }
 function showOfflineBanner(show){const b=G('offline-banner');if(b) b.classList.toggle('v', show);}
+
+// ── BTB-Offline-Snapshot: Kundendaten/Historie für Offline-Nutzung lokal sichern ──
+// Wird nach jedem erfolgreichen loadAll() aktualisiert. Beim morgendlichen Öffnen
+// (mit Netz) ist der Snapshot also immer aktuell; fällt die Verbindung später
+// aus, greift loadAll() automatisch auf diesen gespeicherten Stand zurück.
+const BTB_SNAPSHOT_KEY = 'rkw_btb_snapshot';
+function btbSaveSnapshot(){
+  try{
+    localStorage.setItem(BTB_SNAPSHOT_KEY, JSON.stringify({
+      BTB_KUNDEN, KBE, BTB_MAENGEL,
+      gespeichert_am: new Date().toISOString()
+    }));
+  }catch(e){ console.log('BTB-Snapshot konnte nicht gespeichert werden:', e.message); }
+}
+function btbLoadSnapshot(){
+  try{
+    const raw=localStorage.getItem(BTB_SNAPSHOT_KEY);
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+// Client-seitige UUID für Offline-angelegte Datensätze (Supabase akzeptiert eine
+// mitgelieferte id beim Insert, statt selbst eine zu erzeugen)
+function btbUuid(){
+  if(typeof crypto!=='undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
+    const r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8);
+    return v.toString(16);
+  });
+}
 function updateQueueBadge(){const q=getQueue();const el=G('offline-queue-cnt');if(!el)return;if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}else el.style.display='none';}
 function getQueue(){try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}}
 function addToQueue(item){const q=getQueue();q.push({...item, qid: Date.now()+'_'+Math.random()});localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
@@ -4430,6 +4643,24 @@ async function flushQueue(){
       if(item.type==='meldung'){const {error}=await _sb.from('meldungen').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
       else if(item.type==='chemie'){const {error}=await _sb.from('chemie').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
       else if(item.type==='frei'){const {error}=await _sb.from('freie_angebote').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
+      else if(item.type==='btb_entwurf_upsert'){
+        // upsert statt insert/update — läuft auch korrekt, wenn dieselbe Anlage offline mehrfach
+        // zwischengespeichert wurde (mehrere Warteschlangen-Einträge mit derselben id)
+        const d=item.data;
+        const {error}=await _sb.from('btb_entwurf').upsert({id:d.id,kunde_id:d.kunde_id,anlage:d.anlage,felder:d.felder,kuerzel:d.kuerzel});
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
+      else if(item.type==='btb_fertig'){
+        const {error}=await _sb.from('btb_eintraege').insert(item.data.rows);
+        if(!error){
+          await _sb.from('btb_entwurf').delete().in('id',item.data.entwurf_ids);
+          removeFromQueue(item.qid);flushed++;
+        }
+      }
+      else if(item.type==='kbe_kunden_update'){
+        const {error}=await _sb.from('kbe_kunden').update(item.data.patch).eq('id',item.data.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
     } catch(e){}
   }
   if(flushed>0){toast('✓ '+flushed+' offline gespeicherte Einträge hochgeladen');await loadAll();}
