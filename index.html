@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v72</title>
+<title>Meldungen &amp; Angebote v73</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v72</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v73</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -584,6 +584,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap">
           <input type="text" class="sin" id="sm" placeholder="🔍 Firma oder Kürzel…" oninput="renderM();btbSyncKundenSuche(this.value,'sm')">
           <button class="sin-clear" onclick="btbClearSuche('sm')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-sm"></div>
         </div>
         <div class="fts">
           <button class="ft active" onclick="setF('m','alle',this)">Alle</button>
@@ -606,6 +607,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap">
           <input type="text" class="sin" id="sb-search" placeholder="🔍 Firma suchen…" oninput="btbSyncKundenSuche(this.value,'sb-search')">
           <button class="sin-clear" onclick="btbClearSuche('sb-search')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-sb-search"></div>
         </div>
       </div>
       <div id="eb"><div class="empty" id="eb0">Noch keine KBE-Einträge</div></div>
@@ -619,6 +621,7 @@ textarea{resize:vertical;min-height:68px;}
           <div class="sin-wrap" style="flex:1;margin-bottom:0">
             <input type="text" class="sin" id="btb-suche" placeholder="🔍 Firma suchen…" oninput="renderBtbTab();btbSyncKundenSuche(this.value,'btb-suche')" style="margin-bottom:0">
             <button class="sin-clear" onclick="btbClearSuche('btb-suche')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-btb-suche"></div>
           </div>
           <button id="btb-filter-offen" onclick="btbToggleFilter()" style="padding:5px 11px;border:1.5px solid #0891b2;border-radius:8px;background:var(--bg);color:#0891b2;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
             ⏳ Zu berechnen
@@ -642,6 +645,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap">
           <input type="text" class="sin" id="sc" placeholder="🔍 Firma oder Ersteller…" oninput="renderC();btbSyncKundenSuche(this.value,'sc')">
           <button class="sin-clear" onclick="btbClearSuche('sc')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-sc"></div>
         </div>
         <div class="fts">
           <button class="ft active" onclick="setF('c','alle',this)">Alle</button>
@@ -659,6 +663,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap">
           <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF();btbSyncKundenSuche(this.value,'sff')">
           <button class="sin-clear" onclick="btbClearSuche('sff')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-sff"></div>
         </div>
         <div class="fts">
           <button class="ft active" onclick="setF('f','alle',this)">Alle</button>
@@ -684,6 +689,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap" style="margin-bottom:0">
           <input type="text" id="kbe-suche" placeholder="Kundenname suchen…" style="padding-right:34px" oninput="btbSyncKundenSuche(this.value,'kbe-suche')">
           <button class="sin-clear" onclick="btbClearSuche('kbe-suche')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-kbe-suche"></div>
         </div>
           <div class="kunden-grid" id="kbe-kunden-grid" style="margin-top:8px"></div>
           <div id="kbe-bestehend-form" style="display:none;margin-top:10px">
@@ -728,6 +734,7 @@ textarea{resize:vertical;min-height:68px;}
         <div class="sin-wrap">
           <input type="text" class="sin" id="sk" placeholder="🔍 Firma suchen…" oninput="renderKbeListe();btbSyncKundenSuche(this.value,'sk')">
           <button class="sin-clear" onclick="btbClearSuche('sk')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-sk"></div>
         </div>
       </div>
       <div id="ek"><div class="empty" id="ek0">Noch keine KBE-Einträge</div></div>
@@ -835,7 +842,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1331,7 +1338,7 @@ function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS
 // ══════════════════════════════════════════════════════════
 // AUTOCOMPLETE
 // ══════════════════════════════════════════════════════════
-function allK(){const s=new Set();[...MD,...CH,...FR].forEach(e=>s.add(e.firma));return[...s].sort((a,b)=>a.localeCompare(b,'de'));}
+function allK(){const s=new Set();[...MD,...CH,...FR].forEach(e=>s.add(e.firma));KBE.forEach(k=>s.add(k.firma));return[...s].sort((a,b)=>a.localeCompare(b,'de'));}
 function onKI(v){
   const l=G('acl'),k2=allK().filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x!==v);
   if(!k2.length||!v){l.classList.remove('open');return;}
@@ -1341,6 +1348,33 @@ function onKI(v){
 function pickK(k2){G('ink').value=k2;inkDirty=false;closeAc();}
 function closeAc(){G('acl').classList.remove('open');}
 function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;}onKI(inp.value);}
+
+// ── Autocomplete für alle Such-/Filterfelder (Meldungen, Chemie, Angebot, KBE, BTB) ──
+// Zeigt beim Tippen passende Kundennamen als Vorschläge, Antippen wählt direkt aus
+// und stößt die normale Sync-/Filter-Logik des jeweiligen Feldes mit an.
+const BTB_AC_FELDER=['sm','sb-search','btb-suche','sc','sff','kbe-suche','sk'];
+function btbSetupSucheAutocomplete(inputId){
+  const inp=G(inputId),acl=G('acl-'+inputId);
+  if(!inp||!acl)return;
+  function zeigeVorschlaege(){
+    const v=inp.value;
+    const treffer=v?allK().filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x!==v):[];
+    if(!treffer.length){acl.classList.remove('open');return;}
+    acl.innerHTML=treffer.slice(0,7).map(x=>'<div class="aci" onmousedown="btbPickSucheVorschlag(\''+inputId+'\',\''+esc(x)+'\')">'+esc(x)+'</div>').join('');
+    acl.classList.add('open');
+  }
+  inp.addEventListener('input', zeigeVorschlaege);
+  inp.addEventListener('focus', zeigeVorschlaege);
+  inp.addEventListener('blur', ()=>setTimeout(()=>acl.classList.remove('open'),160));
+}
+function btbPickSucheVorschlag(inputId, name){
+  const inp=G(inputId);if(!inp)return;
+  inp.value=name;
+  inp.dispatchEvent(new Event('input',{bubbles:true})); // löst bestehenden oninput-Handler (Filter+Sync) aus
+  G('acl-'+inputId)?.classList.remove('open');
+}
+BTB_AC_FELDER.forEach(btbSetupSucheAutocomplete);
+
 
 // ══════════════════════════════════════════════════════════
 // ZUWEISUNG
