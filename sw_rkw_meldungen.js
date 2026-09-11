@@ -1,85 +1,82 @@
 // ══════════════════════════════════════════════════════════
-// sw_rkw_meldungen.js – Service Worker v21
-// Löscht ALLE alten Caches beim Aktivieren aggressiv
-// v21: Supabase- und CDN-Requests laufen jetzt IMMER live vom Netz
-//      (nie gecacht) — sonst könnten veraltete Daten/Bibliotheksversionen
-//      ausgeliefert werden. Rest unverändert zu v20 (inkl. Push-Support).
+// sw_rkw_meldungen.js – Service Worker v23
+// v23-FIX (iOS): Safari cacht auf einer tieferen Ebene als der
+//          Service-Worker-eigene Cache — dem normalen HTTP-Cache des
+//          Browsers. Ein einfaches fetch() kann dort trotzdem eine
+//          alte, zwischengespeicherte Antwort zurückbekommen, OHNE
+//          überhaupt neu nachzufragen. Das war vermutlich der Grund,
+//          warum PC schon aktuell war, iOS aber hinterherhing.
+//          Fix: {cache:'no-store'} erzwingt bei JEDER Netzwerkanfrage
+//          fürs HTML, dass iOS den HTTP-eigenen Cache komplett
+//          umgeht und wirklich frisch vom Server holt.
+// v22: Network-first greift bei jeder .html-Datei (nicht nur "index.html").
+// v21: Supabase- und CDN-Requests laufen immer live vom Netz (nie gecacht).
+// Rest unverändert zu v20 (inkl. Push-Support).
 // ══════════════════════════════════════════════════════════
-const CACHE = 'rkw-v21';
-const FILES = ['./', './index.html', './manifest.json', './icon-192.png'];
+const CACHE = 'rkw-v23';
+const FILES = ['./', './manifest.json', './icon-192.png'];
 
-// Domains, die NIE über den Cache laufen — immer live vom Netz
 const NIEMALS_CACHEN = ['supabase.co', 'cdn.jsdelivr.net', 'cdn.sheetjs.com'];
 
-// ── INSTALL – sofort übernehmen ──
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(FILES))
   );
-  // Sofort aktivieren ohne auf alte Clients zu warten
   self.skipWaiting();
 });
 
-// ── ACTIVATE – ALLE alten Caches aggressiv löschen ──
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => {
-      console.log('[SW v21] Gefundene Caches:', keys);
+      console.log('[SW v23] Gefundene Caches:', keys);
       return Promise.all(
         keys.map(k => {
-          // Jeden Cache löschen der nicht der aktuelle ist
           if(k !== CACHE) {
-            console.log('[SW v21] Lösche alten Cache:', k);
+            console.log('[SW v23] Lösche alten Cache:', k);
             return caches.delete(k);
           }
         })
       );
     }).then(() => {
-      console.log('[SW v21] Aktiv – alle alten Caches gelöscht');
-      // Alle offenen Clients sofort übernehmen
+      console.log('[SW v23] Aktiv – alle alten Caches gelöscht');
       return self.clients.claim();
     })
   );
 });
 
-// ── FETCH – Network-first für HTML, Cache-first für Assets, Supabase/CDN nie cachen ──
 self.addEventListener('fetch', e => {
   if(e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
 
-  // Supabase- und CDN-Requests komplett am Cache vorbei, immer live vom Netz
   if(NIEMALS_CACHEN.some(domain => url.hostname.includes(domain))) {
-    return; // kein respondWith → Browser behandelt den Request ganz normal
+    return;
   }
 
-  // Für index.html immer Network-first damit neue Version sofort kommt
-  if(url.pathname === '/' || url.pathname.endsWith('index.html')) {
+  // Network-first für JEDE .html-Datei + Root — mit no-store gegen iOS' eigenen HTTP-Cache
+  if(url.pathname === '/' || url.pathname.endsWith('.html')) {
     e.respondWith(
-      fetch(e.request)
+      fetch(e.request, { cache: 'no-store' })
         .then(resp => {
-          // Neue Version im Cache speichern
           const clone = resp.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
           return resp;
         })
-        .catch(() => caches.match(e.request)) // Fallback auf Cache wenn offline
+        .catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Für alles andere: Cache-first
+  // Für alles andere (CSS/JS/Icons): Cache-first
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );
 });
 
-// ── SKIP WAITING (vom Update-Banner) ──
 self.addEventListener('message', e => {
   if(e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// ── PUSH – Notification anzeigen ──
 self.addEventListener('push', e => {
   if('setAppBadge' in navigator) {
     navigator.setAppBadge(1).catch(() => {});
@@ -110,7 +107,6 @@ self.addEventListener('push', e => {
   );
 });
 
-// ── NOTIFICATIONCLICK ──
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const url = e.notification.data?.url || self.registration.scope;
