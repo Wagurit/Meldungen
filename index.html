@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v74</title>
+<title>Meldungen &amp; Angebote v87</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v74</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v87</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -486,6 +486,8 @@ textarea{resize:vertical;min-height:68px;}
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
     <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Auswerten</button>
+    <button class="tab" data-tab="is">🏢 BTB Innen <span class="tab-badges"><span class="tbg wb" id="tbis-offen"></span></span></button>
+    <button class="tab" data-tab="wz">💧 Wasserzähler</button>
     <button class="tab" data-tab="l">🗑 Gelöscht</button>
     <button class="tab admin-tab" data-tab="a" id="admin-tab" style="display:none">
       ⚙️ Admin <span class="tab-badges"><span class="tbg adm" id="tba"></span></span>
@@ -636,6 +638,44 @@ textarea{resize:vertical;min-height:68px;}
         </div>
       </div>
       <div id="ebtb"><div class="empty" id="ebtb0">Noch keine Kunden</div></div>
+    </div>
+
+    <!-- INNENDIENST -->
+    <div class="pnl" id="panel-is">
+      <div class="lhdr" style="flex-wrap:wrap;gap:6px">
+        <div class="ltit">🏢 BTB Innen</div>
+        <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+          <div class="sin-wrap" style="flex:1;margin-bottom:0">
+            <input type="text" class="sin" id="is-suche" placeholder="🔍 Firma suchen…" oninput="renderInnendienstTab();btbSyncKundenSuche(this.value,'is-suche')" style="margin-bottom:0">
+            <button class="sin-clear" onclick="btbClearSuche('is-suche')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-is-suche"></div>
+          </div>
+          <button id="is-filter-offen" onclick="isToggleFilter()" style="padding:5px 11px;border:1.5px solid #0891b2;border-radius:8px;background:var(--bg);color:#0891b2;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
+            ⏳ Zu berechnen
+          </button>
+        </div>
+        <div style="width:100%">
+          <div class="btb-rnr-toggle" onclick="isToggleRnrSuche()" style="padding:5px 2px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.04em">🔍 Nach Rechnungsnummer suchen ⌄</div>
+          <div class="btb-rnr-body sin-wrap" id="is-rnr-body" style="display:block;margin-bottom:0">
+            <input type="text" class="sin" id="is-rnr-suche" placeholder="Rechnungsnummer…" oninput="renderInnendienstTab()" style="margin-bottom:0">
+            <button class="sin-clear" onclick="btbClearSuche('is-rnr-suche')" tabindex="-1">✕</button>
+          </div>
+        </div>
+      </div>
+      <div id="eis"><div class="empty" id="eis0">Noch keine Kunden</div></div>
+    </div>
+
+    <!-- WASSERZÄHLER -->
+    <div class="pnl" id="panel-wz">
+      <div class="lhdr" style="flex-wrap:wrap;gap:6px">
+        <div class="ltit">💧 Wasserzähler</div>
+        <div class="sin-wrap" style="flex:1;margin-bottom:0">
+          <input type="text" class="sin" id="wz-suche" placeholder="🔍 Firma suchen…" oninput="renderWasserzaehlerTab();btbSyncKundenSuche(this.value,'wz-suche')" style="margin-bottom:0">
+          <button class="sin-clear" onclick="btbClearSuche('wz-suche')" tabindex="-1">✕</button>
+          <div class="acl" id="acl-wz-suche"></div>
+        </div>
+      </div>
+      <div id="ewz"><div class="empty" id="ewz0">Noch keine Kunden</div></div>
     </div>
 
     <!-- CHEMIE -->
@@ -842,7 +882,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v87';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1247,6 +1287,11 @@ async function loadAll(){
       payload:x.payload||null
     }));
     setSyncing('ok');
+    // Ausstehende Warteschlangen-Einträge (noch nicht synchronisiert) auf die frisch geladenen
+    // Daten anwenden — sonst würde ein loadAll() (z.B. durch Tab-Wechsel) einen noch nicht
+    // hochgeladenen Entwurf/Eintrag wieder "verschwinden" lassen, obwohl er sicher in der
+    // Warteschlange liegt und später doch noch ankommt.
+    btbReconcileQueue();
     btbSaveSnapshot(); // Offline-Snapshot aktualisieren, solange Netz da ist
     renderAll(); updB();
     setTimeout(()=>pruefeErinnerung(false), 800);
@@ -1302,21 +1347,42 @@ async function reloadTable(tbl){
 // ══════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════
+// ── Sichert alle gerade offenen BTB-Formulare, bevor ein Tab-Wechsel (oder Ähnliches)
+// die Seite neu lädt — verhindert, dass unzwischengespeicherte Eingaben verloren gehen ──
+async function btbAutoSaveAlleOffenenFormulare(){
+  const offeneKarten=[...document.querySelectorAll('#ebtb .btb-karte.open')];
+  const saves=[];
+  offeneKarten.forEach(karte=>{
+    const k=BTB_KUNDEN.find(x=>x.id===karte.dataset.btbId);
+    if(!k)return;
+    const aktivesPanel=karte.querySelector('.btb-anlage-panel.active');
+    const aktTab=karte.querySelector('.btb-anlage-tab.active');
+    const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+    if(!aktivesPanel||!anlageName)return;
+    const form=aktivesPanel.querySelector('.btb-form');
+    if(!form)return;
+    if(!btbFormHatEingaben(form))return; // nichts eingetragen -> kein Phantom-Entwurf anlegen
+    saves.push(saveBtbEntwurf(k, anlageName, form, false)); // kein Scroll bei automatischem Hintergrund-Speichern
+  });
+  if(saves.length) await Promise.all(saves);
+}
 document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click',()=>{
+  t.addEventListener('click',async()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); G('panel-'+t.dataset.tab).classList.add('active');
     if(swReg) swReg.update();
+    await btbAutoSaveAlleOffenenFormulare();
     if(kz) loadAll();
   });
 });
-function swTab(n){
+async function swTab(n){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.pnl').forEach(x=>x.classList.remove('active'));
   const tab=document.querySelector('.tab[data-tab="'+n+'"]');
   if(tab){tab.classList.add('active');G('panel-'+n).classList.add('active');}
   if(swReg) swReg.update();
+  await btbAutoSaveAlleOffenenFormulare();
   if(kz) loadAll();
 }
 
@@ -1379,7 +1445,7 @@ function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;
 // ── Autocomplete für alle Such-/Filterfelder (Meldungen, Chemie, Angebot, KBE, BTB) ──
 // Zeigt beim Tippen passende Kundennamen als Vorschläge, Antippen wählt direkt aus
 // und stößt die normale Sync-/Filter-Logik des jeweiligen Feldes mit an.
-const BTB_AC_FELDER=['sm','sb-search','btb-suche','sc','sff','kbe-suche','sk'];
+const BTB_AC_FELDER=['sm','sb-search','btb-suche','sc','sff','kbe-suche','sk','is-suche','wz-suche'];
 function btbSetupSucheAutocomplete(inputId){
   const inp=G(inputId),acl=G('acl-'+inputId);
   if(!inp||!acl)return;
@@ -2516,7 +2582,7 @@ function toggleKbeMeld(id,btn){const el=document.getElementById(id);if(!el)retur
 // den Text sofort in alle anderen und aktualisiert deren Listen — der Techniker
 // muss einen Kundennamen nur einmal eingeben und sieht in jedem Reiter sofort
 // die zum Kunden passenden Einträge.
-const BTB_SYNC_FELDER=['ink','sm','sc','sff','sb-search','sk','kbe-suche','btb-suche','wm-suche'];
+const BTB_SYNC_FELDER=['ink','sm','sc','sff','sb-search','sk','kbe-suche','btb-suche','wm-suche','is-suche','wz-suche'];
 function btbSyncKundenSuche(val, quellId){
   BTB_SYNC_FELDER.forEach(id=>{
     if(id===quellId)return; // Quellfeld nicht anfassen (Cursor-Position beim Tippen bleibt erhalten)
@@ -2534,6 +2600,8 @@ function btbSyncKundenSuche(val, quellId){
   renderKbeListe();
   renderWmTab();
   renderBtbTab();
+  renderInnendienstTab();
+  renderWasserzaehlerTab();
 }
 // Feld leeren per ✕-Button — löst dieselbe Sync-Logik wie beim Tippen aus
 function btbClearSuche(id){
@@ -2817,11 +2885,13 @@ function updB(){
   const btbOffenCount = BTB_KUNDEN.filter(k2=>k2.eintraege.some(e=>e.btb_status==='offen')).length;
   const tbbOffen=G('tbb-offen');
   if(tbbOffen){if(btbOffenCount>0){tbbOffen.textContent=btbOffenCount;tbbOffen.className='tbg wb v';}else tbbOffen.className='tbg wb';}
+  const tbisOffen=G('tbis-offen');
+  if(tbisOffen){if(btbOffenCount>0){tbisOffen.textContent=btbOffenCount;tbisOffen.className='tbg wb v';}else tbisOffen.className='tbg wb';}
   const ftBtbOffen=G('ft-btb-offen-cnt');
   if(ftBtbOffen) ftBtbOffen.textContent=btbOffenCount||'';
 }
 
-function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();renderBtbTab();updB();}
+function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();renderBtbTab();renderInnendienstTab();renderWasserzaehlerTab();updB();}
 function btbToggleFilter(){
   btbFilterOffen=!btbFilterOffen;
   const btn=G('btb-filter-offen');
@@ -2883,6 +2953,95 @@ function wmFmtDelta(d){
 // Differenz zum letzten Mal und Eindickung (identisch zur App-Anzeige,
 // inkl. "Neuer Zähler / Fehler" bei negativer Differenz).
 // ══════════════════════════════════════════════════════════
+// ── BTB-Historie eines Kunden als Excel exportieren — eine Tabelle pro Anlage ──
+// Dosier-Log als lesbarer Text für Excel (fasst P1/P3 inkl. optionaler 2. Zeit zusammen)
+function btbDosierLogText(e, pn){
+  const snap=e.dosier_snapshot;
+  if(!snap) return '';
+  const teile=[];
+  ['p1','p3'].forEach(pk=>{
+    const d=snap[pk];
+    if(!d || !d.tage || !d.tage.length) return;
+    const name=pk==='p1'?(pn.p1||'P1'):(pn.p3||'P3');
+    const tageStr=d.tage.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+    let txt=name+': '+tageStr+(d.uhr?' '+d.uhr:'')+(d.menge?' · '+d.menge+'L/Dos':'')+(d.dauer?' · '+d.dauer+'Min':'')+(d.soll!=null?' (Soll '+d.soll+'L)':'');
+    if(d.block2Aktiv && d.tage2 && d.tage2.length){
+      const tageStr2=d.tage2.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+      txt+=' + 2.Zeit '+tageStr2+(d.uhr2?' '+d.uhr2:'')+(d.menge2?' · '+d.menge2+'L/Dos':'')+(d.dauer2?' · '+d.dauer2+'Min':'')+(d.soll2!=null?' (Soll '+d.soll2+'L)':'');
+    }
+    teile.push(txt);
+  });
+  return teile.join(' | ');
+}
+function btbExportKundeExcel(k){
+  if(!k.rkws || !k.rkws.length){ toast('⚠️ Keine Anlagen vorhanden.'); return; }
+  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+  const wb=XLSX.utils.book_new();
+  const gebrauchteNamen=new Set();
+  let hatDaten=false;
+
+  k.rkws.forEach(r=>{
+    // älteste zuerst, damit die Excel-Tabelle chronologisch von oben nach unten läuft
+    const anlEintraege=k.eintraege.filter(e=>e.anlage===r.name).slice().reverse();
+    if(!anlEintraege.length) return;
+    hatDaten=true;
+
+    const rows=anlEintraege.map(e=>{
+      const row={
+        'Datum': e.datumFmt,
+        'Kürzel': e.kuerzel||'',
+        'LF IST': e.lf_messung_ist!=null?e.lf_messung_ist:'',
+        '°dH': e.dh!=null?e.dh:'',
+        'LF Gerät IST': e.lf_geraet_ist!=null?e.lf_geraet_ist:'',
+        'LF Gerät SOLL': e.lf_geraet_soll!=null?e.lf_geraet_soll:'',
+        'DipSlide gezogen': e.dipslide_basis!=null?'Ja':'',
+        'KBE-Auswertung': e.kbe_auswertung||'',
+        'Zusatzwasser (m³)': e.zusatzwasser!=null?e.zusatzwasser:'',
+        'Abwasser (m³)': e.abwasser!=null?e.abwasser:'',
+      };
+      row[(pn.p1||'P1')+' Vorgefunden']=e.p1_vorgefunden!=null?e.p1_vorgefunden:'';
+      row[(pn.p1||'P1')+' Aufgefüllt']=e.p1_aufgefuellt!=null?e.p1_aufgefuellt:'';
+      row[(pn.p1||'P1')+' Neu']=e.p1_neu!=null?e.p1_neu:'';
+      row[(pn.p1||'P1')+' Lager']=e.p1_lager!=null?e.p1_lager:'';
+      row[(pn.p2||'P2')+' Vorgefunden']=e.p2_vorgefunden!=null?e.p2_vorgefunden:'';
+      row[(pn.p2||'P2')+' Aufgefüllt']=e.p2_aufgefuellt!=null?e.p2_aufgefuellt:'';
+      row[(pn.p2||'P2')+' Neu']=e.p2_neu!=null?e.p2_neu:'';
+      row[(pn.p2||'P2')+' Lager']=e.p2_lager!=null?e.p2_lager:'';
+      if(pn.p3){
+        row[pn.p3+' Vorgefunden']=e.p3_vorgefunden!=null?e.p3_vorgefunden:'';
+        row[pn.p3+' Aufgefüllt']=e.p3_aufgefuellt!=null?e.p3_aufgefuellt:'';
+        row[pn.p3+' Neu']=e.p3_neu!=null?e.p3_neu:'';
+        row[pn.p3+' Lager']=e.p3_lager!=null?e.p3_lager:'';
+      }
+      row['Bemerkung']=e.bemerkung||'';
+      row['Dosierung']=btbDosierLogText(e, pn);
+      row['Status']=e.btb_status==='berechnet'?'Berechnet':'Zu berechnen';
+      row['Rechnungs-Nr.']=e.rechnung_nr||'';
+      return row;
+    });
+
+    const ws=XLSX.utils.json_to_sheet(rows);
+    ws['!cols']=Object.keys(rows[0]).map(()=>({wch:14}));
+    // Datum-Spalte fixieren, damit sie beim horizontalen Scrollen sichtbar bleibt
+    ws['!freeze']={xSplit:"1", ySplit:"0", topLeftCell:"B1", activePane:"topRight", state:"frozen"};
+
+    // Excel: Sheet-Namen max. 31 Zeichen, keine \/?*[]: — und eindeutig innerhalb der Datei
+    let basisName=r.name.replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,31);
+    let sheetName=basisName, counter=1;
+    while(gebrauchteNamen.has(sheetName)){
+      const suffix='_'+(++counter);
+      sheetName=basisName.slice(0,31-suffix.length)+suffix;
+    }
+    gebrauchteNamen.add(sheetName);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  if(!hatDaten){ toast('⚠️ Keine Daten zum Exportieren vorhanden.'); return; }
+  const dateiname='BTB_'+k.firma.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
+  XLSX.writeFile(wb, dateiname);
+  toast('✓ Excel-Datei wird heruntergeladen');
+}
+
 function exportWmHistorieExcel(k){
   if(typeof XLSX==='undefined'){toast('⚠️ Export-Bibliothek konnte nicht geladen werden.');return;}
   if(!k.eintraege || !k.eintraege.length){toast('⚠️ Keine Daten zum Exportieren vorhanden.');return;}
@@ -3232,6 +3391,24 @@ function btbSetupEnterNavigation(form){
   });
 }
 
+// Prüft, ob im Formular tatsächlich etwas Sinnvolles eingetragen wurde (nicht nur die
+// von Anfang an vorbelegten Standardwerte wie das Datum). Verhindert, dass automatisches
+// Sichern (Tab-Wechsel, Anlagen-Wechsel, FERTIG) leere Entwürfe mit Häkchen anlegt, nur
+// weil ein Techniker eine Anlage kurz geöffnet, aber nichts eingetragen hat.
+function btbFormHatEingaben(form){
+  if(!form)return false;
+  // Dosier-Felder ausschließen (data-dosier) — die werden unabhängig vom Entwurf sofort
+  // bei jeder Änderung separat gespeichert, zählen hier also nicht als "Besuchsdaten"
+  const zahlenFelder=form.querySelectorAll('input[type="number"]:not([readonly]):not([data-dosier])');
+  for(const el of zahlenFelder){ if(el.value!=='') return true; }
+  const bem=form.querySelector('.btb-bem-input');
+  if(bem && bem.value.trim()!=='') return true;
+  const ds=form.querySelector('[id^="btb-ds-"]');
+  if(ds && ds.checked) return true;
+  const mangel=form.querySelector('.btb-mangel-cb:checked');
+  if(mangel) return true;
+  return false;
+}
 function btbFmtDatumDE(iso){
   if(!iso)return'';
   const p=iso.split('-');
@@ -3353,13 +3530,305 @@ function renderBtbTab(){
   });
 }
 
+// ── Innendienst: gleiche Ansicht wie BTB, aber ohne Eingabemaske + mit Excel-Export ──
+let isFilterOffen = false;
+function renderInnendienstTab(){
+  const c=G('eis');if(!c)return;
+  const offeneKarten=new Set(
+    [...c.querySelectorAll('.btb-karte.open')].map(el=>el.dataset.btbId)
+  );
+  const aktiveAnlagen={};
+  c.querySelectorAll('.btb-karte').forEach(karte=>{
+    const kid=karte.dataset.btbId;
+    const aktTab=karte.querySelector('.btb-anlage-tab.active');
+    if(aktTab) aktiveAnlagen[kid]=aktTab.textContent.replace('✓','').trim();
+  });
+  c.querySelectorAll('.btb-karte').forEach(e=>e.remove());
+  const q=(G('is-suche')?G('is-suche').value||'':'').toLowerCase();
+  const rnrQ=(G('is-rnr-suche')?.value||'').trim().toLowerCase();
+  let d=BTB_KUNDEN.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  if(rnrQ) d=d.filter(k=>k.eintraege.some(e=>e.rechnung_nr&&e.rechnung_nr.toLowerCase().includes(rnrQ)));
+  if(isFilterOffen) d=d.filter(k=>k.eintraege.some(e=>e.btb_status==='offen'));
+  G('eis0').style.display=d.length?'none':'';
+  d.forEach(k=>{
+    const karte=buildBtbKarte(k, aktiveAnlagen[k.id], true);
+    if(!karte)return;
+    if(offeneKarten.has(k.id)) karte.classList.add('open');
+    c.appendChild(karte);
+  });
+}
+function isToggleFilter(){
+  isFilterOffen=!isFilterOffen;
+  const btn=G('is-filter-offen');
+  if(btn){btn.style.background=isFilterOffen?'#0891b2':'var(--bg)';btn.style.color=isFilterOffen?'#fff':'#0891b2';}
+  renderInnendienstTab();
+}
+function isToggleRnrSuche(){
+  const body=G('is-rnr-body');
+  if(!body)return;
+  body.style.display=body.style.display==='none'?'block':'none';
+  if(body.style.display==='block') G('is-rnr-suche')?.focus();
+}
+
+// ── Wasserzähler-Tab: pro Kunde alle Anlagen mit Zählerständen chronologisch untereinander ──
+// ── Wasserzähler-Historie eines Kunden als Excel exportieren — eine Tabelle pro Anlage ──
+function btbExportWasserzaehlerExcel(k, seitDatum){
+  const anlagenMitWasser=(k.rkws||[]).filter(r=>
+    k.eintraege.some(e=>e.anlage===r.name && (e.zusatzwasser!=null || e.abwasser!=null))
+  );
+  if(!anlagenMitWasser.length){ toast('⚠️ Keine Wasserwerte vorhanden.'); return; }
+
+  // Verbrauch-seit-Datum je Anlage vorab berechnen, falls ein Datum ausgewählt wurde
+  const verbrauchSeit=seitDatum?btbWasserVerbrauchSeitDatum(k, seitDatum):null;
+
+  const wb=XLSX.utils.book_new();
+  const gebrauchteNamen=new Set();
+
+  anlagenMitWasser.forEach(r=>{
+    const allAnlage=k.eintraege.filter(e=>e.anlage===r.name);
+    const mitWasser=allAnlage.filter(e=>e.zusatzwasser!=null||e.abwasser!=null).slice().reverse(); // älteste zuerst
+
+    const rows=mitWasser.map(e=>{
+      const idxInAll=allAnlage.findIndex(x=>x.id===e.id);
+      const zPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'zusatzwasser');
+      const aPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'abwasser');
+      const dZ=btbDelta(e.zusatzwasser,zPrev);
+      const dA=btbDelta(e.abwasser,aPrev);
+      const eind=btbEindickung(dZ,dA);
+      return {
+        'Datum': e.datumFmt,
+        'Zusatzwasser (m³)': e.zusatzwasser!=null?e.zusatzwasser:'',
+        'Verbrauch ZW (m³)': dZ==null?'':(dZ<0?'neuer Zähler':dZ),
+        'Abwasser (m³)': e.abwasser!=null?e.abwasser:'',
+        'Verbrauch AW (m³)': dA==null?'':(dA<0?'neuer Zähler':dA),
+        'Eindickung': eind!=null?(eind+'-fach'):''
+      };
+    });
+    if(!rows.length)return;
+
+    const ws=XLSX.utils.json_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:16},{wch:16},{wch:14},{wch:16},{wch:12}];
+    ws['!freeze']={xSplit:"1", ySplit:"0", topLeftCell:"B1", activePane:"topRight", state:"frozen"};
+
+    // Zusammenfassung "Verbrauch seit [Datum]" für diese Anlage anhängen, direkt hinter der
+    // Eindickung-Spalte, als eigener Block nach der Haupttabelle
+    if(verbrauchSeit){
+      const erg=verbrauchSeit.find(v=>v.anlage===r.name);
+      if(erg){
+        const datumFmt=btbFmtDatumDE(seitDatum);
+        let summaryRows;
+        if(erg.keinStartwert){
+          summaryRows=[['Verbrauch seit '+datumFmt+':', 'kein Zählerstand vor diesem Datum vorhanden']];
+        } else {
+          summaryRows=[
+            ['Verbrauch seit '+datumFmt+':'],
+            ['Zusatzwasser (m³)', erg.verbrauchZW!=null?((erg.zwHatteWechsel?'≥':'')+erg.verbrauchZW):'–'],
+            ['Abwasser (m³)', erg.verbrauchAW!=null?((erg.awHatteWechsel?'≥':'')+erg.verbrauchAW):'–'],
+            ['Eindickung (Schnitt)', erg.eindSchnitt!=null?(erg.eindSchnitt+'-fach'):'–']
+          ];
+          if(erg.zwHatteWechsel||erg.awHatteWechsel) summaryRows.push(['Hinweis:', 'Zählerwechsel im Zeitraum erkannt — Wert ist Mindest-Verbrauch']);
+          if(erg.zwAbErstemWert||erg.awAbErstemWert) summaryRows.push(['Hinweis:', 'vor diesem Datum liegen keine Werte vor — gerechnet ab erstem verfügbaren Zählerstand']);
+        }
+        XLSX.utils.sheet_add_aoa(ws, summaryRows, {origin:{r:rows.length+2, c:0}});
+      }
+    }
+
+    let basisName=r.name.replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,31);
+    let sheetName=basisName, counter=1;
+    while(gebrauchteNamen.has(sheetName)){
+      const suffix='_'+(++counter);
+      sheetName=basisName.slice(0,31-suffix.length)+suffix;
+    }
+    gebrauchteNamen.add(sheetName);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  const dateiname='Wasserzaehler_'+k.firma.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
+  XLSX.writeFile(wb, dateiname);
+  toast('✓ Excel-Datei wird heruntergeladen');
+}
+// Berechnet pro Anlage den Verbrauch (Zusatzwasser/Abwasser) seit einem gewählten Datum:
+// Endwert = neuester verfügbarer Zählerstand, Startwert = letzter Zählerstand AM/VOR dem Datum
+// Summiert den Verbrauch über eine chronologisch aufsteigende Werteliste (ein Feld, z.B. nur
+// Zusatzwasser), erkennt dabei Zählerwechsel: sinkt ein Wert gegenüber dem vorherigen, wird ein
+// neuer Zähler angenommen — dessen aktueller Stand zählt dann als Mindest-Verbrauch seit dem
+// Wechsel (mehr ist möglich, aber ohne Altstand-Angabe nicht exakt bezifferbar).
+function btbSummiereVerbrauchMitWechsel(werteAufsteigend, datum){
+  if(!werteAufsteigend.length) return {summe:null, hatteWechsel:false, keinWert:true, abErstemWert:false, effektivAb:null};
+  let startIdx=-1;
+  for(let i=0;i<werteAufsteigend.length;i++){
+    if(werteAufsteigend[i].datum_btb<=datum) startIdx=i; else break;
+  }
+  const abErstemWert=startIdx===-1; // gewähltes Datum liegt vor dem ersten verfügbaren Wert
+  if(startIdx===-1) startIdx=0;
+  let summe=0, hatteWechsel=false;
+  for(let i=startIdx+1;i<werteAufsteigend.length;i++){
+    const vorher=werteAufsteigend[i-1].wert, jetzt=werteAufsteigend[i].wert;
+    if(jetzt>=vorher){ summe+=(jetzt-vorher); }
+    else { summe+=jetzt; hatteWechsel=true; } // Zählerwechsel: neuer Stand = Verbrauch seither
+  }
+  return {summe:+summe.toFixed(2), hatteWechsel, keinWert:false, abErstemWert, effektivAb:werteAufsteigend[startIdx].datum_btb};
+}
+function btbWasserVerbrauchSeitDatum(k, datum){
+  const ergebnisse=[];
+  (k.rkws||[]).forEach(r=>{
+    const allAnlage=k.eintraege.filter(e=>e.anlage===r.name && (e.zusatzwasser!=null||e.abwasser!=null));
+    if(!allAnlage.length)return;
+    const chronologisch=allAnlage.slice().reverse(); // älteste zuerst
+    const zwWerte=chronologisch.filter(e=>e.zusatzwasser!=null).map(e=>({datum_btb:e.datum_btb, wert:e.zusatzwasser}));
+    const awWerte=chronologisch.filter(e=>e.abwasser!=null).map(e=>({datum_btb:e.datum_btb, wert:e.abwasser}));
+    const zwErg=btbSummiereVerbrauchMitWechsel(zwWerte, datum);
+    const awErg=btbSummiereVerbrauchMitWechsel(awWerte, datum);
+    const eindSchnitt=(zwErg.summe!=null&&awErg.summe!=null&&awErg.summe>0)?+(zwErg.summe/awErg.summe).toFixed(1):null;
+    ergebnisse.push({
+      anlage:r.name,
+      verbrauchZW:zwErg.summe, zwHatteWechsel:zwErg.hatteWechsel, zwAbErstemWert:zwErg.abErstemWert, zwEffektivAb:zwErg.effektivAb,
+      verbrauchAW:awErg.summe, awHatteWechsel:awErg.hatteWechsel, awAbErstemWert:awErg.abErstemWert, awEffektivAb:awErg.effektivAb,
+      eindSchnitt,
+      keinStartwert: zwErg.keinWert && awErg.keinWert
+    });
+  });
+  return ergebnisse;
+}
+function buildWasserzaehlerKarte(k){
+  const karte=document.createElement('div');
+  karte.className='btb-karte';
+  karte.dataset.btbId=k.id;
+  let seitInput=null; // wird weiter unten zugewiesen, hier vorab deklariert für den Export-Button
+
+  const anlagenMitWasser=(k.rkws||[]).filter(r=>
+    k.eintraege.some(e=>e.anlage===r.name && (e.zusatzwasser!=null || e.abwasser!=null))
+  );
+  const letzterMitWasser=k.eintraege.find(e=>e.zusatzwasser!=null||e.abwasser!=null);
+  const infoTxt=letzterMitWasser?('Letzter Wert: '+letzterMitWasser.datumFmt):'Noch keine Wasserwerte';
+
+  const header=document.createElement('div');
+  header.className='btb-karte-header';
+  header.innerHTML=
+    '<div class="btb-toggle-area" style="flex:1;min-width:0;cursor:pointer">'+
+      '<div class="btb-karte-firma">'+esc(k.firma)+'</div>'+
+      '<div class="btb-karte-meta">'+esc(infoTxt)+'</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">'+
+      '<button class="btb-export-btn" style="padding:5px 10px;border:1.5px solid #0891b2;border-radius:8px;background:#fff;color:#0891b2;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">📊 Excel</button>'+
+      '<span class="btb-karte-toggle btb-toggle-area" style="font-size:18px;color:var(--mu);transition:transform .2s;flex-shrink:0;cursor:pointer">⌄</span>'+
+    '</div>';
+  header.querySelectorAll('.btb-toggle-area').forEach(el=>{
+    el.addEventListener('click',()=>karte.classList.toggle('open'));
+  });
+  const exportBtn=header.querySelector('.btb-export-btn');
+  if(exportBtn){
+    exportBtn.addEventListener('click',(ev)=>{
+      ev.stopPropagation();
+      btbExportWasserzaehlerExcel(k, seitInput?.value||null);
+    });
+  }
+  karte.appendChild(header);
+
+  const body=document.createElement('div');
+  body.className='btb-karte-body';
+
+  if(!anlagenMitWasser.length){
+    body.innerHTML='<div style="padding:12px;color:#94a3b8;font-size:13px;font-style:italic">Noch keine Wasserwerte erfasst.</div>';
+    karte.appendChild(body);
+    return karte;
+  }
+
+  // Verbrauch seit einem wählbaren Datum — pro Anlage, vorbelegt mit dem Datum des allerersten
+  // erfassten Zählerstands dieses Kunden (zeigt beim Öffnen direkt den Gesamtverbrauch)
+  let ersteDatum=null;
+  k.eintraege.forEach(e=>{
+    if((e.zusatzwasser!=null||e.abwasser!=null) && (!ersteDatum||e.datum_btb<ersteDatum)) ersteDatum=e.datum_btb;
+  });
+  const seitWrap=document.createElement('div');
+  seitWrap.style.cssText='padding:10px 13px;background:#f0fdf4;border-bottom:1px solid var(--bg)';
+  seitWrap.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<label style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:var(--gn);text-transform:uppercase;letter-spacing:.04em">Verbrauch seit</label>'
+    +'<input type="date" class="wz-seit-datum" value="'+(ersteDatum||'')+'" style="width:auto;padding:6px 8px;font-size:13px!important">'
+    +'</div>'
+    +'<div class="wz-seit-ergebnis" style="margin-top:8px;font-size:12px"></div>';
+  body.appendChild(seitWrap);
+  seitInput=seitWrap.querySelector('.wz-seit-datum');
+  const seitErgebnis=seitWrap.querySelector('.wz-seit-ergebnis');
+  const btbZeigeVerbrauchSeit=()=>{
+    if(!seitInput.value){ seitErgebnis.innerHTML=''; return; }
+    const ergebnisse=btbWasserVerbrauchSeitDatum(k, seitInput.value);
+    if(!ergebnisse.length){ seitErgebnis.innerHTML='<span style="color:#94a3b8;font-style:italic">Keine Werte vorhanden.</span>'; return; }
+    seitErgebnis.innerHTML=ergebnisse.map(erg=>{
+      if(erg.keinStartwert){
+        return '<div style="padding:3px 0"><b>'+esc(erg.anlage)+':</b> <span style="color:#94a3b8;font-style:italic">kein Zählerstand vor diesem Datum vorhanden</span></div>';
+      }
+      const teile=[];
+      if(erg.verbrauchZW!=null) teile.push('💧 <b>'+(erg.zwHatteWechsel?'≥':'')+erg.verbrauchZW+' m³</b>');
+      if(erg.verbrauchAW!=null) teile.push('🚱 <b>'+(erg.awHatteWechsel?'≥':'')+erg.verbrauchAW+' m³</b>');
+      if(erg.eindSchnitt!=null) teile.push('🔄 <b>'+erg.eindSchnitt+'-fach</b> (Schnitt)');
+      let html='<div style="padding:3px 0"><b>'+esc(erg.anlage)+':</b> '+(teile.length?teile.join(' · '):'<span style="color:#94a3b8;font-style:italic">keine Werte</span>');
+      if(erg.zwHatteWechsel||erg.awHatteWechsel) html+='<div style="font-size:10px;color:#94a3b8;font-style:italic">Zählerwechsel erkannt — Wert ist Mindest-Verbrauch, tatsächlicher Verbrauch kann höher sein</div>';
+      if(erg.zwAbErstemWert||erg.awAbErstemWert) html+='<div style="font-size:10px;color:#94a3b8;font-style:italic">vor diesem Datum liegen keine Werte vor — gerechnet ab dem ersten verfügbaren Zählerstand</div>';
+      html+='</div>';
+      return html;
+    }).join('');
+  };
+  seitInput.addEventListener('change', btbZeigeVerbrauchSeit);
+  btbZeigeVerbrauchSeit(); // direkt beim Öffnen anzeigen, da das Datum schon vorbelegt ist
+
+  anlagenMitWasser.forEach(r=>{
+    const anlWrap=document.createElement('div');
+    anlWrap.style.cssText='padding:10px 13px;border-bottom:1px solid var(--bg)';
+    let html='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;color:var(--tx);margin-bottom:6px">'+esc(r.name)+'</div>';
+
+    const allAnlage=k.eintraege.filter(e=>e.anlage===r.name);
+    const mitWasser=allAnlage.filter(e=>e.zusatzwasser!=null||e.abwasser!=null);
+
+    mitWasser.forEach(e=>{
+      const idxInAll=allAnlage.findIndex(x=>x.id===e.id);
+      const zPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'zusatzwasser');
+      const aPrev=btbFindPrevWasser(allAnlage,idxInAll,r.name,'abwasser');
+      const dZ=btbDelta(e.zusatzwasser,zPrev);
+      const dA=btbDelta(e.abwasser,aPrev);
+      const eind=btbEindickung(dZ,dA);
+
+      html+='<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--bg);font-size:12px">';
+      html+='<div style="font-weight:700;color:var(--mu);min-width:76px">'+esc(e.datumFmt)+'</div>';
+      if(e.zusatzwasser!=null){
+        html+='<div>💧 <b>'+e.zusatzwasser+' m³</b>'+(dZ!=null?(dZ<0?' <span style="color:var(--rd)">⚠️ neuer Zähler</span>':' <span style="color:var(--gn)">(+'+dZ+')</span>'):'')+'</div>';
+      }
+      if(e.abwasser!=null){
+        html+='<div>🚱 <b>'+e.abwasser+' m³</b>'+(dA!=null?(dA<0?' <span style="color:var(--rd)">⚠️ neuer Zähler</span>':' <span style="color:var(--gn)">(+'+dA+')</span>'):'')+'</div>';
+      }
+      if(eind!=null) html+='<div style="color:#7c3aed;font-weight:700">🔄 '+eind+'-fach</div>';
+      html+='</div>';
+    });
+    anlWrap.innerHTML=html;
+    body.appendChild(anlWrap);
+  });
+
+  karte.appendChild(body);
+  return karte;
+}
+function renderWasserzaehlerTab(){
+  const c=G('ewz');if(!c)return;
+  const offeneKarten=new Set([...c.querySelectorAll('.btb-karte.open')].map(el=>el.dataset.btbId));
+  c.querySelectorAll('.btb-karte').forEach(e=>e.remove());
+  const q=(G('wz-suche')?G('wz-suche').value||'':'').toLowerCase();
+  let d=BTB_KUNDEN.filter(k=>!q||k.firma.toLowerCase().includes(q));
+  d=d.filter(k=>k.eintraege.some(e=>e.zusatzwasser!=null||e.abwasser!=null));
+  G('ewz0').style.display=d.length?'none':'';
+  d.forEach(k=>{
+    const karte=buildWasserzaehlerKarte(k);
+    if(!karte)return;
+    if(offeneKarten.has(k.id)) karte.classList.add('open');
+    c.appendChild(karte);
+  });
+}
+
 // ── Kunden-Karte bauen ──
-function buildBtbKarte(k, aktiveAnlageName){
+function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
   const karte=document.createElement('div');
   karte.className='btb-karte';
   karte.dataset.btbId=k.id;
 
-  const hatEntwurf=k.entwuerfe&&k.entwuerfe.length>0;
+  const hatEntwurf=!ohneEingabe && k.entwuerfe&&k.entwuerfe.length>0;
   const hatOffen=k.eintraege.some(e=>e.btb_status==='offen');
   const letzter=k.eintraege&&k.eintraege.length?k.eintraege[0]:null;
 
@@ -3379,9 +3848,11 @@ function buildBtbKarte(k, aktiveAnlageName){
       '<div class="btb-karte-meta">'+esc(infoTxt)+'</div>'+
     '</div>'+
     '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">'+
-      (hatEntwurf
-        ? '<button class="btb-fertig-btn" style="padding:5px 10px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">✅ FERTIG</button>'
-        : ''
+      (ohneEingabe
+        ? '<button class="btb-export-btn" style="padding:5px 10px;border:1.5px solid #0891b2;border-radius:8px;background:#fff;color:#0891b2;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">📊 Excel</button>'
+        : (hatEntwurf
+          ? '<button class="btb-fertig-btn" style="padding:5px 10px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">✅ FERTIG</button>'
+          : '')
       )+
       '<span class="btb-karte-toggle btb-toggle-area" style="font-size:18px;color:var(--mu);transition:transform .2s;flex-shrink:0;cursor:pointer">⌄</span>'+
     '</div>';
@@ -3394,6 +3865,13 @@ function buildBtbKarte(k, aktiveAnlageName){
     fertigBtn.addEventListener('click',(ev)=>{
       ev.stopPropagation();
       btbFertigZumBerechnen(k.id);
+    });
+  }
+  const exportBtn=header.querySelector('.btb-export-btn');
+  if(exportBtn){
+    exportBtn.addEventListener('click',(ev)=>{
+      ev.stopPropagation();
+      btbExportKundeExcel(k);
     });
   }
   karte.appendChild(header);
@@ -3413,17 +3891,32 @@ function buildBtbKarte(k, aktiveAnlageName){
 
   k.rkws.forEach((r,ri)=>{
     // Entwurf für diese Anlage?
-    const entwurf=k.entwuerfe.find(e=>e.anlage===r.name);
+    const entwurf=ohneEingabe?null:k.entwuerfe.find(e=>e.anlage===r.name);
     const tabBtn=document.createElement('button');
     // Aktiven Tab: gespeicherter Zustand wenn vorhanden, sonst erster Tab
     const istAktiv=aktiveAnlageName ? (r.name===aktiveAnlageName) : (ri===0);
     tabBtn.className='btb-anlage-tab'+(istAktiv?' active':'');
     tabBtn.innerHTML=esc(r.name)+(entwurf?'<span style="margin-left:4px;font-size:9px;background:#f59e0b;color:#fff;border-radius:4px;padding:0 4px">✓</span>':'');
-    tabBtn.onclick=()=>{
+    tabBtn.onclick=async()=>{
+      // Vorherige aktive Anlage (falls Formular vorhanden, also nicht im Innendienst-Modus) merken
+      const vorherPanel=anlPanels.querySelector('.btb-anlage-panel.active');
+      const vorherTab=anlTabs.querySelector('.btb-anlage-tab.active');
+      const vorherAnlageName=vorherTab?vorherTab.textContent.replace('✓','').trim():null;
+      const vorherForm=vorherPanel?vorherPanel.querySelector('.btb-form'):null;
+      const wechselt=vorherPanel && vorherPanel.dataset.anlage!==String(ri);
+
+      // Sofort visuell umschalten — bleibt auch nach einem eventuellen Neuladen durch den
+      // Save unten aktiv, da renderBtbTab() den gerade sichtbaren Tab vorher ausliest
       anlTabs.querySelectorAll('.btb-anlage-tab').forEach(x=>x.classList.remove('active'));
       anlPanels.querySelectorAll('.btb-anlage-panel').forEach(x=>x.classList.remove('active'));
       tabBtn.classList.add('active');
       anlPanels.querySelector('.btb-anlage-panel[data-anlage="'+ri+'"]').classList.add('active');
+
+      // Danach im Hintergrund die vorherige Anlage automatisch zwischenspeichern —
+      // aber nur, wenn dort tatsächlich etwas eingetragen wurde
+      if(!ohneEingabe && wechselt && vorherAnlageName && vorherForm && btbFormHatEingaben(vorherForm)){
+        await saveBtbEntwurf(k, vorherAnlageName, vorherForm, false); // kein Scroll bei automatischem Hintergrund-Speichern
+      }
     };
     anlTabs.appendChild(tabBtn);
 
@@ -3433,8 +3926,8 @@ function buildBtbKarte(k, aktiveAnlageName){
 
     const anlEintraege=k.eintraege.filter(e=>e.anlage===r.name);
 
-    // Formular (mit Entwurf vorbelegen falls vorhanden)
-    panel.appendChild(buildBtbForm(k, r.name, anlEintraege, entwurf));
+    // Formular (mit Entwurf vorbelegen falls vorhanden) — im Innendienst-Modus übersprungen
+    if(!ohneEingabe) panel.appendChild(buildBtbForm(k, r.name, anlEintraege, entwurf));
 
     // Verlauf
     if(anlEintraege.length){
@@ -3505,13 +3998,13 @@ function buildBtbKarte(k, aktiveAnlageName){
             // Dosiertage aus Kundendaten (zeigt was zu diesem Zeitpunkt eingestellt war)
             if(dInfo&&dInfo.tage&&dInfo.tage.length){
               const tageStr=dInfo.tage.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
-              html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ '+tageStr+(dInfo.menge?' · '+dInfo.menge+' L/Dos':'')+(dInfo.dauer?' · '+dInfo.dauer+' Min':'')+'</div>';
+              html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ '+tageStr+(dInfo.uhr?' '+dInfo.uhr:'')+(dInfo.menge?' · '+dInfo.menge+' L/Dos':'')+(dInfo.dauer?' · '+dInfo.dauer+' Min':'')+'</div>';
               if(dInfo.soll!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll s.l.BTB: '+dInfo.soll+'L</div>';
               if(dInfo.geaendert_am) html+='<div style="font-size:9px;color:#94a3b8;font-style:italic">seit '+btbFmtDatumDE(dInfo.geaendert_am)+'</div>';
               // 2. Dosierzeit, falls aktiv
               if(dInfo.block2Aktiv&&dInfo.tage2&&dInfo.tage2.length){
                 const tageStr2=dInfo.tage2.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
-                html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ 2. Zeit: '+tageStr2+(dInfo.menge2?' · '+dInfo.menge2+' L/Dos':'')+(dInfo.dauer2?' · '+dInfo.dauer2+' Min':'')+'</div>';
+                html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ 2. Zeit: '+tageStr2+(dInfo.uhr2?' '+dInfo.uhr2:'')+(dInfo.menge2?' · '+dInfo.menge2+' L/Dos':'')+(dInfo.dauer2?' · '+dInfo.dauer2+' Min':'')+'</div>';
                 if(dInfo.soll2!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll s.l.BTB (2): '+dInfo.soll2+'L</div>';
                 if(dInfo.geaendert_am2) html+='<div style="font-size:9px;color:#94a3b8;font-style:italic">seit '+btbFmtDatumDE(dInfo.geaendert_am2)+'</div>';
               }
@@ -3597,7 +4090,12 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     bem:dvStr(rawDv.bem||''),
     p1:rawDv.p1||{}, p2:rawDv.p2||{}, p3:rawDv.p3||{}
   };
-  const today=new Date().toISOString().split('T')[0];
+  // Sitzungs-Datum: Falls für diesen Kunden schon ein anderer Entwurf existiert (gleicher
+  // Besuch, andere Anlage), dessen Datum übernehmen — so gilt ein geändertes Datum für den
+  // ganzen Besuch. Nach FERTIG werden die Entwürfe geleert, dann greift wieder das echte Heute.
+  const echtHeute=new Date().toISOString().split('T')[0];
+  const andererEntwurfMitDatum=k.entwuerfe.find(e=>e.anlage!==anlageName && e.felder && e.felder.datum);
+  const today=andererEntwurfMitDatum?andererEntwurfMitDatum.felder.datum:echtHeute;
   const nowT=new Date().toTimeString().slice(0,5);
   const isAdmin=(userRolle==='admin'||userRolle==='IS');
   const di=(k.dosier_info||{})[slug]||{};  // Dosierdaten sind PRO ANLAGE gespeichert
@@ -3722,7 +4220,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     // Datum + Uhrzeit (Uhrzeit vorerst für alle versteckt — wird später anderswo genutzt)
     +'<div class="btb-grid" style="margin-top:6px">'
     +'<div class="btb-feld"><div class="btb-feld-lbl">Datum BTB</div>'
-    +'<input type="date" id="btb-datum-'+id+'-'+slug+'" value="'+(dv.datum||today)+'" style="font-size:15px!important;padding:8px 10px!important"></div>'
+    +'<input type="date" id="btb-datum-'+id+'-'+slug+'" class="btb-datum-input" value="'+(dv.datum||today)+'" style="font-size:15px!important;padding:8px 10px!important"></div>'
     +'<input type="hidden" id="btb-uhr-'+id+'-'+slug+'" value="'+(dv.uhr||nowT)+'">'
     +'</div>'
     // LF + dH
@@ -3817,6 +4315,19 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   });
   btbUpdateWasserLive(); // initial anzeigen, falls Entwurf-Werte schon vorbelegt sind
 
+  // Datum ändern gilt für den ganzen Besuch: überträgt sich live auf die Datum-Felder
+  // aller anderen Anlagen desselben Kunden (auch wenn die noch nicht besucht wurden)
+  const datumInput=form.querySelector('.btb-datum-input');
+  if(datumInput){
+    datumInput.addEventListener('change', ()=>{
+      const karteEl=form.closest('.btb-karte');
+      if(!karteEl)return;
+      karteEl.querySelectorAll('.btb-datum-input').forEach(other=>{
+        if(other!==datumInput) other.value=datumInput.value;
+      });
+    });
+  }
+
   // Zähler teilen: Ausklapp-Bereich auf-/zuklappen
   form.querySelectorAll('.btb-share-toggle').forEach(t=>{
     t.addEventListener('click', ()=>{
@@ -3873,12 +4384,18 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   });
   // Produktnamen-Speichern Button
   const pBtn=form.querySelector('[data-action="saveprod"]');
-  if(pBtn) pBtn.addEventListener('click',()=>{
+  if(pBtn) pBtn.addEventListener('click',async()=>{
     const p1=form.querySelector('[data-pname="1"]')?.value.trim()||'';
     const p2=form.querySelector('[data-pname="2"]')?.value.trim()||'';
     const p3=form.querySelector('[data-pname="3"]')?.value.trim()||'';
-    _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',id)
-      .then(({error})=>{if(error)toast('⚠️ '+error.message);else{toast('✓ Bezeichnungen gespeichert');loadAll();}});
+    // Erst aktuellen Formularstand sichern (wie Zwischenspeichern), aber nur falls dort
+    // tatsächlich etwas eingetragen wurde — p1/p2/p3 wurden oben schon gelesen, form kann
+    // durchs Neuladen danach ungültig werden
+    if(btbFormHatEingaben(form)) await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
+    const {error}=await _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',id);
+    if(error){toast('⚠️ '+error.message);return;}
+    toast('✓ Bezeichnungen gespeichert');
+    await loadAll();
   });
 
   // Mängel-Vorlagen: Toggle-Bereich auf-/zuklappen
@@ -4110,7 +4627,7 @@ async function btbSaveDosierFromForm(form, id, k, anlageSlug){
 }
 
 // ── Entwurf zwischenspeichern (Supabase btb_entwurf) ──
-async function saveBtbEntwurf(k, anlageName, formEl){
+async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   const slug=btbSlug(anlageName);
   const id=k.id;
   const toN=elId=>{const v=G(elId)?.value;return(v===''||v==null)?null:Number(v);};
@@ -4155,9 +4672,9 @@ async function saveBtbEntwurf(k, anlageName, formEl){
   if(online){
     try{
       if(vorhanden){
-        ({error:fehler}=await _sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',entwurfId));
+        ({error:fehler}=await btbMitTimeout(_sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',entwurfId), 8000));
       } else {
-        ({error:fehler}=await _sb.from('btb_entwurf').insert({id:entwurfId,kunde_id:id,anlage:anlageName,felder,kuerzel:kz}));
+        ({error:fehler}=await btbMitTimeout(_sb.from('btb_entwurf').insert({id:entwurfId,kunde_id:id,anlage:anlageName,felder,kuerzel:kz}), 8000));
       }
     }catch(e){ fehler=e; }
   }
@@ -4173,19 +4690,40 @@ async function saveBtbEntwurf(k, anlageName, formEl){
 
   if(online && !fehler){ await loadAll(); }
   else { renderAll(); updB(); }
-  requestAnimationFrame(()=>{
-    const karte=document.querySelector('.btb-karte[data-btb-id="'+id+'"]');
-    if(karte&&!karte.classList.contains('open')) karte.classList.add('open');
-    // Zu den Anlagen-Tabs hochspringen — Techniker kann direkt nächste Anlage wählen oder FERTIG drücken
-    const ziel=karte&&(karte.querySelector('.btb-anlagen-tabs')||karte.querySelector('.btb-karte-header'));
-    if(ziel) ziel.scrollIntoView({behavior:'smooth', block:'start'});
-  });
+  if(scrollNachSpeichern){
+    requestAnimationFrame(()=>{
+      const karte=document.querySelector('.btb-karte[data-btb-id="'+id+'"]');
+      if(karte&&!karte.classList.contains('open')) karte.classList.add('open');
+      // Immer zum Kartenkopf scrollen (nicht zu den Anlagen-Tabs) — so bleiben Kundenname
+      // UND die Anlagen-Tabs gemeinsam sichtbar, statt dass der Kundenname aus dem Blick rutscht
+      const ziel=karte&&karte.querySelector('.btb-karte-header');
+      if(ziel) ziel.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+  }
 }
 
 // ── FERTIG: alle Entwürfe → btb_eintraege mit Status "offen" ──
 async function btbFertigZumBerechnen(kid){
-  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  let k=BTB_KUNDEN.find(x=>x.id===kid);
   if(!k){toast('⚠️ Kunde nicht gefunden');return;}
+
+  // Gerade offene/aktive Anlage automatisch zwischenspeichern, BEVOR die Entwürfe geprüft
+  // werden — sonst würde ein direkter Klick auf FERTIG (ohne vorheriges Zwischenspeichern)
+  // genau die zuletzt bearbeitete Anlage verlieren
+  const karteElVorab=document.querySelector('.btb-karte[data-btb-id="'+kid+'"]');
+  if(karteElVorab){
+    const aktivesPanel=karteElVorab.querySelector('.btb-anlage-panel.active');
+    const aktiverTab=karteElVorab.querySelector('.btb-anlage-tab.active');
+    const anlageName=aktiverTab?aktiverTab.textContent.replace('✓','').trim():null;
+    const form=aktivesPanel?aktivesPanel.querySelector('.btb-form'):null;
+    if(anlageName && form && btbFormHatEingaben(form)){
+      await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
+      // k neu holen, da saveBtbEntwurf intern neu lädt und BTB_KUNDEN dabei neu aufgebaut wird
+      k=BTB_KUNDEN.find(x=>x.id===kid);
+      if(!k){toast('⚠️ Kunde nicht gefunden');return;}
+    }
+  }
+
   if(!k.entwuerfe||!k.entwuerfe.length){
     toast('⚠️ Kein Entwurf vorhanden – bitte zuerst Anlage zwischenspeichern');
     return;
@@ -4255,7 +4793,7 @@ async function btbFertigZumBerechnen(kid){
   if(online){
     console.log('FERTIG: Übertrage', rows.length, 'Einträge:', rows);
     try{
-      const {error:insErr}=await _sb.from('btb_eintraege').insert(rows);
+      const {error:insErr}=await btbMitTimeout(_sb.from('btb_eintraege').insert(rows), 8000);
       if(insErr){ fehler=insErr; }
       else { await _sb.from('btb_entwurf').delete().in('id',entwurfIds); }
     }catch(e){ fehler=e; }
@@ -4631,10 +5169,71 @@ function btbUuid(){
     return v.toString(16);
   });
 }
+// Bei sehr schlechter Verbindung kann eine Anfrage unbestimmt lange hängen (navigator.onLine
+// meldet "online", der Request kommt aber nie klar durch oder fehlgeschlagen zurück). Nach
+// dieser Zeit brechen wir ab und werfen den Vorgang sicherheitshalber in die Warteschlange,
+// statt dass der Techniker vor einer hängenden App steht und das Ergebnis unklar bleibt.
+function btbMitTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('Zeitüberschreitung – keine Antwort vom Server')), ms))
+  ]);
+}
 function updateQueueBadge(){const q=getQueue();const el=G('offline-queue-cnt');if(!el)return;if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}else el.style.display='none';}
 function getQueue(){try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}}
 function addToQueue(item){const q=getQueue();q.push({...item, qid: Date.now()+'_'+Math.random()});localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
 function removeFromQueue(qid){const q=getQueue().filter(x=>x.qid!==qid);localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
+
+// ── Ausstehende Warteschlangen-Einträge auf frisch geladene Daten anwenden ──
+// Wird nach jedem loadAll() aufgerufen. Verhindert, dass ein zwischenzeitliches
+// Neuladen (z.B. durch Tab-Wechsel) einen noch nicht synchronisierten Entwurf,
+// eine FERTIG-Übertragung oder eine Kundendaten-Änderung wieder "verschwinden" lässt.
+function btbReconcileQueue(){
+  const q=getQueue();
+  if(!q.length)return;
+  q.forEach(item=>{
+    if(item.type==='btb_entwurf_upsert'){
+      const d=item.data;
+      const k=BTB_KUNDEN.find(x=>x.id===d.kunde_id);
+      if(!k)return;
+      const vorhanden=k.entwuerfe.find(e=>e.id===d.id || e.anlage===d.anlage);
+      if(vorhanden){ vorhanden.id=d.id; vorhanden.felder=d.felder; vorhanden.kuerzel=d.kuerzel; }
+      else { k.entwuerfe.push({id:d.id, anlage:d.anlage, felder:d.felder, kuerzel:d.kuerzel}); }
+    }
+    else if(item.type==='btb_fertig'){
+      const rows=item.data.rows||[];
+      const entwurfIds=item.data.entwurf_ids||[];
+      if(!rows.length)return;
+      const k=BTB_KUNDEN.find(x=>x.id===rows[0].kunde_id);
+      if(!k)return;
+      rows.forEach(r=>{
+        if(!k.eintraege.some(e=>e.id===r.id)){
+          k.eintraege.unshift({
+            id:r.id, datum_btb:r.datum_btb,
+            datumFmt:new Date(r.datum_btb+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}),
+            anlage:r.anlage, kuerzel:r.kuerzel,
+            lf_messung_ist:r.lf_messung_ist, lf_geraet_ist:r.lf_geraet_ist, lf_geraet_soll:r.lf_geraet_soll, dh:r.dh,
+            dipslide_basis:r.dipslide_basis, dipslide_exponent:r.dipslide_exponent, kbe_auswertung:r.kbe_auswertung,
+            zusatzwasser:r.zusatzwasser, abwasser:r.abwasser,
+            p1_vorgefunden:r.p1_vorgefunden, p1_aufgefuellt:r.p1_aufgefuellt, p1_neu:r.p1_neu, p1_lager:r.p1_lager,
+            p2_vorgefunden:r.p2_vorgefunden, p2_aufgefuellt:r.p2_aufgefuellt, p2_neu:r.p2_neu, p2_lager:r.p2_lager,
+            p3_vorgefunden:r.p3_vorgefunden, p3_aufgefuellt:r.p3_aufgefuellt, p3_neu:r.p3_neu, p3_lager:r.p3_lager,
+            schwefelsa:r.schwefelsa, bemerkung:r.bemerkung, dosier_snapshot:r.dosier_snapshot,
+            btb_status:r.btb_status, rechnung_nr:null, berechnet_von:null, berechnet_am:null, besuch_uhrzeit:r.besuch_uhrzeit
+          });
+        }
+      });
+      k.entwuerfe=k.entwuerfe.filter(e=>!entwurfIds.includes(e.id));
+    }
+    else if(item.type==='kbe_kunden_update'){
+      const d=item.data;
+      const k=BTB_KUNDEN.find(x=>x.id===d.id);
+      if(k) Object.assign(k, d.patch);
+      const kk=KBE.find(x=>x.id===d.id);
+      if(kk) Object.assign(kk, d.patch);
+    }
+  });
+}
 
 async function flushQueue(){
   if(!isOnline())return;const q=getQueue();if(!q.length)return;let flushed=0;
