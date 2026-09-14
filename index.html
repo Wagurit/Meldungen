@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v87</title>
+<title>Meldungen &amp; Angebote v91</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v87</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v91</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -846,6 +846,16 @@ textarea{resize:vertical;min-height:68px;}
           ℹ️ Passwort-Reset erfordert Admin-Zugang im Supabase Dashboard.
         </div>
       </div>
+      <div class="admin-section">
+        <div class="admin-section-title">🔍 Mögliche Namens-Duplikate finden</div>
+        <p style="font-size:13px;color:var(--mu);margin-bottom:10px;line-height:1.5">
+          Findet Kundennamen, die sich nur durch Leerzeichen, Groß-/Kleinschreibung oder einen
+          Namenszusatz unterscheiden (z.B. "Sterncenter" / "Stern Center" / "Sterncenter Lüdenscheid")
+          — über Meldungen, Chemie, Angebote und KBE/BTB hinweg. Ersetzt keine manuelle Prüfung,
+          zeigt nur mögliche Kandidaten zum Zusammenführen.
+        </p>
+        <button class="bsend" onclick="btbFindeNamensDuplikate()">🔍 Duplikate suchen & als Excel exportieren</button>
+      </div>
     </div>
 
   </div><!-- /cnt -->
@@ -882,7 +892,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v87';
+const APP_VERSION = 'v91';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -999,6 +1009,11 @@ const APP_VERSION = 'v87';
   -- Format: {"zusatzwasser":[["Halle A","Halle B"]],"abwasser":[]}
   -- Anlagen, die in keiner Gruppe stehen, haben einen eigenen Zähler.
   ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS wasserzaehler_gruppen jsonb DEFAULT '{}';
+
+  -- Produktnamen PRO ANLAGE (löst die alte, kundenweite Spalte produkt_namen ab — die bleibt
+  -- als Fallback für Anlagen ohne eigenen Eintrag bestehen). Format:
+  -- {"<AnlageSlug>":{"p1":"BZ 300","p2":"KT 300 K","p3":"BZ 219S"}}
+  ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS produkt_namen_pro_anlage jsonb DEFAULT '{}';
 
   -- 2) kbe_kunden um Produktnamen-Spalte erweitern (speichert die 3 Produktbezeichnungen pro Kunde)
   ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS produkt_namen jsonb DEFAULT '{"p1":"BZ","p2":"KT/LB","p3":""}';
@@ -1248,6 +1263,7 @@ async function loadAll(){
         id:k2.id, firma:k2.firma, kuerzel_erstellt:k2.kuerzel_erstellt,
         rkws: k2.rkws||[],
         produkt_namen: k2.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''},
+        produkt_namen_pro_anlage: k2.produkt_namen_pro_anlage||{},
         dosier_info: k2.dosier_info||{},
         wasserzaehler_gruppen: k2.wasserzaehler_gruppen||{},
         entwuerfe,
@@ -1425,7 +1441,9 @@ function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS
 // ══════════════════════════════════════════════════════════
 function allK(){
   const s=new Set();
-  [...MD,...CH,...FR].forEach(e=>{ if(e.firma) s.add(e.firma.trim()); });
+  // Nur noch bestehende KBE/BTB-Kunden vorschlagen — Meldungen/Chemie/Angebote werden
+  // bewusst NICHT mehr einbezogen, da dort historisch abweichende Namensvarianten stehen
+  // (z.B. "Sterncenter" vs. "Stern Center"), die zu keinem BTB-Eintrag führen würden.
   KBE.forEach(k=>{ if(k.firma) s.add(k.firma.trim()); });
   return[...s].sort((a,b)=>a.localeCompare(b,'de'));
 }
@@ -1523,10 +1541,27 @@ G('ccu').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();a
 // ══════════════════════════════════════════════════════════
 // SPEICHERN
 // ══════════════════════════════════════════════════════════
+// ── Sicherstellt, dass der eingegebene Kundenname einem bestehenden KBE/BTB-Kunden
+// entspricht (verhindert neue Namensvarianten wie "Sterncenter" vs. "Stern Center").
+// Existiert noch keiner, wird nach Bestätigung ein neuer KBE-Kunde angelegt — der
+// erscheint danach sofort als Chip bei KBE UND bei BTB, da beide dieselbe Tabelle nutzen. ──
+async function btbEnsureKundeExistiert(firma){
+  const firmaTrim=(firma||'').trim();
+  if(!firmaTrim) return true; // leer wird separat durch die Pflichtfeld-Prüfung abgefangen
+  const vorhanden=KBE.find(k=>k.firma.trim().toLowerCase()===firmaTrim.toLowerCase());
+  if(vorhanden) return true;
+  if(!confirm('„'+firmaTrim+'" ist noch kein bestehender Kunde bei KBE/BTB.\n\nAls neuen Kunden anlegen?'))return false;
+  const {error}=await _sb.from('kbe_kunden').insert({firma:firmaTrim, rkws:[]});
+  if(error){ toast('⚠️ Kunde konnte nicht angelegt werden: '+error.message); return false; }
+  toast('✓ Neuer Kunde „'+firmaTrim+'" angelegt');
+  await loadAll(); // KBE/BTB_KUNDEN aktualisieren, damit der neue Kunde als Chip erscheint
+  return true;
+}
 async function saveMeld(){
   const firma=V('ink'),text=V('mtx');
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!text){alert('Bitte Meldungstext eingeben.');return;}
+  if(!(await btbEnsureKundeExistiert(firma)))return;
   G('btn-meld').disabled=true;
   const zuwArr=[...selZuwSet];
   const gelesen_von={};
@@ -1560,6 +1595,7 @@ async function saveChem(){
   const firma=V('ink');
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!cS.size){alert('Bitte mindestens ein Produkt wählen.');return;}
+  if(!(await btbEnsureKundeExistiert(firma)))return;
   G('btn-chem').disabled=true;
   const chemData={firma,produkte:[...cS],notiz:V('cno'),kuerzel:kz};
   if(!isOnline()){
@@ -1581,6 +1617,7 @@ async function saveFrei(){
   const firma=V('ink'),text=V('ftx');
   if(!firma){alert('Bitte Kundenname eingeben.');return;}
   if(!text){alert('Bitte Leistungsbeschreibung eingeben.');return;}
+  if(!(await btbEnsureKundeExistiert(firma)))return;
   const nm=G('nur-mat').checked;
   let h=parseFloat(G('fh').value)||1;if(h<=0)h=1;
   G('btn-frei').disabled=true;
@@ -2975,12 +3012,12 @@ function btbDosierLogText(e, pn){
 }
 function btbExportKundeExcel(k){
   if(!k.rkws || !k.rkws.length){ toast('⚠️ Keine Anlagen vorhanden.'); return; }
-  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
   const wb=XLSX.utils.book_new();
   const gebrauchteNamen=new Set();
   let hatDaten=false;
 
   k.rkws.forEach(r=>{
+    const pn=btbGetProduktNamen(k, r.name);
     // älteste zuerst, damit die Excel-Tabelle chronologisch von oben nach unten läuft
     const anlEintraege=k.eintraege.filter(e=>e.anlage===r.name).slice().reverse();
     if(!anlEintraege.length) return;
@@ -3367,6 +3404,12 @@ async function saveWmLetztenEdit(k, eid, datumInp, box){
 // Hilfsfunktion: Vorherigen Wasserzählerstand für eine Anlage suchen
 // Sicherer Slug für HTML-IDs: nur Buchstaben, Zahlen, Unterstrich
 function btbSlug(str){ return String(str||'').replace(/[^a-zA-Z0-9äöüÄÖÜ]/g,'_'); }
+// Produktnamen für eine bestimmte Anlage: erst Anlage-spezifisch, dann alter globaler
+// Kundenwert (Rückwärtskompatibilität), dann Standard-Default
+function btbGetProduktNamen(k, anlageName){
+  const slug=btbSlug(anlageName);
+  return (k.produkt_namen_pro_anlage||{})[slug] || k.produkt_namen || {p1:'BZ',p2:'KT/LB',p3:''};
+}
 // Datum 'YYYY-MM-DD' → 'DD.MM.YYYY' für Anzeige (z.B. "seit 09.09.2026")
 // ── Enter-Taste springt zum nächsten Eingabefeld (für iPad: schnelle Dateneingabe ohne Tippen aufs Feld) ──
 // Reihenfolge folgt der Lese-/Tab-Reihenfolge im DOM (= visuelle Reihenfolge dank flex-wrap:
@@ -3572,6 +3615,80 @@ function isToggleRnrSuche(){
 
 // ── Wasserzähler-Tab: pro Kunde alle Anlagen mit Zählerständen chronologisch untereinander ──
 // ── Wasserzähler-Historie eines Kunden als Excel exportieren — eine Tabelle pro Anlage ──
+// ── Mögliche Namens-Duplikate über Meldungen/Chemie/Angebote/KBE hinweg finden ──
+function btbNormalisiereName(name){
+  return String(name||'').toLowerCase().replace(/[^a-z0-9äöüß]/g,'');
+}
+function btbFindeNamensDuplikate(){
+  const zaehler={}; // normalisierter Name -> {originale: Map(Schreibweise->Anzahl), quellen: {Quelle:Anzahl}}
+  const sammleAus=(arr, quelle)=>{
+    arr.forEach(x=>{
+      const original=(x.firma||'').trim();
+      if(!original)return;
+      const norm=btbNormalisiereName(original);
+      if(!norm)return;
+      if(!zaehler[norm]) zaehler[norm]={originale:new Map(), quellen:{}};
+      const eintrag=zaehler[norm];
+      eintrag.originale.set(original,(eintrag.originale.get(original)||0)+1);
+      eintrag.quellen[quelle]=(eintrag.quellen[quelle]||0)+1;
+    });
+  };
+  sammleAus(MD,'Meldungen');
+  sammleAus(CH,'Chemie');
+  sammleAus(FR,'Angebote');
+  sammleAus(KBE,'KBE/BTB');
+
+  // Cluster bilden: exakte Normalisierung ODER Substring-Beziehung (mind. 5 Zeichen, gegen
+  // Fehltreffer bei kurzen Namen), transitiv über die wachsende Gruppe geprüft
+  const schluessel=Object.keys(zaehler);
+  const besucht=new Set();
+  const cluster=[];
+  const aehnlich=(a,b)=> a===b || (Math.min(a.length,b.length)>=5 && (a.includes(b)||b.includes(a)));
+  for(let i=0;i<schluessel.length;i++){
+    if(besucht.has(schluessel[i]))continue;
+    const gruppe=[schluessel[i]];
+    besucht.add(schluessel[i]);
+    for(let j=i+1;j<schluessel.length;j++){
+      if(besucht.has(schluessel[j]))continue;
+      if(gruppe.some(g=>aehnlich(g,schluessel[j]))){
+        gruppe.push(schluessel[j]);
+        besucht.add(schluessel[j]);
+      }
+    }
+    cluster.push(gruppe);
+  }
+
+  // Nur Cluster mit mindestens 2 UNTERSCHIEDLICHEN Original-Schreibweisen sind interessant
+  const kandidaten=cluster.filter(gruppe=>{
+    const alleOriginale=new Set();
+    gruppe.forEach(norm=>zaehler[norm].originale.forEach((_,orig)=>alleOriginale.add(orig)));
+    return alleOriginale.size>=2;
+  });
+
+  if(!kandidaten.length){ toast('✓ Keine möglichen Namens-Duplikate gefunden.'); return; }
+
+  const rows=[];
+  kandidaten.forEach((gruppe,idx)=>{
+    gruppe.forEach(norm=>{
+      const eintrag=zaehler[norm];
+      eintrag.originale.forEach((anzahl,original)=>{
+        rows.push({
+          'Gruppe': idx+1,
+          'Name-Variante': original,
+          'Anzahl Datensätze': anzahl,
+          'Quellen': Object.entries(eintrag.quellen).map(([q,n])=>q+' ('+n+')').join(', ')
+        });
+      });
+    });
+  });
+
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:8},{wch:32},{wch:16},{wch:32}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Mögliche Duplikate');
+  XLSX.writeFile(wb, 'Namens_Duplikate_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('✓ '+kandidaten.length+' mögliche Duplikat-Gruppe(n) — Excel wird heruntergeladen');
+}
 function btbExportWasserzaehlerExcel(k, seitDatum){
   const anlagenMitWasser=(k.rkws||[]).filter(r=>
     k.eintraege.some(e=>e.anlage===r.name && (e.zusatzwasser!=null || e.abwasser!=null))
@@ -3627,7 +3744,7 @@ function btbExportWasserzaehlerExcel(k, seitDatum){
             ['Eindickung (Schnitt)', erg.eindSchnitt!=null?(erg.eindSchnitt+'-fach'):'–']
           ];
           if(erg.zwHatteWechsel||erg.awHatteWechsel) summaryRows.push(['Hinweis:', 'Zählerwechsel im Zeitraum erkannt — Wert ist Mindest-Verbrauch']);
-          if(erg.zwAbErstemWert||erg.awAbErstemWert) summaryRows.push(['Hinweis:', 'vor diesem Datum liegen keine Werte vor — gerechnet ab erstem verfügbaren Zählerstand']);
+          if(erg.zwAbErstemWert||erg.awAbErstemWert) summaryRows.push(['Hinweis:', 'vor diesem Datum liegen keine Werte vor — erster verfügbarer Zählerstand wurde als Verbrauch ab Null mitgezählt']);
         }
         XLSX.utils.sheet_add_aoa(ws, summaryRows, {origin:{r:rows.length+2, c:0}});
       }
@@ -3653,6 +3770,8 @@ function btbExportWasserzaehlerExcel(k, seitDatum){
 // Zusatzwasser), erkennt dabei Zählerwechsel: sinkt ein Wert gegenüber dem vorherigen, wird ein
 // neuer Zähler angenommen — dessen aktueller Stand zählt dann als Mindest-Verbrauch seit dem
 // Wechsel (mehr ist möglich, aber ohne Altstand-Angabe nicht exakt bezifferbar).
+// Liegt das gewählte Datum VOR dem allerersten Wert, wird dieser erste Wert selbst als
+// Verbrauch seit einem angenommenen Nullstand mitgezählt (wie bei einem neuen Zähler).
 function btbSummiereVerbrauchMitWechsel(werteAufsteigend, datum){
   if(!werteAufsteigend.length) return {summe:null, hatteWechsel:false, keinWert:true, abErstemWert:false, effektivAb:null};
   let startIdx=-1;
@@ -3660,8 +3779,11 @@ function btbSummiereVerbrauchMitWechsel(werteAufsteigend, datum){
     if(werteAufsteigend[i].datum_btb<=datum) startIdx=i; else break;
   }
   const abErstemWert=startIdx===-1; // gewähltes Datum liegt vor dem ersten verfügbaren Wert
-  if(startIdx===-1) startIdx=0;
   let summe=0, hatteWechsel=false;
+  if(abErstemWert){
+    summe+=werteAufsteigend[0].wert; // erster Wert zählt wie ein Neustand ab 0
+    startIdx=0;
+  }
   for(let i=startIdx+1;i<werteAufsteigend.length;i++){
     const vorher=werteAufsteigend[i-1].wert, jetzt=werteAufsteigend[i].wert;
     if(jetzt>=vorher){ summe+=(jetzt-vorher); }
@@ -3764,7 +3886,7 @@ function buildWasserzaehlerKarte(k){
       if(erg.eindSchnitt!=null) teile.push('🔄 <b>'+erg.eindSchnitt+'-fach</b> (Schnitt)');
       let html='<div style="padding:3px 0"><b>'+esc(erg.anlage)+':</b> '+(teile.length?teile.join(' · '):'<span style="color:#94a3b8;font-style:italic">keine Werte</span>');
       if(erg.zwHatteWechsel||erg.awHatteWechsel) html+='<div style="font-size:10px;color:#94a3b8;font-style:italic">Zählerwechsel erkannt — Wert ist Mindest-Verbrauch, tatsächlicher Verbrauch kann höher sein</div>';
-      if(erg.zwAbErstemWert||erg.awAbErstemWert) html+='<div style="font-size:10px;color:#94a3b8;font-style:italic">vor diesem Datum liegen keine Werte vor — gerechnet ab dem ersten verfügbaren Zählerstand</div>';
+      if(erg.zwAbErstemWert||erg.awAbErstemWert) html+='<div style="font-size:10px;color:#94a3b8;font-style:italic">vor diesem Datum liegen keine Werte vor — erster verfügbarer Zählerstand wurde als Verbrauch ab Null mitgezählt</div>';
       html+='</div>';
       return html;
     }).join('');
@@ -3971,7 +4093,7 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
           html+='</div>';
         }
         // Produkte (p1 / p2 / p3) — Namen + Dosierdaten aus Kundendaten
-        const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+        const pn=btbGetProduktNamen(k, e.anlage);
         // Dosierdaten: Snapshot aus dem Eintrag (historisch korrekt), Fallback auf aktuelle Kundendaten dieser Anlage
         const di=e.dosier_snapshot||(k.dosier_info||{})[btbSlug(e.anlage)]||{};
         const hasProd=[1,2,3].some(pn2=>e['p'+pn2+'_vorgefunden']!=null||e['p'+pn2+'_neu']!=null||e['p'+pn2+'_lager']!=null);
@@ -4000,6 +4122,8 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
               const tageStr=dInfo.tage.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
               html+='<div style="margin-top:3px;font-size:10px;color:'+colorMap[pn2]+';font-weight:700">⏱ '+tageStr+(dInfo.uhr?' '+dInfo.uhr:'')+(dInfo.menge?' · '+dInfo.menge+' L/Dos':'')+(dInfo.dauer?' · '+dInfo.dauer+' Min':'')+'</div>';
               if(dInfo.soll!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll s.l.BTB: '+dInfo.soll+'L</div>';
+              if(dInfo.sollVorgefunden!=null) html+='<div style="font-size:10px;color:#7c3aed;font-weight:800">Soll Vorgef.: '+dInfo.sollVorgefunden+'</div>';
+              if(dInfo.deltaVorgefunden!=null) html+='<div style="font-size:10px;color:'+colorMap[pn2]+';font-weight:800">Δ Vorgef.: '+(dInfo.deltaVorgefunden>0?'+':'')+dInfo.deltaVorgefunden+'</div>';
               if(dInfo.geaendert_am) html+='<div style="font-size:9px;color:#94a3b8;font-style:italic">seit '+btbFmtDatumDE(dInfo.geaendert_am)+'</div>';
               // 2. Dosierzeit, falls aktiv
               if(dInfo.block2Aktiv&&dInfo.tage2&&dInfo.tage2.length){
@@ -4076,7 +4200,7 @@ function btbExpSup(exp){
 function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   const slug=btbSlug(anlageName);
   const id=k.id;
-  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+  const pn=btbGetProduktNamen(k, anlageName);
   // Entwurf-Felder sanitizen: HTML raus, Numbers als Numbers
   const rawDv=entwurf?.felder||{};
   const dvNum=v=>(v!=null&&v!==''&&!isNaN(Number(v)))?Number(v):'';
@@ -4171,13 +4295,31 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     const hintLG=letzterLG?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterLG.datum_btb)+': <b>'+letzterLG['p'+pn2+'_lager']+'</b></div>':'';
     const dInfo=di['p'+pn2]||{tage:[],menge:'',uhr:'',dauer:'',geaendert_am:null,block2Aktiv:false,tage2:[],menge2:'',uhr2:'',dauer2:'',geaendert_am2:null};
     let dosierHtml='';
+    let sollVorgefunden=null; // wird unten befüllt, falls hasDosier — für Live-Delta-Berechnung gebraucht
     if(hasDosier){
       const block1Html=btbBuildDosierZeile(pn2,'',dInfo,colorMap,TAGE,anlEintraege,dv,today,nowT);
       const dInfoBlock2={tage:dInfo.tage2||[],menge:dInfo.menge2||'',uhr:dInfo.uhr2||'',dauer:dInfo.dauer2||'',geaendert_am:dInfo.geaendert_am2||null};
       const block2Html=btbBuildDosierZeile(pn2,'2',dInfoBlock2,colorMap,TAGE,anlEintraege,dv,today,nowT);
+
+      // Soll Vorgefunden: letztes "Neu" minus Gesamt-Soll (beide Dosierzeiten zusammen) seither —
+      // zeigt dem Techniker, was er ungefähr vorfinden müsste, bevor er einträgt was er wirklich fand
+      const dosSoll1=btbBerechneSoll(anlEintraege,dInfo,dv.datum||today,dv.uhr||nowT);
+      const dosSoll2=dInfo.block2Aktiv?btbBerechneSoll(anlEintraege,{tage:dInfo.tage2,menge:dInfo.menge2,uhr:dInfo.uhr2},dv.datum||today,dv.uhr||nowT):null;
+      const gesamtSoll=(dosSoll1!=null||dosSoll2!=null)?((dosSoll1||0)+(dosSoll2||0)):null;
+      const letztesNeuEintrag=anlEintraege.find(e=>e['p'+pn2+'_neu']!=null);
+      const letztesNeu=letztesNeuEintrag?letztesNeuEintrag['p'+pn2+'_neu']:null;
+      sollVorgefunden=(letztesNeu!=null && gesamtSoll!=null)?+(letztesNeu-gesamtSoll).toFixed(2):null;
+      const sollVorgefRow='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">'
+        +'<div class="btb-feld" style="width:76px"><div class="btb-feld-lbl" style="color:#7c3aed">Soll Vorgef.</div>'
+        +'<input type="text" readonly value="'+(sollVorgefunden!=null?sollVorgefunden:'–')+'" style="font-size:12px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:7px;cursor:default"></div>'
+        +'<div class="btb-feld" style="width:70px"><div class="btb-feld-lbl" style="color:'+colorMap[pn2]+'">Δ Vorgef.</div>'
+        +'<input type="text" readonly class="btb-delta-vorgef" data-pnr="'+pn2+'" data-soll="'+(sollVorgefunden!=null?sollVorgefunden:'')+'" value="–" style="font-size:12px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:'+bgMap[pn2]+';color:'+colorMap[pn2]+';border:1.5px solid '+colorMap[pn2]+'55;border-radius:7px;cursor:default"></div>'
+        +'</div>';
+
       dosierHtml='<div style="margin-top:7px;padding-top:7px;border-top:1px solid '+colorMap[pn2]+'33">'
         +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Dosiertage</div>'
         +block1Html
+        +sollVorgefRow
         +'<label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer;font-size:11px;font-weight:700;color:'+colorMap[pn2]+'">'
         +'<input type="checkbox" class="btb-dosier-block2-toggle" data-pnr="'+pn2+'" data-dosier="p'+pn2+'b2" '+(dInfo.block2Aktiv?'checked':'')+' style="width:15px;height:15px;accent-color:'+colorMap[pn2]+'">'
         +'+ 2. Dosierzeit (an anderen Tagen)</label>'
@@ -4185,8 +4327,20 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
         +block2Html
         +'</div></div>';
     }
+    // Produkt 3 (BZ2) ist einklappbar: offen, wenn schon Daten vorhanden sind (aktueller
+    // Entwurf oder Historie an dieser Anlage), sonst standardmäßig zugeklappt
+    const istP3=pn2===3;
+    const hatP3Daten=istP3&&(
+      dvP.vg!=null||dvP.af!=null||dvP.lg!=null
+      ||anlEintraege.some(e=>e.p3_vorgefunden!=null||e.p3_neu!=null||e.p3_lager!=null)
+    );
+    const titelZeile='<div class="'+(istP3?'btb-p3-toggle':'')+'" style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px'+(istP3?';cursor:pointer;display:flex;align-items:center;justify-content:space-between':'')+'">'
+      +'<span>🧪 '+esc(label)+'</span>'
+      +(istP3?'<span class="btb-p3-arrow" style="font-size:14px">'+(hatP3Daten?'⌃':'⌄')+'</span>':'')
+      +'</div>';
     prodBlocks+='<div data-prod="'+pn2+'" style="background:'+bgMap[pn2]+';border:1.5px solid '+colorMap[pn2]+'33;border-radius:8px;padding:9px;margin-top:7px">'
-      +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">🧪 '+esc(label)+'</div>'
+      +titelZeile
+      +(istP3?'<div class="btb-p3-body" style="display:'+(hatP3Daten?'block':'none')+'">':'')
       +'<div class="btb-grid-4">'
       +'<div class="btb-feld"><div class="btb-feld-lbl">Vorgefunden</div>'
       +'<input type="number" step="1" class="btb-vg" placeholder="–" value="'+(dvP.vg!=null?dvP.vg:'')+'">'+hintVG+'</div>'
@@ -4196,7 +4350,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       +'<input type="number" step="1" class="btb-neu" placeholder="–" value="'+(dvP.neu!=null?dvP.neu:'')+'" style="background:#dcfce7;color:#15803d;font-weight:700" tabindex="-1">'+hintNEU+'</div>'
       +'<div class="btb-feld"><div class="btb-feld-lbl">Lager</div>'
       +'<input type="number" step="1" class="btb-lg" placeholder="–" value="'+(dvP.lg!=null?dvP.lg:'')+'">'+hintLG+'</div>'
-      +'</div>'+dosierHtml+'</div>';
+      +'</div>'+dosierHtml+(istP3?'</div>':'')+'</div>';
   });
 
   // Produktnamen-Editor
@@ -4209,6 +4363,14 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" data-pname="2" value="'+esc(pn.p2||'KT/LB')+'" placeholder="z.B. KT 300 K"></div>'
     +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" data-pname="3" value="'+esc(pn.p3||'')+'" placeholder="z.B. BZ 219S"></div>'
     +'</div>'
+    +(andereAnlagen.length
+      ? '<div style="margin-top:8px;font-size:11px;color:var(--mu)">Gilt zunächst nur für <b>'+esc(anlageName)+'</b>. Auch übernehmen für:</div>'
+        +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">'
+        +andereAnlagen.map(name=>'<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx);cursor:pointer">'
+          +'<input type="checkbox" class="btb-pname-share-cb" data-anlage="'+esc(name)+'" style="width:15px;height:15px;accent-color:var(--bd);flex-shrink:0">'
+          +esc(name)+'</label>').join('')
+        +'</div>'
+      : '')
     +'<button data-action="saveprod" style="margin-top:7px;padding:6px 14px;border:none;border-radius:7px;background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Speichern</button>'
     +'</div></div>';
 
@@ -4364,6 +4526,20 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       if(neu) neu.value=(!vgStr&&!afStr)?'':(+(vg+af).toFixed(2));
     });
   });
+  // Live-Delta: eingegebenes Vorgefunden vs. errechnetes Soll Vorgefunden (nur P1/P3 mit Dosierung)
+  form.querySelectorAll('.btb-vg').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      const produktBlock=el.closest('[data-prod]');if(!produktBlock)return;
+      const deltaFeld=produktBlock.querySelector('.btb-delta-vorgef');
+      if(!deltaFeld)return;
+      const sollStr=deltaFeld.dataset.soll;
+      const vgStr=el.value;
+      if(sollStr===''||vgStr===''){ deltaFeld.value='–'; return; }
+      const delta=+(parseFloat(vgStr)-parseFloat(sollStr)).toFixed(2);
+      deltaFeld.value=(delta>0?'+':'')+delta;
+    });
+    if(el.value!=='') el.dispatchEvent(new Event('input')); // initial anzeigen, falls VG schon vorbelegt ist
+  });
   // Dosier-Checkboxen via addEventListener (nach innerHTML= sicher registrierbar)
   form.querySelectorAll('[data-dosier]').forEach(el=>{
     el.addEventListener('change',()=>btbSaveDosierFromForm(form,id,k,slug));
@@ -4377,6 +4553,18 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     });
   });
   // Produktnamen: Toggle-Bereich auf-/zuklappen
+  // BZ2 (Produkt 3) ein-/ausklappen
+  const p3Toggle=form.querySelector('.btb-p3-toggle');
+  if(p3Toggle){
+    p3Toggle.addEventListener('click', ()=>{
+      const body=p3Toggle.parentElement.querySelector('.btb-p3-body');
+      const arrow=p3Toggle.querySelector('.btb-p3-arrow');
+      if(!body)return;
+      const offen=body.style.display!=='none';
+      body.style.display=offen?'none':'block';
+      if(arrow) arrow.textContent=offen?'⌄':'⌃';
+    });
+  }
   const pToggle=form.querySelector('.btb-pname-toggle');
   if(pToggle) pToggle.addEventListener('click',()=>{
     const body=pToggle.nextElementSibling;
@@ -4388,13 +4576,32 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     const p1=form.querySelector('[data-pname="1"]')?.value.trim()||'';
     const p2=form.querySelector('[data-pname="2"]')?.value.trim()||'';
     const p3=form.querySelector('[data-pname="3"]')?.value.trim()||'';
+    const geteiltMit=[...form.querySelectorAll('.btb-pname-share-cb:checked')].map(cb=>cb.dataset.anlage);
     // Erst aktuellen Formularstand sichern (wie Zwischenspeichern), aber nur falls dort
-    // tatsächlich etwas eingetragen wurde — p1/p2/p3 wurden oben schon gelesen, form kann
+    // tatsächlich etwas eingetragen wurde — Werte wurden oben schon gelesen, form kann
     // durchs Neuladen danach ungültig werden
     if(btbFormHatEingaben(form)) await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
-    const {error}=await _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',id);
-    if(error){toast('⚠️ '+error.message);return;}
-    toast('✓ Bezeichnungen gespeichert');
+
+    // Produktnamen pro Anlage speichern — für die aktuelle Anlage und alle angekreuzten
+    const neuePn={p1,p2,p3};
+    const alleProduktNamen=Object.assign({}, k.produkt_namen_pro_anlage||{});
+    alleProduktNamen[slug]=neuePn;
+    geteiltMit.forEach(name=>{ alleProduktNamen[btbSlug(name)]=neuePn; });
+    k.produkt_namen_pro_anlage=alleProduktNamen; // lokal sofort übernehmen
+    btbSaveSnapshot();
+
+    if(isOnline()){
+      const {error}=await _sb.from('kbe_kunden').update({produkt_namen_pro_anlage:alleProduktNamen}).eq('id',id);
+      if(error){
+        addToQueue({type:'kbe_kunden_update', data:{id, patch:{produkt_namen_pro_anlage:alleProduktNamen}}});
+        toast('⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen');
+      } else {
+        toast('✓ Bezeichnungen gespeichert'+(geteiltMit.length?' ('+(geteiltMit.length+1)+' Anlagen)':''));
+      }
+    } else {
+      addToQueue({type:'kbe_kunden_update', data:{id, patch:{produkt_namen_pro_anlage:alleProduktNamen}}});
+      toast('📥 Offline gespeichert — wird hochgeladen sobald online');
+    }
     await loadAll();
   });
 
@@ -4747,7 +4954,16 @@ async function btbFertigZumBerechnen(kid){
       if(dInfo&&dInfo.block2Aktiv&&dInfo.tage2&&dInfo.tage2.length&&dInfo.menge2){
         soll2=btbBerechneSoll(anlHistorie,{tage:dInfo.tage2,menge:dInfo.menge2,uhr:dInfo.uhr2},datumFuerRow,dv.uhr||'23:59');
       }
-      dosierSnapMitSoll[pk]=Object.assign({},dInfo,{soll,soll2});
+      // Soll Vorgefunden (letztes "Neu" minus Gesamt-Soll) + Delta zum tatsächlich eingegebenen
+      // Vorgefunden dieser Anlage/dieses Produkts — fürs Log, nicht für Excel gedacht
+      const pnr=pk.replace('p','');
+      const gesamtSoll=(soll!=null||soll2!=null)?((soll||0)+(soll2||0)):null;
+      const letztesNeuEintrag=anlHistorie.find(x=>x['p'+pnr+'_neu']!=null);
+      const letztesNeu=letztesNeuEintrag?letztesNeuEintrag['p'+pnr+'_neu']:null;
+      const sollVorgefunden=(letztesNeu!=null&&gesamtSoll!=null)?+(letztesNeu-gesamtSoll).toFixed(2):null;
+      const eingegebenVorgefunden=dv['p'+pnr]?.vg;
+      const deltaVorgefunden=(sollVorgefunden!=null&&eingegebenVorgefunden!=null)?+(eingegebenVorgefunden-sollVorgefunden).toFixed(2):null;
+      dosierSnapMitSoll[pk]=Object.assign({},dInfo,{soll,soll2,sollVorgefunden,deltaVorgefunden});
     });
     return {
       id:btbUuid(), // clientseitig erzeugt — funktioniert auch offline, Supabase übernimmt die id 1:1
@@ -4834,19 +5050,6 @@ async function btbSetBerechnet(eid, kid){
 }
 
 
-// Produktnamen für Kunden speichern
-async function btbSaveProdNamen(kid){
-  const p1=(G('btb-pn1-'+kid)?.value||'').trim();
-  const p2=(G('btb-pn2-'+kid)?.value||'').trim();
-  const p3=(G('btb-pn3-'+kid)?.value||'').trim();
-  const {error}=await _sb.from('kbe_kunden').update({produkt_namen:{p1,p2,p3}}).eq('id',kid);
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
-  toast('✓ Produktbezeichnungen gespeichert');
-  G('btb-pedit-'+kid).style.display='none';
-  await loadAll();
-}
-
-
 
 // ── Eintrag löschen ──
 async function btbDelEintrag(eid, kid){
@@ -4874,7 +5077,7 @@ function btbEditEintrag(kid, anlageName, eid){
   panel.className='btb-edit-panel btb-form';
   panel.style.cssText='border:2px solid var(--bl);margin-top:-4px;border-radius:0 0 9px 9px';
 
-  const pn=k.produkt_namen||{p1:'BZ',p2:'KT/LB',p3:''};
+  const pn=btbGetProduktNamen(k, e.anlage);
   let prodEditHtml='';
   [1,2,3].forEach(pn2=>{
     const pname=pn['p'+pn2]||'';
