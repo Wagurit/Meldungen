@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v91</title>
+<title>Meldungen &amp; Angebote v94</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v91</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v94</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -501,10 +501,10 @@ textarea{resize:vertical;min-height:68px;}
       <div class="card">
         <div class="sl">Kundenname</div>
         <div class="acw">
-          <input type="text" id="ink" placeholder="Kundenname eingeben…" autocomplete="off"
-            oninput="onKI(this.value);btbSyncKundenSuche(this.value,'ink')" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
+          <input type="text" id="ink" placeholder="Kundenname eingeben…" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" name="btb-kundenname-suche"
+            oninput="btbSyncKundenSuche(this.value,'ink')" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
           <button class="sin-clear" onclick="btbClearSuche('ink')" tabindex="-1">✕</button>
-          <div class="acl" id="acl"></div>
+          <div class="acl" id="acl-ink"></div>
         </div>
         <div class="abts">
           <button class="abt" id="abt-m" onclick="tog('m')"><span class="ic">📋</span>Meldung</button>
@@ -861,6 +861,23 @@ textarea{resize:vertical;min-height:68px;}
   </div><!-- /cnt -->
 </div><!-- /ap -->
 
+<!-- Kundenname-Korrektur-Modal -->
+<div class="modal-overlay" id="firma-edit-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-icon">✏️</div>
+    <div class="modal-title">Kundenname korrigieren</div>
+    <div class="modal-body">Nur bestehende KBE/BTB-Kunden können ausgewählt werden, damit keine neue Namensvariante entsteht.</div>
+    <div style="position:relative;margin:12px 0">
+      <input type="text" id="firma-edit-input" placeholder="Kundenname…" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--bo);border-radius:8px;font-size:15px">
+      <div class="acl" id="acl-firma-edit"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="modal-btn" onclick="btbSpeichereNamensKorrektur()" style="flex:1">Speichern</button>
+      <button class="modal-btn" onclick="btbSchliesseNamensEditor()" style="flex:1;background:#94a3b8">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <!-- Erinnerungs-Modal -->
 <div class="modal-overlay" id="erinnerung-modal" style="display:none">
   <div class="modal-box">
@@ -892,7 +909,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v94';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1401,6 +1418,7 @@ async function swTab(n){
   await btbAutoSaveAlleOffenenFormulare();
   if(kz) loadAll();
 }
+G('firma-edit-input').addEventListener('input', btbFirmaEditZeigeVorschlaege);
 
 // ══════════════════════════════════════════════════════════
 // LOGIK-HILFSFUNKTIONEN
@@ -1447,23 +1465,13 @@ function allK(){
   KBE.forEach(k=>{ if(k.firma) s.add(k.firma.trim()); });
   return[...s].sort((a,b)=>a.localeCompare(b,'de'));
 }
-function onKI(v){
-  const l=G('acl');
-  const vTrim=(v||'').trim();
-  const vLower=vTrim.toLowerCase();
-  const k2=vLower?allK().filter(x=>x.toLowerCase().includes(vLower)&&x!==vTrim):[];
-  if(!k2.length||!vLower){l.classList.remove('open');return;}
-  l.innerHTML=k2.slice(0,7).map(x=>'<div class="aci" onmousedown="pickK(\''+esc(x)+'\')">'+esc(x)+'</div>').join('');
-  l.classList.add('open');
-}
-function pickK(k2){G('ink').value=k2;inkDirty=false;closeAc();}
-function closeAc(){G('acl').classList.remove('open');}
-function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;}onKI(inp.value);}
+function closeAc(){G('acl-ink').classList.remove('open');}
+function focusInk(){const inp=G('ink');if(inkDirty){inp.select();inkDirty=false;}}
 
 // ── Autocomplete für alle Such-/Filterfelder (Meldungen, Chemie, Angebot, KBE, BTB) ──
 // Zeigt beim Tippen passende Kundennamen als Vorschläge, Antippen wählt direkt aus
 // und stößt die normale Sync-/Filter-Logik des jeweiligen Feldes mit an.
-const BTB_AC_FELDER=['sm','sb-search','btb-suche','sc','sff','kbe-suche','sk','is-suche','wz-suche'];
+const BTB_AC_FELDER=['ink','sm','sb-search','btb-suche','sc','sff','kbe-suche','sk','is-suche','wz-suche'];
 function btbSetupSucheAutocomplete(inputId){
   const inp=G(inputId),acl=G('acl-'+inputId);
   if(!inp||!acl)return;
@@ -1545,6 +1553,60 @@ G('ccu').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();a
 // entspricht (verhindert neue Namensvarianten wie "Sterncenter" vs. "Stern Center").
 // Existiert noch keiner, wird nach Bestätigung ein neuer KBE-Kunde angelegt — der
 // erscheint danach sofort als Chip bei KBE UND bei BTB, da beide dieselbe Tabelle nutzen. ──
+// ── Kundenname bei einem bestehenden Meldung/Chemie/Angebot-Eintrag korrigieren ──
+// (z.B. "Stern Center" -> "Sterncenter Lüdenscheid") — nur bestehende KBE/BTB-Namen erlaubt.
+let _firmaEditKontext=null; // {tabelle, eid}
+const FIRMA_EDIT_ARR_MAP={meldungen:()=>MD, chemie:()=>CH, freie_angebote:()=>FR};
+function btbOeffneNamensEditor(tabelle, eid, aktuellerName){
+  _firmaEditKontext={tabelle, eid};
+  const modal=G('firma-edit-modal');
+  const inp=G('firma-edit-input');
+  inp.value=aktuellerName||'';
+  modal.style.display='flex';
+  setTimeout(()=>{inp.focus();inp.select();},50);
+}
+function btbSchliesseNamensEditor(){
+  G('firma-edit-modal').style.display='none';
+  G('acl-firma-edit').classList.remove('open');
+  _firmaEditKontext=null;
+}
+function btbFirmaEditZeigeVorschlaege(){
+  const l=G('acl-firma-edit');
+  const inp=G('firma-edit-input');
+  const vTrim=(inp.value||'').trim();
+  const vLower=vTrim.toLowerCase();
+  const treffer=vLower?[...new Set(KBE.map(k=>k.firma))].filter(x=>x.toLowerCase().includes(vLower)&&x!==vTrim):[];
+  l.innerHTML='';
+  if(!treffer.length){l.classList.remove('open');return;}
+  treffer.slice(0,7).forEach(x=>{
+    const div=document.createElement('div');
+    div.className='aci';
+    div.textContent=x;
+    div.addEventListener('mousedown',()=>{ inp.value=x; l.classList.remove('open'); });
+    l.appendChild(div);
+  });
+  l.classList.add('open');
+}
+async function btbSpeichereNamensKorrektur(){
+  if(!_firmaEditKontext)return;
+  const neuerName=(G('firma-edit-input').value||'').trim();
+  if(!neuerName)return;
+  const existiert=KBE.find(k2=>k2.firma.trim().toLowerCase()===neuerName.toLowerCase());
+  if(!existiert){
+    alert('„'+neuerName+'" ist kein bestehender KBE/BTB-Kunde.\nBitte über die Vorschlagsliste einen bestehenden Namen auswählen, damit keine neue Variante entsteht.');
+    return;
+  }
+  const {tabelle,eid}=_firmaEditKontext;
+  const {error}=await _sb.from(tabelle).update({firma:existiert.firma}).eq('id',eid);
+  if(error){ toast('⚠️ Fehler: '+error.message); return; }
+  const arrGetter=FIRMA_EDIT_ARR_MAP[tabelle];
+  const arr=arrGetter?arrGetter():null;
+  const e=arr?arr.find(x=>x.id===eid):null;
+  if(e) e.firma=existiert.firma;
+  toast('✓ Kundenname geändert');
+  btbSchliesseNamensEditor();
+  renderM();renderC();renderF();
+}
 async function btbEnsureKundeExistiert(firma){
   const firmaTrim=(firma||'').trim();
   if(!firmaTrim) return true; // leer wird separat durch die Pflichtfeld-Prüfung abgefangen
@@ -2224,10 +2286,11 @@ function buildMeldChip(e){
   el.className='v2-chip'+(explizit?' fm':offen?' ung':'');
   const istFav=FAVORITEN.has(eid);
   const sternHtml='<button class="stern-btn'+(istFav?' aktiv':'')+'" onclick="toggleFav(\''+eid+'\')" title="'+(istFav?'Aus Gemerkt entfernen':'Zu Gemerkt hinzuf\u00fcgen')+'">'+(istFav?'\u2B50':'\u2606')+'</button>';
+  const editIconHtml='<button class="v2-firma-edit-btn" data-tabelle="meldungen" data-eid="'+eid+'" title="Kundenname korrigieren" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:.6;margin-left:5px;vertical-align:middle;padding:2px">✏️</button>';
 
   const headerInner=offen||explizit
-    ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+'</div>'+metaHeader+'</div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>'
-    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+'</div><div style="font-size:11px;color:#94a3b8;margin-top:3px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>';
+    ? '<div class="v2-header-inner" style="background:'+(explizit?'var(--vi)':'var(--or)')+'"><div><div class="v2-firma" style="color:#fff">'+esc(e.firma)+editIconHtml+'</div>'+metaHeader+'</div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>'
+    : '<div class="v2-header-inner"><div><div class="v2-firma">'+esc(e.firma)+editIconHtml+'</div><div style="font-size:11px;color:#94a3b8;margin-top:3px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div><div class="v2-badges" style="display:flex;align-items:center;gap:4px">'+sternHtml+bStatus+bZuw+'</div></div>';
   el.innerHTML=
     '<div class="v2-header"><div class="v2-stripe"></div>'+headerInner+'</div>'+
     '<div class="v2-body">'+
@@ -2308,6 +2371,9 @@ function buildMeldChip(e){
     wlBtn.onclick = () => {const open = wlBox.style.display === 'flex';wlBox.style.display = open ? 'none' : 'flex';wlBox.style.flexDirection = 'column';wlBtn.textContent = open ? '↪ Weiterleiten' : '↾ Schließen';};
     body.appendChild(wlWrap);
   }
+  el.querySelectorAll('.v2-firma-edit-btn').forEach(btn=>{
+    btn.addEventListener('click',(ev)=>{ ev.stopPropagation(); btbOeffneNamensEditor(btn.dataset.tabelle, btn.dataset.eid, e.firma); });
+  });
   return el;
 }
 
@@ -2341,11 +2407,14 @@ function renderC(){
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe"></div>'+
       '<div class="v2-header-inner">'+
-        '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
+        '<div><div class="v2-firma">'+esc(e.firma)+'<button class="v2-firma-edit-btn" data-tabelle="chemie" data-eid="'+eid+'" title="Kundenname korrigieren" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:.6;margin-left:5px;vertical-align:middle;padding:2px">✏️</button></div>'+
         '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div>'+
         '<div class="v2-badges">'+statusBadge+'</div>'+
       '</div></div>'+
       '<div class="v2-body"><div class="v2-text" style="font-weight:600">'+produkteHtml+'</div>'+notizHtml+'</div>';
+    el.querySelectorAll('.v2-firma-edit-btn').forEach(btn=>{
+      btn.addEventListener('click',(ev)=>{ ev.stopPropagation(); btbOeffneNamensEditor(btn.dataset.tabelle, btn.dataset.eid, e.firma); });
+    });
     const body=el.querySelector('.v2-body');
     if(e.erledigt){const div=document.createElement('div');div.innerHTML=aktionHtml;body.appendChild(div);}
     else{body.appendChild(aktionHtml);}
@@ -2439,7 +2508,7 @@ function renderF(){
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe"></div>'+
       '<div class="v2-header-inner">'+
-        '<div><div class="v2-firma">'+esc(e.firma)+'</div>'+
+        '<div><div class="v2-firma">'+esc(e.firma)+'<button class="v2-firma-edit-btn" data-tabelle="freie_angebote" data-eid="'+e.id+'" title="Kundenname korrigieren" style="background:none;border:none;cursor:pointer;font-size:13px;opacity:.6;margin-left:5px;vertical-align:middle;padding:2px">✏️</button></div>'+
         '<div style="font-size:11px;color:#94a3b8;margin-top:2px;display:flex;gap:6px;align-items:center">'+kzBadge(e.kuerzel)+'<span>'+fd(e.ts)+'</span></div></div>'+
         '<div class="v2-badges">'+
           (e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+
@@ -2454,6 +2523,9 @@ function renderF(){
         meta+rqHtml+rqBoxHtml+kommHtml+freiBearbeitenHtml+
         (e.erledigt?'<div class="erlinfo">✅ '+(e.angebotsnr?'<strong>AN: '+esc(e.angebotsnr)+'</strong> ':'')+esc(e.erledigt_von)+' · '+fd(e.erledigt_ts)+'</div>':'')+
       '</div>';
+    el.querySelectorAll('.v2-firma-edit-btn').forEach(btn=>{
+      btn.addEventListener('click',(ev)=>{ ev.stopPropagation(); btbOeffneNamensEditor(btn.dataset.tabelle, btn.dataset.eid, e.firma); });
+    });
     const body=el.querySelector('.v2-body');
     if(!e.erledigt){
       const anrDiv=document.createElement('div');anrDiv.className='anr';

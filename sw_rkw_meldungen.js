@@ -1,19 +1,19 @@
 // ══════════════════════════════════════════════════════════
-// sw_rkw_meldungen.js – Service Worker v23
-// v23-FIX (iOS): Safari cacht auf einer tieferen Ebene als der
-//          Service-Worker-eigene Cache — dem normalen HTTP-Cache des
-//          Browsers. Ein einfaches fetch() kann dort trotzdem eine
-//          alte, zwischengespeicherte Antwort zurückbekommen, OHNE
-//          überhaupt neu nachzufragen. Das war vermutlich der Grund,
-//          warum PC schon aktuell war, iOS aber hinterherhing.
-//          Fix: {cache:'no-store'} erzwingt bei JEDER Netzwerkanfrage
-//          fürs HTML, dass iOS den HTTP-eigenen Cache komplett
-//          umgeht und wirklich frisch vom Server holt.
+// sw_rkw_meldungen.js – Service Worker v24
+// v24-FIX (iOS Homescreen-PWA): Bei als Homescreen-Icon installierten PWAs ist iOS/WebKit
+//          bekanntermaßen unzuverlässig darin, {cache:'no-store'} bei fetch() wirklich zu
+//          respektieren — in einem normalen Safari-Tab klappt es meist, im "installierten"
+//          Modus (eigener WKWebView-Prozess) kann iOS trotzdem eine alte Antwort ausliefern.
+//          Zusätzlicher Fix: An die Netzwerk-Anfrage selbst wird ein Cache-Buster-Parameter
+//          (?_swbust=Zeitstempel) angehängt. Das macht jede Anfrage zu einer für iOS komplett
+//          NEUEN, nie zuvor gesehenen URL — die kann unmöglich in irgendeinem Cache stecken,
+//          unabhängig davon, ob {cache:'no-store'} beachtet wird oder nicht.
+// v23: {cache:'no-store'} als erste Absicherung (bleibt zusätzlich bestehen).
 // v22: Network-first greift bei jeder .html-Datei (nicht nur "index.html").
 // v21: Supabase- und CDN-Requests laufen immer live vom Netz (nie gecacht).
-// Rest unverändert zu v20 (inkl. Push-Support).
+// Rest unverändert (inkl. Push-Support).
 // ══════════════════════════════════════════════════════════
-const CACHE = 'rkw-v23';
+const CACHE = 'rkw-v24';
 const FILES = ['./', './manifest.json', './icon-192.png'];
 
 const NIEMALS_CACHEN = ['supabase.co', 'cdn.jsdelivr.net', 'cdn.sheetjs.com'];
@@ -28,17 +28,17 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => {
-      console.log('[SW v23] Gefundene Caches:', keys);
+      console.log('[SW v24] Gefundene Caches:', keys);
       return Promise.all(
         keys.map(k => {
           if(k !== CACHE) {
-            console.log('[SW v23] Lösche alten Cache:', k);
+            console.log('[SW v24] Lösche alten Cache:', k);
             return caches.delete(k);
           }
         })
       );
     }).then(() => {
-      console.log('[SW v23] Aktiv – alle alten Caches gelöscht');
+      console.log('[SW v24] Aktiv – alle alten Caches gelöscht');
       return self.clients.claim();
     })
   );
@@ -53,11 +53,15 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Network-first für JEDE .html-Datei + Root — mit no-store gegen iOS' eigenen HTTP-Cache
   if(url.pathname === '/' || url.pathname.endsWith('.html')) {
+    // Cache-Buster an die tatsächliche Netzwerk-Anfrage anhängen (v24) — macht jede Anfrage
+    // zu einer nie zuvor gesehenen URL, zusätzlich zu {cache:'no-store'}
+    const bustUrl = url.href + (url.search ? '&' : '?') + '_swbust=' + Date.now();
     e.respondWith(
-      fetch(e.request, { cache: 'no-store' })
+      fetch(bustUrl, { cache: 'no-store' })
         .then(resp => {
+          // Im Cache unter der ORIGINAL-URL (ohne Buster) ablegen, damit ein Offline-Fallback
+          // (catch unten) die Anfrage später wiederfindet
           const clone = resp.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
           return resp;
@@ -67,7 +71,6 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Für alles andere (CSS/JS/Icons): Cache-first
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );
