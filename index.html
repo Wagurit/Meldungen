@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote v94</title>
+<title>Meldungen &amp; Angebote v99</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -463,7 +463,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote v94</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote v99</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -909,7 +909,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v99';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -2874,15 +2874,30 @@ async function saveBestKunde(){
   }
   const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
   await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
-  const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
-  k.rkws=neueRkws;
+  // Bei gleichem Datum den bestehenden Eintrag aktualisieren statt einen neuen anzulegen —
+  // verhindert Duplikate, falls für denselben Tag mehrfach gespeichert wird (Werte werden
+  // zusammengeführt, damit früher eingetragene Anlagen nicht verloren gehen)
+  const bestehenderEintrag=k.eintraege.find(e=>e.ts===datum);
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-  if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
+  if(bestehenderEintrag){
+    const zusammengefuehrteWerte=Object.assign({},bestehenderEintrag.werte,werte);
+    const {error:updFehler}=await _sb.from('kbe_eintraege').update({werte:zusammengefuehrteWerte,kuerzel:kz}).eq('id',bestehenderEintrag.id);
+    if(updFehler){ toast('⚠️ Fehler: '+updFehler.message); return; }
+    bestehenderEintrag.werte=zusammengefuehrteWerte;
+    bestehenderEintrag.kuerzel=kz;
+  } else {
+    const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
+    if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
+  }
+  k.rkws=neueRkws;
   // BTB: KBE-Auswertung JEDER Anlage mit Wert dem passenden BTB-Eintrag zuordnen (nicht nur der ersten!)
   for(const anlageName of Object.keys(werte)){
     await btbLinkKbe(k.id, anlageName, datum, werte[anlageName]);
   }
   toast('✓ KBE-Werte gespeichert und BTB aktualisiert');renderKbeListe();renderKbeKunden();updB();
+  // BTB- und BTB-Innen-Ansicht neu rendern — sonst bleibt der "⏳ KBE ausstehend"-Chip im
+  // Verlauf sichtbar, obwohl die Daten (via btbLinkKbe) bereits korrekt aktualisiert sind
+  renderBtbTab();renderInnendienstTab();
   selKbeKunde=null;G('kbe-bestehend-form').style.display='none';
   document.querySelectorAll('#kbe-kunden-grid .kunde-chip').forEach(b=>b.classList.remove('sel'));
   G('kbe-best-rkws').innerHTML='';
@@ -4240,7 +4255,7 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         eBox.innerHTML=html;
         // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
         const berechnetBtn=eBox.querySelector('.btb-berechnet-btn');
-        if(berechnetBtn) berechnetBtn.addEventListener('click',()=>btbSetBerechnet(berechnetBtn.dataset.eid,berechnetBtn.dataset.kid));
+        if(berechnetBtn) berechnetBtn.addEventListener('click',()=>btbSetBerechnet(berechnetBtn));
         const editBtn=eBox.querySelector('.btb-edit-btn');
         if(editBtn) editBtn.addEventListener('click',()=>btbEditEintrag(editBtn.dataset.kid,editBtn.dataset.anlage,editBtn.dataset.eid));
         const delBtn=eBox.querySelector('.btb-del-btn');
@@ -5102,8 +5117,14 @@ async function btbFertigZumBerechnen(kid){
 }
 
 // ── Berechnet: Rechnungsnummer eintragen + Status setzen ──
-async function btbSetBerechnet(eid, kid){
-  const rnr=(document.querySelector('.btb-rnr-input[data-eid="'+eid+'"]')?.value||'').trim();
+// Erhält das geklickte Button-Element selbst (nicht nur eid/kid) — so wird das zugehörige
+// RNr-Feld relativ zu DIESEM Button gesucht. Bei einer document-weiten Suche über eid allein
+// würde bei gleichzeitig gerenderten Karten in BTB und BTB Innen (gleicher Eintrag, zwei
+// DOM-Instanzen) immer die ERSTE gefundene Instanz treffen — unabhängig davon, in welcher
+// der Techniker/Innendienst tatsächlich etwas eingetragen hat.
+async function btbSetBerechnet(btn){
+  const eid=btn.dataset.eid, kid=btn.dataset.kid;
+  const rnr=(btn.parentElement?.querySelector('.btb-rnr-input')?.value||'').trim();
   if(!rnr){toast('⚠️ Bitte zuerst Rechnungsnummer eintragen.');return;}
   const k=BTB_KUNDEN.find(x=>x.id===kid);
   const eintrag=k?.eintraege.find(x=>x.id===eid);
@@ -5266,18 +5287,34 @@ async function btbSaveEdit(eid, kid){
 // ══════════════════════════════════════════════════════════
 async function btbLinkKbe(kunde_id, anlageName, datum, kbeWert){
   if(!kunde_id||!datum||!kbeWert||!anlageName)return;
-  // Passenden BTB-Eintrag suchen (gleicher Kunde, GLEICHE ANLAGE, gleiches Datum)
-  const {data:treffer}=await _sb.from('btb_eintraege')
-    .select('id,kbe_auswertung')
-    .eq('kunde_id',kunde_id)
-    .eq('datum_btb',datum)
-    .eq('anlage',anlageName)
-    .maybeSingle();
-  if(!treffer){
-    // Keine passende Anlage/kein BTB-Eintrag zu diesem Datum → nichts zu tun, KBE-Eintrag läuft separat
-    return;
+  try{
+    // Passenden BTB-Eintrag suchen (gleicher Kunde, GLEICHE ANLAGE, gleiches Datum).
+    // Bewusst kein .maybeSingle() — das wirft einen Fehler bei mehr als einem Treffer
+    // (z.B. durch mehrfaches Testen von FERTIG mit demselben Datum entstanden). Stattdessen:
+    // neuesten Treffer nehmen, falls es mehrere geben sollte.
+    const {data:treffer,error:selErr}=await _sb.from('btb_eintraege')
+      .select('id,kbe_auswertung')
+      .eq('kunde_id',kunde_id)
+      .eq('datum_btb',datum)
+      .eq('anlage',anlageName)
+      .order('erstellt_am',{ascending:false})
+      .limit(1);
+    if(selErr){ console.error('btbLinkKbe Suchfehler:', selErr); return; }
+    if(!treffer||!treffer.length){
+      // Keine passende Anlage/kein BTB-Eintrag zu diesem Datum → nichts zu tun, KBE-Eintrag läuft separat
+      return;
+    }
+    const treff=treffer[0];
+    const {error:updErr}=await _sb.from('btb_eintraege').update({kbe_auswertung:kbeWert}).eq('id',treff.id);
+    if(updErr){ console.error('btbLinkKbe Update-Fehler:', updErr); return; }
+    // Lokalen Stand sofort mit aktualisieren — sonst zeigt "offene DipSlide-Probe" in KBE Auswerten
+    // weiterhin den alten (unbearbeiteten) Zustand, bis irgendwann ein voller Reload passiert
+    const btbKunde=BTB_KUNDEN.find(bk=>bk.id===kunde_id);
+    const lokalerEintrag=btbKunde?.eintraege.find(e=>e.id===treff.id);
+    if(lokalerEintrag) lokalerEintrag.kbe_auswertung=kbeWert;
+  }catch(e){
+    console.error('btbLinkKbe unerwarteter Fehler:', e);
   }
-  await _sb.from('btb_eintraege').update({kbe_auswertung:kbeWert}).eq('id',treffer.id);
 }
 
 // ══════════════════════════════════════════════════════════
