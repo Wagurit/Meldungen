@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.3</title>
+<title>Meldungen &amp; Angebote 2.4</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -464,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.3</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.4</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -910,7 +910,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1126,7 +1126,13 @@ if('serviceWorker' in navigator){
       });
     });
   });
-  navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
+  // controllerchange feuert wenn ein neuer SW die Kontrolle übernimmt (z.B. durch Pull-down
+  // auf iOS, das intern skipWaiting auslösen kann). Ein blindes location.reload() hier würde
+  // offline die Session zerstören, weil getSession() dann fehlschlägt. Stattdessen: nur neu
+  // laden wenn wirklich eine neue App-Version da ist, und nur wenn online.
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(isOnline()) location.reload();
+  });
 }
 function applyUpdate(){
   if(swReg&&swReg.waiting){swReg.waiting.postMessage('SKIP_WAITING');}
@@ -1136,28 +1142,51 @@ function applyUpdate(){
 // INIT
 // ══════════════════════════════════════════════════════════
 async function init(){
-  const {data:{session}} = await _sb.auth.getSession();
-  if(session){
-    await afterLogin(session.user);
-    return;
+  // getSession() liest primär aus dem lokalen Storage (Supabase speichert die Session dort),
+  // also funktioniert das auch offline. Schlägt es trotzdem fehl (z.B. nach einem Absturz),
+  // zeigen wir den Login statt die App abstürzen zu lassen.
+  try{
+    const {data:{session}} = await _sb.auth.getSession();
+    if(session){
+      await afterLogin(session.user);
+      return;
+    }
+  }catch(e){
+    console.warn('getSession fehlgeschlagen (offline?):', e.message);
   }
   G('loading').style.display = 'none';
   G('ls').style.display = 'flex';
 }
 
+const PROFIL_KEY='rkw_nutzer_profil';
 // ── BUG FIX #3: aktiv-Prüfung in afterLogin ──
 async function afterLogin(user){
   userId = user.id;
-  const {data:profil} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+  let profil=null;
+  if(isOnline()){
+    const {data} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+    profil=data;
+    if(profil) try{localStorage.setItem(PROFIL_KEY, JSON.stringify(profil));}catch(e){}
+  } else {
+    // Offline: letztes bekanntes Profil aus localStorage verwenden — Aktivitätsprüfung
+    // entfällt (kann offline nicht geprüft werden), Vertrauen auf die letzte Online-Prüfung
+    try{const raw=localStorage.getItem(PROFIL_KEY);if(raw)profil=JSON.parse(raw);}catch(e){}
+  }
   if(!profil){
-    await _sb.auth.signOut();
-    G('loading').style.display='none';
-    G('ls').style.display='flex';
-    showErr('Nutzer nicht in Datenbank gefunden.');
+    if(isOnline()){
+      await _sb.auth.signOut();
+      G('loading').style.display='none';
+      G('ls').style.display='flex';
+      showErr('Nutzer nicht in Datenbank gefunden.');
+    } else {
+      G('loading').style.display='none';
+      G('ls').style.display='flex';
+      showErr('Offline und kein gespeichertes Profil vorhanden – bitte zuerst online anmelden.');
+    }
     return;
   }
-  // BUG FIX #3: Deaktivierte Nutzer abweisen
-  if(profil.aktiv === false){
+  // BUG FIX #3: Deaktivierte Nutzer abweisen (nur wenn online prüfbar)
+  if(isOnline() && profil.aktiv === false){
     await _sb.auth.signOut();
     G('loading').style.display='none';
     G('ls').style.display='flex';
