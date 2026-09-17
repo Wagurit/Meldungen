@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.4</title>
+<title>Meldungen &amp; Angebote 2.5</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -464,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.4</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.5</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -910,7 +910,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.4';
+const APP_VERSION = '2.5';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1715,14 +1715,23 @@ async function btbSpeichereNamensKorrektur(){
 }
 async function btbEnsureKundeExistiert(firma){
   const firmaTrim=(firma||'').trim();
-  if(!firmaTrim) return true; // leer wird separat durch die Pflichtfeld-Prüfung abgefangen
+  if(!firmaTrim) return true;
   const vorhanden=KBE.find(k=>k.firma.trim().toLowerCase()===firmaTrim.toLowerCase());
   if(vorhanden) return true;
+  if(!isOnline()){
+    toast('⚠️ Offline: neue Kunden können nur online angelegt werden.');
+    return false;
+  }
   if(!confirm('„'+firmaTrim+'" ist noch kein bestehender Kunde bei KBE/BTB.\n\nAls neuen Kunden anlegen?'))return false;
-  const {error}=await _sb.from('kbe_kunden').insert({firma:firmaTrim, rkws:[], kuerzel_erstellt:kz});
+  const {data:neuerKunde,error}=await _sb.from('kbe_kunden').insert({firma:firmaTrim, rkws:[], kuerzel_erstellt:kz}).select().single();
   if(error){ toast('⚠️ Kunde konnte nicht angelegt werden: '+error.message); return false; }
   toast('✓ Neuer Kunde „'+firmaTrim+'" angelegt');
-  await loadAll(); // KBE/BTB_KUNDEN aktualisieren, damit der neue Kunde als Chip erscheint
+  // Lokal sofort einpflegen (kein loadAll → kein Seite-Leer-Problem)
+  if(neuerKunde){
+    const neuKBE={id:neuerKunde.id,firma:firmaTrim,rkws:[],eintraege:[],kuerzel_erstellt:kz};
+    KBE.unshift(neuKBE);
+    BTB_KUNDEN.unshift(Object.assign({},neuKBE,{entwuerfe:[]}));
+  }
   return true;
 }
 async function saveMeld(){
@@ -3006,27 +3015,42 @@ async function saveBestKunde(){
     if(!confirm('Für folgende Anlage(n) wurde laut BTB eine DipSlide-Probe gezogen, aber noch kein Wert eingetragen:\n\n'+fehlendeAnlagen.join(', ')+'\n\nTrotzdem speichern?'))return;
   }
   const neueRkws=[...k.rkws];rkws.forEach(r=>{if(!neueRkws.find(x=>x.name===r.name))neueRkws.push(r);});
-  await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
-  // Bei gleichem Datum den bestehenden Eintrag aktualisieren statt einen neuen anzulegen —
-  // verhindert Duplikate, falls für denselben Tag mehrfach gespeichert wird (Werte werden
-  // zusammengeführt, damit früher eingetragene Anlagen nicht verloren gehen)
+
+  // ── Schritt 1: rkws aktualisieren (Queue-Fallback wenn offline) ──
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
+    if(error){ toast('⚠️ Fehler beim Speichern der Anlagen: '+error.message); return; }
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{rkws:neueRkws}}});
+  }
+  k.rkws=neueRkws;
+  const btbKundeSync=BTB_KUNDEN.find(x=>x.id===k.id);
+  if(btbKundeSync) btbKundeSync.rkws=neueRkws;
+
+  // ── Schritt 2: KBE-Eintrag speichern (Queue-Fallback wenn offline) ──
   const bestehenderEintrag=k.eintraege.find(e=>e.ts===datum);
   const datumStr=new Date(datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   if(bestehenderEintrag){
     const zusammengefuehrteWerte=Object.assign({},bestehenderEintrag.werte,werte);
-    const {error:updFehler}=await _sb.from('kbe_eintraege').update({werte:zusammengefuehrteWerte,kuerzel:kz}).eq('id',bestehenderEintrag.id);
-    if(updFehler){ toast('⚠️ Fehler: '+updFehler.message); return; }
+    if(isOnline()){
+      const {error:updFehler}=await _sb.from('kbe_eintraege').update({werte:zusammengefuehrteWerte,kuerzel:kz}).eq('id',bestehenderEintrag.id);
+      if(updFehler){ toast('⚠️ Fehler: '+updFehler.message); return; }
+    } else {
+      addToQueue({type:'kbe_eintrag_update', data:{id:bestehenderEintrag.id, werte:zusammengefuehrteWerte, kuerzel:kz}});
+    }
     bestehenderEintrag.werte=zusammengefuehrteWerte;
     bestehenderEintrag.kuerzel=kz;
   } else {
-    const {data:neuerEintrag}=await _sb.from('kbe_eintraege').insert({kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
-    if(neuerEintrag)k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
+    const neuerId=btbUuid();
+    if(isOnline()){
+      const {data:neuerEintrag,error:insFehler}=await _sb.from('kbe_eintraege').insert({id:neuerId,kunde_id:k.id,datum,werte,kuerzel:kz}).select().single();
+      if(insFehler){ toast('⚠️ Fehler: '+insFehler.message); return; }
+      if(neuerEintrag) k.eintraege.unshift({id:neuerEintrag.id,ts:datum,datum:datumStr,werte,kuerzel:kz});
+    } else {
+      addToQueue({type:'kbe_eintrag_insert', data:{id:neuerId,kunde_id:k.id,datum,werte,kuerzel:kz}});
+      k.eintraege.unshift({id:neuerId,ts:datum,datum:datumStr,werte,kuerzel:kz});
+    }
   }
-  k.rkws=neueRkws;
-  // BTB_KUNDEN ebenfalls sofort aktualisieren — sonst erscheint eine neu hinzugefügte Anlage
-  // im BTB-/BTB-Innen-Tab erst nach einem vollen Neuladen
-  const btbKundeSync=BTB_KUNDEN.find(x=>x.id===k.id);
-  if(btbKundeSync) btbKundeSync.rkws=neueRkws;
   // BTB: KBE-Auswertung JEDER Anlage mit Wert dem passenden BTB-Eintrag zuordnen (nicht nur der ersten!)
   for(const anlageName of Object.keys(werte)){
     await btbLinkKbe(k.id, anlageName, datum, werte[anlageName]);
@@ -5715,6 +5739,21 @@ function btbReconcileQueue(){
       const kk=KBE.find(x=>x.id===d.id);
       if(kk) Object.assign(kk, d.patch);
     }
+    else if(item.type==='kbe_eintrag_insert'){
+      const d=item.data;
+      const kk=KBE.find(x=>x.id===d.kunde_id);
+      if(kk && !kk.eintraege.some(e=>e.id===d.id)){
+        const datumStr=new Date(d.datum).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+        kk.eintraege.unshift({id:d.id,ts:d.datum,datum:datumStr,werte:d.werte,kuerzel:d.kuerzel});
+      }
+    }
+    else if(item.type==='kbe_eintrag_update'){
+      const d=item.data;
+      KBE.forEach(kk=>{
+        const e=kk.eintraege.find(x=>x.id===d.id);
+        if(e){e.werte=d.werte;e.kuerzel=d.kuerzel;}
+      });
+    }
   });
 }
 
@@ -5741,6 +5780,16 @@ async function flushQueue(){
       }
       else if(item.type==='kbe_kunden_update'){
         const {error}=await _sb.from('kbe_kunden').update(item.data.patch).eq('id',item.data.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
+      else if(item.type==='kbe_eintrag_insert'){
+        const d=item.data;
+        const {error}=await _sb.from('kbe_eintraege').insert({id:d.id,kunde_id:d.kunde_id,datum:d.datum,werte:d.werte,kuerzel:d.kuerzel});
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
+      else if(item.type==='kbe_eintrag_update'){
+        const d=item.data;
+        const {error}=await _sb.from('kbe_eintraege').update({werte:d.werte,kuerzel:d.kuerzel}).eq('id',d.id);
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
     } catch(e){}
