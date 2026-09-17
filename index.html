@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.2</title>
+<title>Meldungen &amp; Angebote 2.3</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -350,6 +350,7 @@ textarea{resize:vertical;min-height:68px;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s;}
 .sync-dot.syncing{background:#fbbf24;animation:pulse .8s ease-in-out infinite;}
 .sync-dot.err{background:var(--rd);}
+.sync-dot.offline{background:#94a3b8;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .empty{text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:20px 0;font-style:italic;}
@@ -463,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.2</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.3</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -909,7 +910,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1097,7 +1098,7 @@ const V = id => (G(id) ? G(id).value || '' : '').trim();
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fd(ts){if(!ts)return'–';return new Date(ts).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
 function toast(msg){const t=G('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600);}
-function setSyncing(state){const d=G('sync-dot');if(!d)return;d.className='sync-dot'+(state==='ok'?'':state==='err'?' err':' syncing');}
+function setSyncing(state){const d=G('sync-dot');if(!d)return;d.className='sync-dot'+(state==='ok'?'':state==='err'?' err':state==='offline'?' offline':' syncing');}
 function kbeValClass(val){
   if(!val)return '';
   const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6','Nicht auswertbar':'vna'};
@@ -1226,6 +1227,39 @@ async function doLogout(){
 // DATEN LADEN
 // ══════════════════════════════════════════════════════════
 async function loadAllEigentlich(){
+  // Explizite Offline-Prüfung VOR dem Netzwerkversuch (statt erst zu scheitern und dann
+  // abzufangen): navigator.onLine erkennt "kein Netz da" zuverlässig genug, um unnötige,
+  // von vornherein aussichtslose Anfragen zu vermeiden. Das eliminiert auch den Wettlauf
+  // zwischen mehreren fehlschlagenden Aufrufen, der bei schnellem Tab-Wechseln offline
+  // auftreten konnte.
+  if(!isOnline()){
+    setSyncing('offline');
+    if(BTB_KUNDEN.length||KBE.length||MD.length||CH.length||FR.length){
+      // Schon ein Datenstand im Speicher (von einem früheren Laden oder Wiederherstellen
+      // in dieser Sitzung) — nichts anfassen, einfach den aktuellen Stand weiter anzeigen
+      return;
+    }
+    // Noch gar keine Daten im Speicher (z.B. App offline frisch gestartet) — direkt aus dem
+    // Schnappschuss laden, ohne vorher einen aussichtslosen Netzwerkversuch zu starten
+    const snap=btbLoadSnapshot();
+    if(snap){
+      BTB_KUNDEN=snap.BTB_KUNDEN||[];
+      KBE=snap.KBE||[];
+      BTB_MAENGEL=snap.BTB_MAENGEL||[];
+      MD=snap.MD||[];
+      CH=snap.CH||[];
+      FR=snap.FR||[];
+      LOG_DATA=snap.LOG_DATA||[];
+      WM=snap.WM||[];
+      FAVORITEN=new Set(snap.FAVORITEN||[]);
+      const zeit=snap.gespeichert_am?new Date(snap.gespeichert_am).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'unbekannt';
+      toast('📥 Offline — Datenstand vom '+zeit);
+      renderAll(); updB();
+    } else {
+      toast('⚠️ Kein Netz und noch kein Offline-Stand vorhanden');
+    }
+    return;
+  }
   setSyncing('syncing');
   try {
     const [m,c,f,k,ke,l,fav,wm,btb] = await Promise.all([
@@ -1331,6 +1365,12 @@ async function loadAllEigentlich(){
   } catch(e){
     setSyncing('err');
     console.error('loadAll Fehler:', e);
+    // navigator.onLine hat "online" gemeldet, die Anfrage ist aber trotzdem gescheitert
+    // (z.B. wacklige Verbindung). Auch hier: bei bereits vorhandenen Daten im Speicher
+    // nicht mit einem möglicherweise älteren Schnappschuss überschreiben.
+    if(BTB_KUNDEN.length||KBE.length||MD.length||CH.length||FR.length){
+      return;
+    }
     // Kein Netz (oder Fehler beim Laden) → auf zuletzt gespeicherten Offline-Snapshot zurückfallen,
     // damit der Techniker seine Kunden/Historie trotzdem sieht und weiterarbeiten kann
     const snap=btbLoadSnapshot();
