@@ -1,19 +1,15 @@
 // ══════════════════════════════════════════════════════════
-// sw_rkw_meldungen.js – Service Worker v24
-// v24-FIX (iOS Homescreen-PWA): Bei als Homescreen-Icon installierten PWAs ist iOS/WebKit
-//          bekanntermaßen unzuverlässig darin, {cache:'no-store'} bei fetch() wirklich zu
-//          respektieren — in einem normalen Safari-Tab klappt es meist, im "installierten"
-//          Modus (eigener WKWebView-Prozess) kann iOS trotzdem eine alte Antwort ausliefern.
-//          Zusätzlicher Fix: An die Netzwerk-Anfrage selbst wird ein Cache-Buster-Parameter
-//          (?_swbust=Zeitstempel) angehängt. Das macht jede Anfrage zu einer für iOS komplett
-//          NEUEN, nie zuvor gesehenen URL — die kann unmöglich in irgendeinem Cache stecken,
-//          unabhängig davon, ob {cache:'no-store'} beachtet wird oder nicht.
-// v23: {cache:'no-store'} als erste Absicherung (bleibt zusätzlich bestehen).
-// v22: Network-first greift bei jeder .html-Datei (nicht nur "index.html").
-// v21: Supabase- und CDN-Requests laufen immer live vom Netz (nie gecacht).
-// Rest unverändert (inkl. Push-Support).
+// sw_rkw_meldungen.js – Service Worker v25
+// v25: Neuer Cache-Name 'rkw-v25' erzwingt vollständige Cache-Invalidierung auf allen
+//      Geräten — insbesondere iOS-PWAs, die hartnäckig an 'rkw-v24' mit einer alten
+//      index.html festgehalten haben (sichtbar als Versionsnummer v99 statt 2.x).
+//      Der alte Cache 'rkw-v24' wird beim Aktivieren automatisch gelöscht.
+// v24: Cache-Buster-Parameter an Netzwerkanfragen für HTML-Dateien (iOS-PWA-Workaround).
+// v23: {cache:'no-store'} als erste Absicherung gegen iOS HTTP-Cache.
+// v22: Network-first für alle .html-Dateien.
+// v21: Supabase/CDN nie cachen.
 // ══════════════════════════════════════════════════════════
-const CACHE = 'rkw-v24';
+const CACHE = 'rkw-v25';
 const FILES = ['./', './manifest.json', './icon-192.png'];
 
 const NIEMALS_CACHEN = ['supabase.co', 'cdn.jsdelivr.net', 'cdn.sheetjs.com'];
@@ -28,17 +24,17 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => {
-      console.log('[SW v24] Gefundene Caches:', keys);
+      console.log('[SW v25] Gefundene Caches:', keys);
       return Promise.all(
         keys.map(k => {
           if(k !== CACHE) {
-            console.log('[SW v24] Lösche alten Cache:', k);
+            console.log('[SW v25] Lösche alten Cache:', k);
             return caches.delete(k);
           }
         })
       );
     }).then(() => {
-      console.log('[SW v24] Aktiv – alle alten Caches gelöscht');
+      console.log('[SW v25] Aktiv – alle alten Caches gelöscht');
       return self.clients.claim();
     })
   );
@@ -54,14 +50,12 @@ self.addEventListener('fetch', e => {
   }
 
   if(url.pathname === '/' || url.pathname.endsWith('.html')) {
-    // Cache-Buster an die tatsächliche Netzwerk-Anfrage anhängen (v24) — macht jede Anfrage
-    // zu einer nie zuvor gesehenen URL, zusätzlich zu {cache:'no-store'}
+    // Cache-Buster + no-store: beide Absicherungen zusammen gegen iOS-Cache-Eigensinn
     const bustUrl = url.href + (url.search ? '&' : '?') + '_swbust=' + Date.now();
     e.respondWith(
       fetch(bustUrl, { cache: 'no-store' })
         .then(resp => {
-          // Im Cache unter der ORIGINAL-URL (ohne Buster) ablegen, damit ein Offline-Fallback
-          // (catch unten) die Anfrage später wiederfindet
+          // Unter Original-URL (ohne Buster) cachen als Offline-Fallback
           const clone = resp.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
           return resp;

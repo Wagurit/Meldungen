@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.5</title>
+<title>Meldungen &amp; Angebote 2.7</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -464,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.5</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.7</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -506,6 +506,9 @@ textarea{resize:vertical;min-height:68px;}
             oninput="btbSyncKundenSuche(this.value,'ink')" onfocus="focusInk()" onblur="setTimeout(closeAc,160)">
           <button class="sin-clear" onclick="btbClearSuche('ink')" tabindex="-1">✕</button>
           <div class="acl" id="acl-ink"></div>
+        </div>
+        <div style="margin-top:6px">
+          <button onclick="btbNeuerKundeSchnell()" style="padding:5px 12px;border:1.5px dashed var(--bd);border-radius:8px;background:transparent;color:var(--bd);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer">+ Neuer Kunde anlegen</button>
         </div>
         <div class="abts">
           <button class="abt" id="abt-m" onclick="tog('m')"><span class="ic">📋</span>Meldung</button>
@@ -857,10 +860,37 @@ textarea{resize:vertical;min-height:68px;}
         </p>
         <button class="bsend" onclick="btbFindeNamensDuplikate()">🔍 Duplikate suchen & als Excel exportieren</button>
       </div>
+      <div class="admin-section">
+        <div class="admin-section-title">🔗 Nicht in KBE/BTB angelegte Firmennamen</div>
+        <p style="font-size:13px;color:var(--mu);margin-bottom:10px;line-height:1.5">
+          Findet Firmennamen aus Meldungen, Chemie-Angeboten und freien Angeboten, zu denen
+          es <strong>keinen</strong> passenden Kunden in KBE/BTB gibt. Diese Einträge können
+          zukünftig nicht mehr gesucht oder gefiltert werden und sollten bereinigt werden.
+        </p>
+        <button class="bsend" onclick="btbFindeVerwaisteFirmen()">🔗 Verwaiste Firmennamen suchen & als Excel exportieren</button>
+      </div>
     </div>
 
   </div><!-- /cnt -->
 </div><!-- /ap -->
+
+<!-- Anlagen-Manager-Modal -->
+<div class="modal-overlay" id="anlagen-modal" style="display:none">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-icon">⚙️</div>
+    <div class="modal-title" id="anlagen-modal-titel">Anlagen verwalten</div>
+    <div class="modal-body" style="text-align:left;margin-bottom:10px">Anlagen umbenennen, hinzufügen oder aus der aktiven Liste entfernen.<br><span style="font-size:11px;color:#94a3b8">Historische BTB-Einträge bleiben unter dem alten Namen erhalten.</span></div>
+    <div id="anlagen-modal-liste" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:40vh;overflow-y:auto"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <input type="text" id="anlagen-neu-input" placeholder="Neue Anlage…" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1;padding:9px 11px;border:1.5px solid var(--bo);border-radius:8px;font-size:16px">
+      <button onclick="btbAnlagenNeuHinzufuegen()" style="padding:9px 14px;border:none;border-radius:8px;background:var(--gn);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Hinzufügen</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="modal-btn" onclick="btbSpeichereAnlagen()" style="flex:1">Speichern</button>
+      <button class="modal-btn" onclick="btbSchliesseAnlagenModal()" style="flex:1;background:#94a3b8">Abbrechen</button>
+    </div>
+  </div>
+</div>
 
 <!-- Kundenname-Korrektur-Modal -->
 <div class="modal-overlay" id="firma-edit-modal" style="display:none">
@@ -910,7 +940,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.7';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1671,6 +1701,82 @@ function btbOeffneNamensEditor(tabelle, eid, aktuellerName){
   modal.style.display='flex';
   setTimeout(()=>{inp.focus();inp.select();},50);
 }
+// ── Anlagen-Manager: Anlagen umbenennen, hinzufügen, aus aktiver Liste entfernen ──
+let _anlagenManagerKunde=null;
+function btbOeffneAnlagenManager(k){
+  _anlagenManagerKunde=k;
+  G('anlagen-modal-titel').textContent='Anlagen – '+k.firma;
+  G('anlagen-neu-input').value='';
+  btbRendereAnlagenListe();
+  G('anlagen-modal').style.display='flex';
+}
+function btbSchliesseAnlagenModal(){
+  G('anlagen-modal').style.display='none';
+  _anlagenManagerKunde=null;
+}
+function btbRendereAnlagenListe(){
+  const k=_anlagenManagerKunde; if(!k) return;
+  const liste=G('anlagen-modal-liste');
+  liste.innerHTML='';
+  (k.rkws||[]).forEach((r,idx)=>{
+    const zeile=document.createElement('div');
+    zeile.style.cssText='display:flex;align-items:center;gap:6px';
+    zeile.innerHTML=
+      '<input type="text" class="anlagen-name-input" data-idx="'+idx+'" value="'+esc(r.name)+'" style="flex:1;padding:7px 10px;border:1.5px solid var(--bo);border-radius:8px;font-size:16px">'+
+      '<button class="anlagen-del-btn" data-idx="'+idx+'" title="Anlage aus aktiver Liste entfernen" style="width:34px;height:34px;border:1.5px solid #fca5a5;border-radius:8px;background:#fee2e2;color:var(--rd);font-size:16px;cursor:pointer;flex-shrink:0">🗑</button>';
+    liste.appendChild(zeile);
+  });
+  liste.querySelectorAll('.anlagen-del-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const name=_anlagenManagerKunde.rkws[idx]?.name||'';
+      if(!confirm('Anlage „'+name+'" aus der aktiven Liste entfernen?\n\nHistorische BTB-Einträge bleiben erhalten.'))return;
+      _anlagenManagerKunde.rkws.splice(idx,1);
+      btbRendereAnlagenListe();
+    });
+  });
+}
+function btbAnlagenNeuHinzufuegen(){
+  const k=_anlagenManagerKunde; if(!k) return;
+  const name=(G('anlagen-neu-input').value||'').trim();
+  if(!name){ toast('⚠️ Bitte Anlagenname eingeben'); return; }
+  if(k.rkws.some(r=>r.name.toLowerCase()===name.toLowerCase())){
+    toast('⚠️ „'+name+'" ist bereits vorhanden'); return;
+  }
+  k.rkws.push({name});
+  G('anlagen-neu-input').value='';
+  btbRendereAnlagenListe();
+  toast('✓ Anlage hinzugefügt — noch nicht gespeichert');
+}
+async function btbSpeichereAnlagen(){
+  const k=_anlagenManagerKunde; if(!k) return;
+  // Aktuelle Namen aus den Eingabefeldern lesen (können umbenannt worden sein)
+  const inputs=G('anlagen-modal-liste').querySelectorAll('.anlagen-name-input');
+  const neueRkws=[];
+  let fehler=false;
+  inputs.forEach(inp=>{
+    const name=(inp.value||'').trim();
+    if(!name){fehler=true;return;}
+    neueRkws.push({name});
+  });
+  // Neu hinzugefügte (nach dem Rendern) sind schon in k.rkws, aber noch nicht als Input da
+  // → bereits in neueRkws über Inputs abgedeckt, da btbRendereAnlagenListe() alle zeigt
+  if(fehler){toast('⚠️ Bitte alle Anlagennamen ausfüllen');return;}
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{rkws:neueRkws}}});
+  }
+  k.rkws=neueRkws;
+  const btbK=BTB_KUNDEN.find(x=>x.id===k.id);
+  if(btbK) btbK.rkws=neueRkws;
+  const kbeK=KBE.find(x=>x.id===k.id);
+  if(kbeK) kbeK.rkws=neueRkws;
+  toast(isOnline()?'✓ Anlagen gespeichert':'📥 Offline gespeichert — wird hochgeladen sobald online');
+  btbSchliesseAnlagenModal();
+  renderBtbTab();renderInnendienstTab();renderKbeKunden();
+}
 function btbSchliesseNamensEditor(){
   G('firma-edit-modal').style.display='none';
   G('acl-firma-edit').classList.remove('open');
@@ -1712,6 +1818,42 @@ async function btbSpeichereNamensKorrektur(){
   toast('✓ Kundenname geändert');
   btbSchliesseNamensEditor();
   renderM();renderC();renderF();
+}
+// ── Schnell einen neuen Kunden anlegen (Eingabe-Tab, für Techniker unterwegs) ──
+// Fragt nur den Firmennamen ab — keine Anlagen, keine weiteren Felder. Der Kunde erscheint
+// danach sofort in der Autocomplete-Liste und kann für Meldungen/Chemie/Angebote genutzt werden.
+async function btbNeuerKundeSchnell(){
+  const aktuellerName=(G('ink')?.value||'').trim();
+  const name=prompt('Firmenname des neuen Kunden:', aktuellerName);
+  if(!name||!name.trim()) return;
+  const firmaTrim=name.trim();
+  const vorhanden=KBE.find(k=>k.firma.trim().toLowerCase()===firmaTrim.toLowerCase());
+  if(vorhanden){
+    toast('ℹ️ „'+firmaTrim+'" ist bereits angelegt');
+    G('ink').value=firmaTrim;
+    btbSyncKundenSuche(firmaTrim,'ink');
+    return;
+  }
+  if(!isOnline()){
+    // Offline: lokal anlegen und in Queue — wird beim nächsten Online-Gehen hochgeladen
+    const neuId=btbUuid();
+    const neuKBE={id:neuId,firma:firmaTrim,rkws:[],eintraege:[],kuerzel_erstellt:kz};
+    KBE.unshift(neuKBE);
+    BTB_KUNDEN.unshift(Object.assign({},neuKBE,{entwuerfe:[]}));
+    addToQueue({type:'kbe_kunden_insert', data:{id:neuId,firma:firmaTrim,rkws:[],kuerzel_erstellt:kz}});
+    toast('📥 Neuer Kunde „'+firmaTrim+'" offline gespeichert — wird hochgeladen sobald online');
+  } else {
+    const {data:neuerKunde,error}=await _sb.from('kbe_kunden').insert({firma:firmaTrim,rkws:[],kuerzel_erstellt:kz}).select().single();
+    if(error){ toast('⚠️ Fehler: '+error.message); return; }
+    if(neuerKunde){
+      const neuKBE={id:neuerKunde.id,firma:firmaTrim,rkws:[],eintraege:[],kuerzel_erstellt:kz};
+      KBE.unshift(neuKBE);
+      BTB_KUNDEN.unshift(Object.assign({},neuKBE,{entwuerfe:[]}));
+    }
+    toast('✓ Neuer Kunde „'+firmaTrim+'" angelegt');
+  }
+  G('ink').value=firmaTrim;
+  btbSyncKundenSuche(firmaTrim,'ink');
 }
 async function btbEnsureKundeExistiert(firma){
   const firmaTrim=(firma||'').trim();
@@ -3937,6 +4079,51 @@ function btbFindeNamensDuplikate(){
   XLSX.writeFile(wb, 'Namens_Duplikate_'+new Date().toISOString().split('T')[0]+'.xlsx');
   toast('✓ '+kandidaten.length+' mögliche Duplikat-Gruppe(n) — Excel wird heruntergeladen');
 }
+// ── Firmennamen in Meldungen/Chemie/Angebote ohne passenden KBE/BTB-Kunden finden ──
+function btbFindeVerwaisteFirmen(){
+  const kbeNamen=new Set(KBE.map(k=>btbNormalisiereName(k.firma)));
+  const verwaiste=[]; // {firma, quellen:[]}
+  const gefunden=new Map(); // normalisierter Name → Eintrag in verwaiste[]
+
+  const pruefe=(firma, quelle, datum)=>{
+    if(!firma) return;
+    const norm=btbNormalisiereName(firma);
+    if(!norm) return;
+    if(kbeNamen.has(norm)) return; // passt zu einem KBE-Kunden → kein verwaister
+    if(!gefunden.has(norm)){
+      const eintrag={firma:firma.trim(), quellen:[]};
+      gefunden.set(norm, eintrag);
+      verwaiste.push(eintrag);
+    }
+    gefunden.get(norm).quellen.push({quelle, datum});
+  };
+
+  MD.forEach(e=>pruefe(e.firma,'Meldungen',e.ts?.slice(0,10)||''));
+  CH.forEach(e=>pruefe(e.firma,'Chemie',e.ts?.slice(0,10)||''));
+  FR.forEach(e=>pruefe(e.firma,'Angebote',e.ts?.slice(0,10)||''));
+
+  if(!verwaiste.length){ toast('✓ Keine verwaisten Firmennamen gefunden — alle sind in KBE/BTB angelegt.'); return; }
+
+  // Excel: eine Zeile pro Vorkommen, damit man sieht wie viele und welche Einträge betroffen sind
+  const rows=[];
+  verwaiste.forEach(v=>{
+    v.quellen.forEach(q=>{
+      rows.push({
+        'Firmenname': v.firma,
+        'Bereich': q.quelle,
+        'Datum': q.datum,
+        'Anzahl Vorkommen gesamt': v.quellen.length
+      });
+    });
+  });
+
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:32},{wch:12},{wch:12},{wch:22}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Verwaiste Firmennamen');
+  XLSX.writeFile(wb, 'Verwaiste_Firmennamen_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('✓ '+verwaiste.length+' verwaiste Firmenname(n) — Excel wird heruntergeladen');
+}
 function btbExportWasserzaehlerExcel(k, seitDatum){
   const anlagenMitWasser=(k.rkws||[]).filter(r=>
     k.eintraege.some(e=>e.anlage===r.name && (e.zusatzwasser!=null || e.abwasser!=null))
@@ -4220,9 +4407,10 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
     '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">'+
       (ohneEingabe
         ? '<button class="btb-export-btn" style="padding:5px 10px;border:1.5px solid #0891b2;border-radius:8px;background:#fff;color:#0891b2;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">📊 Excel</button>'
-        : (hatEntwurf
-          ? '<button class="btb-fertig-btn" style="padding:5px 10px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">✅ FERTIG</button>'
-          : '')
+        : '<button class="btb-anlagen-btn" style="padding:5px 10px;border:1.5px solid var(--mu);border-radius:8px;background:#fff;color:var(--mu);font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap" title="Anlagen verwalten">⚙️</button>'+
+          (hatEntwurf
+            ? '<button class="btb-fertig-btn" style="padding:5px 10px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">✅ FERTIG</button>'
+            : '')
       )+
       '<span class="btb-karte-toggle btb-toggle-area" style="font-size:18px;color:var(--mu);transition:transform .2s;flex-shrink:0;cursor:pointer">⌄</span>'+
     '</div>';
@@ -4230,6 +4418,13 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
   header.querySelectorAll('.btb-toggle-area').forEach(el=>{
     el.addEventListener('click',()=>karte.classList.toggle('open'));
   });
+  const anlagenBtn=header.querySelector('.btb-anlagen-btn');
+  if(anlagenBtn){
+    anlagenBtn.addEventListener('click',(ev)=>{
+      ev.stopPropagation();
+      btbOeffneAnlagenManager(k);
+    });
+  }
   const fertigBtn=header.querySelector('.btb-fertig-btn');
   if(fertigBtn){
     fertigBtn.addEventListener('click',(ev)=>{
@@ -5738,6 +5933,14 @@ function btbReconcileQueue(){
       if(k) Object.assign(k, d.patch);
       const kk=KBE.find(x=>x.id===d.id);
       if(kk) Object.assign(kk, d.patch);
+    }
+    else if(item.type==='kbe_kunden_insert'){
+      const d=item.data;
+      if(!KBE.some(x=>x.id===d.id)){
+        const neuKBE={id:d.id,firma:d.firma,rkws:d.rkws||[],eintraege:[],kuerzel_erstellt:d.kuerzel_erstellt};
+        KBE.unshift(neuKBE);
+        BTB_KUNDEN.unshift(Object.assign({},neuKBE,{entwuerfe:[]}));
+      }
     }
     else if(item.type==='kbe_eintrag_insert'){
       const d=item.data;
