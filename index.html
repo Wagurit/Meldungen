@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.14</title>
+<title>Meldungen &amp; Angebote 2.20</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- 2.17: xlsx-js-style = SheetJS mit Zellformatierung (Zeilenumbruch in Excel); gleiche API wie zuvor -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- 2.18: JSZip — ergänzt im fertigen Excel die fixierte erste Spalte (die Excel-Bibliothek kann das selbst nicht) -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
 :root{
   --bd:#0369a1;--bm:#0284c7;--bl:#0ea5e9;--bp:#e0f2fe;--bg:#f0f9ff;--bo:#bae6fd;
@@ -476,7 +479,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.14</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.20</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -972,7 +975,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.14';
+const APP_VERSION = '2.20';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -3558,6 +3561,58 @@ function btbDosierLogText(e, pn){
   });
   return teile.join(' | ');
 }
+// 2.15: Produktnamen, die zum Zeitpunkt des Eintrags galten (aus dem Snapshot). Ältere Einträge ohne
+// Snapshot-Namen haben keine gespeicherte Historie → dort bleibt es beim aktuellen Namen (wie bisher).
+function btbNamenFuerEintrag(e, pnAktuell){
+  const sn=e && e.dosier_snapshot && e.dosier_snapshot.namen;
+  return sn ? {p1:sn.p1||'', p2:sn.p2||'', p3:sn.p3||''} : pnAktuell;
+}
+// Excel-Zelle für eine Spalte (Vorgefunden/Aufgefüllt/Neu/Lager): alle Produkte mit Wert, "Name: Wert | Name: Wert".
+// Text mit Dezimalkomma (deutsches Excel), leer wenn kein Produkt einen Wert hat.
+function btbProduktZelle(e, namen, feld){
+  const teile=[];
+  [1,2,3].forEach(n=>{
+    const v=e['p'+n+'_'+feld];
+    if(v==null||v==='') return;
+    const name=(namen['p'+n]||'').trim()||(n===3?'BZ 2':'P'+n);
+    teile.push(name+': '+String(v).replace('.',','));
+  });
+  return teile.join(' | ');
+}
+// 2.18: Erste Spalte (Datum) in Excel fixieren ("Fenster fixieren") — die Excel-Bibliothek schreibt das nicht
+// (das frühere ws['!freeze'] blieb wirkungslos). Deshalb wird die fertige xlsx-Datei geöffnet und in jedes
+// Tabellenblatt ein <pane> eingetragen. Nur Datei-Struktur, Zellen/Werte bleiben unberührt.
+// Für zusätzlich fixierte Überschriftenzeile: xSplit="1" → xSplit="1" ySplit="1", topLeftCell="B2", activePane="bottomRight".
+async function btbXlsxMitFixierterSpalte(wb){
+  const bytes=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const zip=await JSZip.loadAsync(bytes);
+  const pane='<pane xSplit="1" topLeftCell="B1" activePane="topRight" state="frozen"/><selection pane="topRight" activeCell="B1" sqref="B1"/>';
+  const blaetter=Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  for(const n of blaetter){
+    const xml=await zip.file(n).async('string');
+    const neu=xml.replace(/<sheetView([^>]*?)\/>/, '<sheetView$1>'+pane+'</sheetView>');
+    zip.file(n, neu);
+  }
+  return zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
+}
+// Speichert die Excel-Datei. Mit fixierter erster Spalte; klappt das nicht (z.B. JSZip nicht geladen),
+// wird trotzdem normal exportiert — nur ohne Fixierung.
+async function btbExcelSpeichern(wb, dateiname){
+  if(typeof JSZip!=='undefined'){
+    try{
+      const bytes=await btbXlsxMitFixierterSpalte(wb);
+      const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=dateiname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      toast('✓ Excel-Datei wird heruntergeladen');
+      return;
+    }catch(err){ console.warn('Excel mit fixierter Spalte fehlgeschlagen, exportiere ohne Fixierung:', err); }
+  }
+  XLSX.writeFile(wb, dateiname);
+  toast('✓ Excel-Datei wird heruntergeladen');
+}
 function btbExportKundeExcel(k){
   if(!k.rkws || !k.rkws.length){ toast('⚠️ Keine Anlagen vorhanden.'); return; }
   const wb=XLSX.utils.book_new();
@@ -3572,43 +3627,45 @@ function btbExportKundeExcel(k){
     hatDaten=true;
 
     const rows=anlEintraege.map(e=>{
+      const namenE=btbNamenFuerEintrag(e, pn);
       const row={
         'Datum': e.datumFmt,
         'Kürzel': e.kuerzel||'',
-        'LF IST': e.lf_messung_ist!=null?e.lf_messung_ist:'',
         '°dH': e.dh!=null?e.dh:'',
+        'LF IST': e.lf_messung_ist!=null?e.lf_messung_ist:'',
         'LF Gerät IST': e.lf_geraet_ist!=null?e.lf_geraet_ist:'',
         'LF Gerät SOLL': e.lf_geraet_soll!=null?e.lf_geraet_soll:'',
-        'DipSlide gezogen': e.dipslide_basis!=null?'Ja':'',
         'KBE-Auswertung': e.kbe_auswertung||'',
         'Zusatzwasser (m³)': e.zusatzwasser!=null?e.zusatzwasser:'',
         'Abwasser (m³)': e.abwasser!=null?e.abwasser:'',
       };
-      row[(pn.p1||'P1')+' Vorgefunden']=e.p1_vorgefunden!=null?e.p1_vorgefunden:'';
-      row[(pn.p1||'P1')+' Aufgefüllt']=e.p1_aufgefuellt!=null?e.p1_aufgefuellt:'';
-      row[(pn.p1||'P1')+' Neu']=e.p1_neu!=null?e.p1_neu:'';
-      row[(pn.p1||'P1')+' Lager']=e.p1_lager!=null?e.p1_lager:'';
-      row[(pn.p2||'P2')+' Vorgefunden']=e.p2_vorgefunden!=null?e.p2_vorgefunden:'';
-      row[(pn.p2||'P2')+' Aufgefüllt']=e.p2_aufgefuellt!=null?e.p2_aufgefuellt:'';
-      row[(pn.p2||'P2')+' Neu']=e.p2_neu!=null?e.p2_neu:'';
-      row[(pn.p2||'P2')+' Lager']=e.p2_lager!=null?e.p2_lager:'';
-      if(pn.p3){
-        row[pn.p3+' Vorgefunden']=e.p3_vorgefunden!=null?e.p3_vorgefunden:'';
-        row[pn.p3+' Aufgefüllt']=e.p3_aufgefuellt!=null?e.p3_aufgefuellt:'';
-        row[pn.p3+' Neu']=e.p3_neu!=null?e.p3_neu:'';
-        row[pn.p3+' Lager']=e.p3_lager!=null?e.p3_lager:'';
-      }
+      // Feste Überschriften (keine Produktnamen darin) — die Namen stehen pro Zeile in der Zelle
+      row['Vorgefunden']=btbProduktZelle(e, namenE, 'vorgefunden');
+      row['Aufgefüllt']=btbProduktZelle(e, namenE, 'aufgefuellt');
+      row['Neu']=btbProduktZelle(e, namenE, 'neu');
+      row['Lager']=btbProduktZelle(e, namenE, 'lager');
       row['Bemerkung']=e.bemerkung||'';
-      row['Dosierung']=btbDosierLogText(e, pn);
+      row['Dosierung']=btbDosierLogText(e, namenE);
       row['Status']=e.btb_status==='berechnet'?'Berechnet':'Zu berechnen';
       row['Rechnungs-Nr.']=e.rechnung_nr||'';
       return row;
     });
 
     const ws=XLSX.utils.json_to_sheet(rows);
-    ws['!cols']=Object.keys(rows[0]).map(()=>({wch:14}));
-    // Datum-Spalte fixieren, damit sie beim horizontalen Scrollen sichtbar bleibt
-    ws['!freeze']={xSplit:"1", ySplit:"0", topLeftCell:"B1", activePane:"topRight", state:"frozen"};
+    const breiteSpalten=new Set(['Vorgefunden','Aufgefüllt','Neu','Lager']);
+    const schmaleSpalten=new Set(['Kürzel','°dH','KBE-Auswertung']); // nur kurze Werte → ca. 1/3 der Standardbreite
+    const spaltenNamen=Object.keys(rows[0]);
+    const textSpalten=new Set(['Bemerkung','Dosierung']); // lange Texte: breit + Zeilenumbruch
+    ws['!cols']=spaltenNamen.map(h=>({wch:h==='Bemerkung'?40:(h==='Dosierung'?20:(breiteSpalten.has(h)?34:(schmaleSpalten.has(h)?5:14)))}));
+    // 2.17/2.19: Bemerkung und Dosierung brechen um (Zeile wird automatisch höher), alle Datenzellen oben ausgerichtet,
+    // damit hohe Zeilen lesbar bleiben. Überschriftenzeile bleibt unformatiert.
+    for(let ri=1; ri<=rows.length; ri++){
+      spaltenNamen.forEach((h,ci)=>{
+        const zelle=ws[XLSX.utils.encode_cell({r:ri,c:ci})];
+        if(zelle) zelle.s={alignment:{vertical:'top', wrapText:textSpalten.has(h)}};
+      });
+    }
+    // Datum-Spalte wird beim Speichern fixiert (btbExcelSpeichern)
 
     // Excel: Sheet-Namen max. 31 Zeichen, keine \/?*[]: — und eindeutig innerhalb der Datei
     let basisName=r.name.replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,31);
@@ -3623,8 +3680,7 @@ function btbExportKundeExcel(k){
 
   if(!hatDaten){ toast('⚠️ Keine Daten zum Exportieren vorhanden.'); return; }
   const dateiname='BTB_'+k.firma.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
-  XLSX.writeFile(wb, dateiname);
-  toast('✓ Excel-Datei wird heruntergeladen');
+  btbExcelSpeichern(wb, dateiname);
 }
 
 function exportWmHistorieExcel(k){
@@ -4393,7 +4449,6 @@ function btbExportWasserzaehlerExcel(k, seitDatum){
 
     const ws=XLSX.utils.json_to_sheet(rows);
     ws['!cols']=[{wch:12},{wch:16},{wch:16},{wch:14},{wch:16},{wch:12}];
-    ws['!freeze']={xSplit:"1", ySplit:"0", topLeftCell:"B1", activePane:"topRight", state:"frozen"};
 
     // Zusammenfassung "Verbrauch seit [Datum]" für diese Anlage anhängen, direkt hinter der
     // Eindickung-Spalte, als eigener Block nach der Haupttabelle
@@ -4429,8 +4484,7 @@ function btbExportWasserzaehlerExcel(k, seitDatum){
   });
 
   const dateiname='Wasserzaehler_'+k.firma.replace(/[^a-zA-Z0-9äöüÄÖÜß]+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
-  XLSX.writeFile(wb, dateiname);
-  toast('✓ Excel-Datei wird heruntergeladen');
+  btbExcelSpeichern(wb, dateiname);
 }
 // Berechnet pro Anlage den Verbrauch (Zusatzwasser/Abwasser) seit einem gewählten Datum:
 // Endwert = neuester verfügbarer Zählerstand, Startwert = letzter Zählerstand AM/VOR dem Datum
@@ -5698,6 +5752,10 @@ async function btbFertigZumBerechnen(kid){
       const deltaVorgefunden=(sollVorgefunden!=null&&eingegebenVorgefunden!=null)?+(eingegebenVorgefunden-sollVorgefunden).toFixed(2):null;
       dosierSnapMitSoll[pk]=Object.assign({},dInfo,{soll,soll2,sollVorgefunden,deltaVorgefunden});
     });
+    // 2.15: Produktnamen ZUM ZEITPUNKT dieses Eintrags mitloggen (liegt im vorhandenen jsonb, kein SQL nötig).
+    // Der Excel-Export nutzt sie, damit spätere Namensänderungen alte Einträge nicht rückwirkend verfälschen.
+    const pnZumZeitpunkt=btbGetProduktNamen(k, e.anlage);
+    dosierSnapMitSoll.namen={p1:pnZumZeitpunkt.p1||'', p2:pnZumZeitpunkt.p2||'', p3:pnZumZeitpunkt.p3||''};
     return {
       id:btbUuid(), // clientseitig erzeugt — funktioniert auch offline, Supabase übernimmt die id 1:1
       kunde_id:kid, anlage:e.anlage, datum_btb:datumFuerRow,
