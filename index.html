@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.23</title>
+<title>Meldungen &amp; Angebote 2.24</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -483,7 +483,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.23</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.24</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -982,10 +982,15 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.23';
+const APP_VERSION = '2.24';
 
 (function selfHealOnVersionMismatch(){
   try {
+    // 2.24: NIEMALS offline ausführen — sonst werden Caches gelöscht und der Service Worker
+    // abgemeldet, ohne dass eine neue Version geladen werden kann → App öffnet sich bis zum
+    // nächsten Netz gar nicht mehr (endlos drehender "Verbindung wird gesucht"-Kreis).
+    // Offline wird einfach übersprungen; beim nächsten Online-Start greift die Prüfung erneut.
+    if (!navigator.onLine) return;
     if (localStorage.getItem('rkw_app_version') === APP_VERSION) return;
 
     if (sessionStorage.getItem('rkw_selfheal_versuch') === APP_VERSION) {
@@ -1360,6 +1365,9 @@ async function loadAllEigentlich(){
       FAVORITEN=new Set(snap.FAVORITEN||[]);
       const zeit=snap.gespeichert_am?new Date(snap.gespeichert_am).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'unbekannt';
       toast('📥 Offline — Datenstand vom '+zeit);
+      // 2.24: noch nicht hochgeladene Offline-Eingaben auf den wiederhergestellten Stand legen,
+      // sonst sind sie nach einem Offline-Neustart bis zum nächsten Netz unsichtbar
+      btbReconcileQueue();
       renderAll(); updB();
     } else {
       toast('⚠️ Kein Netz und noch kein Offline-Stand vorhanden');
@@ -1494,6 +1502,9 @@ async function loadAllEigentlich(){
       FAVORITEN=new Set(snap.FAVORITEN||[]);
       const zeit=snap.gespeichert_am?new Date(snap.gespeichert_am).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'unbekannt';
       toast('📥 Offline — Datenstand vom '+zeit);
+      // 2.24: noch nicht hochgeladene Offline-Eingaben auf den wiederhergestellten Stand legen,
+      // sonst sind sie nach einem Offline-Neustart bis zum nächsten Netz unsichtbar
+      btbReconcileQueue();
       renderAll(); updB();
     } else {
       toast('⚠️ Kein Netz und noch kein Offline-Stand vorhanden');
@@ -2070,7 +2081,10 @@ async function saveMeld(){
     bearbeitungs_status: zuwArr.length>0&&zuwArr.every(k2=>k2===kz)?'in_bearbeitung':null
   };
   if(!isOnline()){
-    addToQueue({type:'meldung',data:meldData});
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'meldung',data:meldData,tmpId});
+    MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    renderM();updB();
     G('btn-meld').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
@@ -2093,7 +2107,10 @@ async function saveChem(){
   G('btn-chem').disabled=true;
   const chemData={firma,produkte:[...cS],notiz:V('cno'),kuerzel:kz};
   if(!isOnline()){
-    addToQueue({type:'chemie',data:chemData});
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'chemie',data:chemData,tmpId});
+    CH.unshift(mapChem({...chemData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    renderC();updB();
     G('btn-chem').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
@@ -2117,7 +2134,10 @@ async function saveFrei(){
   G('btn-frei').disabled=true;
   const freiData={firma,text,mann:nm?null:mw,stunden:nm?null:h,nur_mat:nm,kuerzel:kz,rueckfragen:[],kommentare:[]};
   if(!isOnline()){
-    addToQueue({type:'frei',data:freiData});
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'frei',data:freiData,tmpId});
+    FR.unshift(mapFrei({...freiData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    renderF();updB();
     G('btn-frei').disabled=false;
     toast('📥 Offline gespeichert – wird hochgeladen sobald online');
   } else {
@@ -3202,8 +3222,12 @@ async function btbLoescheAnlage(kid, anlageName, row){
   const k=KBE.find(x=>x.id===kid);
   if(!k)return;
   const neueRkws=k.rkws.filter(r=>r.name!==anlageName);
-  const {error}=await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',kid);
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',kid);
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id:kid, patch:{rkws:neueRkws}}});
+  }
   k.rkws=neueRkws;
   const btbK=BTB_KUNDEN.find(x=>x.id===kid);
   if(btbK) btbK.rkws=neueRkws;
@@ -6303,7 +6327,12 @@ function btbMitTimeout(promise, ms){
 }
 function updateQueueBadge(){const q=getQueue();const el=G('offline-queue-cnt');if(!el)return;if(q.length>0){el.style.display='inline';el.textContent=q.length+' ausstehend';}else el.style.display='none';}
 function getQueue(){try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch{return[];}}
-function addToQueue(item){const q=getQueue();q.push({...item, qid: Date.now()+'_'+Math.random()});localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
+let _snapTimer=null;
+function addToQueue(item){const q=getQueue();q.push({...item, qid: Date.now()+'_'+Math.random()});localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();
+  // 2.24: Schnappschuss kurz danach aktualisieren (entprellt, damit die lokale Änderung der
+  // aufrufenden Funktion schon übernommen ist) — gilt automatisch für ALLE Offline-Aktionen
+  clearTimeout(_snapTimer); _snapTimer=setTimeout(btbSaveSnapshot,300);
+}
 function removeFromQueue(qid){const q=getQueue().filter(x=>x.qid!==qid);localStorage.setItem(QUEUE_KEY, JSON.stringify(q));updateQueueBadge();}
 
 // ── Ausstehende Warteschlangen-Einträge auf frisch geladene Daten anwenden ──
@@ -6314,6 +6343,12 @@ function btbReconcileQueue(){
   const q=getQueue();
   if(!q.length)return;
   q.forEach(item=>{
+    // 2.24: offline angelegte Meldungen/Chemie/Angebote (vorläufige id "offline_…")
+    if((item.type==='meldung'||item.type==='chemie'||item.type==='frei') && item.tmpId){
+      const [arr,mapFn]={meldung:[MD,mapMeld],chemie:[CH,mapChem],frei:[FR,mapFrei]}[item.type];
+      if(!arr.some(x=>x.id===item.tmpId)) arr.unshift(mapFn({...item.data,id:item.tmpId,erstellt_am:new Date(parseInt(item.qid)||Date.now()).toISOString()}));
+      return;
+    }
     if(item.type==='btb_entwurf_upsert'){
       const d=item.data;
       const k=BTB_KUNDEN.find(x=>x.id===d.kunde_id);
@@ -6446,7 +6481,7 @@ async function flushQueue(){
 }
 
 window.addEventListener('online', ()=>{showOfflineBanner(false);flushQueue();setSyncing('ok');});
-window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('err');});
+window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('offline');});
 if(!isOnline()) showOfflineBanner(true);
 
 // ══════════════════════════════════════════════════════════
