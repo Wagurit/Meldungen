@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.12</title>
+<title>Meldungen &amp; Angebote 2.14</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -346,6 +346,18 @@ textarea{resize:vertical;min-height:68px;}
 .ftbg.rd{background:var(--rd);}
 .ftbg.kbe{background:#0891b2;}
 
+/* ── Dip-Slide-Schnellbuchung: Chip  −  [Dip Slides / Anzahl]  +  in eigener Zeile UNTER den Filter-Chips (2.13, Layout 2.14) ── */
+.ds-chip{display:none;align-items:center;gap:3px;width:fit-content;margin-bottom:9px;padding:3px;border-radius:30px;background:#fff;border:1.5px solid #fff;user-select:none;-webkit-user-select:none;}
+.ds-chip.off{opacity:.55;}
+.ds-btn{width:50px;height:44px;border-radius:24px;border:none;padding:0;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:800;line-height:1;cursor:pointer;touch-action:manipulation;}
+.ds-btn:active{filter:brightness(.9);}
+.ds-btn:disabled{opacity:.35;cursor:default;}
+.ds-minus{background:var(--rdb);color:var(--rd);}
+.ds-plus{background:var(--gb);color:var(--gn);}
+.ds-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;padding:0 4px;line-height:1;color:var(--bd);font-family:'Barlow Condensed',sans-serif;}
+.ds-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8;margin-bottom:2px;}
+.ds-n{font-size:24px;font-weight:800;}
+
 /* Sync-Indicator */
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s;}
 .sync-dot.syncing{background:#fbbf24;animation:pulse .8s ease-in-out infinite;}
@@ -464,7 +476,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.12</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.14</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -601,6 +613,11 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('m','gemerkt',this)">⭐ Gemerkt <span class="tbg fav" id="ft-fav-cnt"></span></button>
           <button class="ft" onclick="setF('m','gelesen',this)">Gelesen</button>
           <button class="ft" onclick="setF('m','kommentar',this)">Kommentar</button>
+        </div>
+        <div class="ds-chip" id="ds-chip">
+          <button class="ds-btn ds-minus" id="ds-minus" onclick="dsTap(-1)" aria-label="Dip-Slide entnehmen">−</button>
+          <span class="ds-mid" title="Dip-Slides vorhanden"><span class="ds-lbl">Dip Slides</span><span class="ds-n" id="ds-n">–</span></span>
+          <button class="ds-btn ds-plus" id="ds-plus" onclick="dsTap(1)" aria-label="Dip-Slide zurückstellen">+</button>
         </div>
       </div>
       <div id="em"><div class="empty" id="em0">Noch keine Meldungen</div></div>
@@ -955,7 +972,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.12';
+const APP_VERSION = '2.14';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1474,6 +1491,7 @@ async function loadAllEigentlich(){
 // neuen, konkurrierenden Ladevorgang zu starten.
 let _loadAllPromise=null;
 async function loadAll(){
+  dsLade(); // Dip-Slide-Bestand für den Chip im Meldungen-Tab (eigene Fehlerbehandlung, blockiert nichts)
   if(_loadAllPromise) return _loadAllPromise;
   _loadAllPromise=loadAllEigentlich();
   try{
@@ -1501,6 +1519,7 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'btb_eintraege'},()=>reloadTable('btb'))
     .on('postgres_changes',{event:'*',schema:'public',table:'btb_entwurf'},()=>reloadTable('btb'))
     .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
+    .on('postgres_changes',{event:'*',schema:'public',table:'lager_bestand'},()=>dsLadeSpaeter())
     .subscribe();
 }
 async function reloadTable(tbl){
@@ -1512,6 +1531,129 @@ async function reloadTable(tbl){
   else if(tbl==='btb'){loadAll();}
   else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
 }
+
+// ══════════════════════════════════════════════════════════
+// DIP-SLIDE-SCHNELLBUCHUNG (2.13)
+// Chip im Meldungen-Tab:  −  🧫 Anzahl  +
+// Bucht direkt auf den Lagerchemie-Bestand (gleiche Tabellen, gleiche RPC rpc_buche_bestand
+// wie die −/+ Buttons im Produkte-Tab der Lagerchemie) → erscheint dort auch im Log.
+// ══════════════════════════════════════════════════════════
+const DS_MATCH = 'dipslide';               // Produktname, normalisiert (wie PAKET_ANZEIGE in der Lagerchemie)
+const DS_ORTE = ['Garage','Werkstatt'];    // Entnahme: erster Ort mit Bestand · Zurückstellen: immer in den ersten Ort
+const DS_CACHE_KEY = 'rkw_ds_cache';       // letzter bekannter Bestand für Offline-Anzeige (eigener Key)
+let DS = {pid:null, step:1, best:{}, geladen:false};
+let _dsPending = 0, _dsChain = Promise.resolve(), _dsGen = 0, _dsFehler = false, _dsTimer = null;
+
+const dsNorm = s => String(s||'').toLowerCase().replace(/[\s\-\._]/g,'');
+// Anzahl in Gebinden (Dip-Slide: 1 Stk = 1 Gebinde → Anzahl = Stückzahl)
+function dsAnzahl(){
+  const summe = DS_ORTE.reduce((a,o)=>a+(Number(DS.best[o])||0),0);
+  return Math.round((summe/(DS.step||1))*100)/100;
+}
+function dsFmt(n){ return Number.isInteger(n) ? String(n) : String(n).replace('.',','); }
+
+function dsRender(){
+  const chip = G('ds-chip'); if(!chip) return;
+  if(!DS.geladen){ chip.style.display = 'none'; return; }
+  const n = dsAnzahl();
+  chip.style.display = 'flex';
+  chip.classList.toggle('off', !isOnline());
+  G('ds-n').textContent = dsFmt(n);
+  G('ds-minus').disabled = n < 1;
+  chip.title = 'Dip-Slides vorhanden: ' + dsFmt(n);
+}
+
+function dsAusCache(){
+  if(!DS.geladen){
+    try{
+      const c = JSON.parse(localStorage.getItem(DS_CACHE_KEY)||'null');
+      if(c && c.pid){ DS.pid=c.pid; DS.step=c.step||1; DS.best=c.best||{}; DS.geladen=true; }
+    }catch(e){}
+  }
+  dsRender();
+}
+
+async function dsLade(){
+  if(!kz) return;                                   // nicht eingeloggt
+  if(!isOnline()){ dsAusCache(); return; }
+  if(_dsPending>0) return;                          // eigene Buchung läuft — Anzeige nicht zurücksetzen
+  if(DS.geladen && !G('panel-m').classList.contains('active')) return; // Chip nur laden, wenn sichtbar
+  try{
+    if(!DS.pid){
+      const {data,error} = await _sb.from('lager_produkte').select('id,name,gebinde_kg')
+        .ilike('name','%dip%slide%').order('gebinde_kg',{ascending:true});
+      if(error) throw error;
+      const treffer = (data||[]).filter(p=>dsNorm(p.name).includes(DS_MATCH));
+      if(!treffer.length){ console.warn('Dip-Slide-Chip: kein Produkt mit „Dip Slide“ im Namen gefunden'); return; }
+      if(treffer.length>1) console.warn('Dip-Slide-Chip: mehrere Treffer, verwende „'+treffer[0].name+'“');
+      DS.pid = treffer[0].id;
+      DS.step = Number(treffer[0].gebinde_kg)||1;
+    }
+    const {data,error} = await _sb.from('lager_bestand').select('lagerort,menge_kg').eq('produkt_id',DS.pid);
+    if(error) throw error;
+    if(_dsPending>0) return;                        // währenddessen wurde gebucht → verwerfen
+    const best = {};
+    (data||[]).forEach(r=>{ best[r.lagerort] = Number(r.menge_kg)||0; });
+    DS.best = best; DS.geladen = true;
+    try{ localStorage.setItem(DS_CACHE_KEY, JSON.stringify({pid:DS.pid, step:DS.step, best})); }catch(e){}
+    dsRender();
+  }catch(e){
+    console.warn('Dip-Slide-Bestand laden:', e.message||e);
+    dsAusCache();
+  }
+}
+function dsLadeSpaeter(){ clearTimeout(_dsTimer); _dsTimer = setTimeout(dsLade, 400); }
+
+// r = −1 entnehmen · +1 zurückstellen. Anzeige sofort, Buchung serverseitig atomar und der Reihe nach —
+// schnelles Mehrfach-Tippen geht keine Buchung verloren.
+function dsTap(r){
+  if(!DS.geladen || !DS.pid) return;
+  if(!isOnline()){ toast('📵 Offline — Dip-Slide-Buchung braucht Netz'); return; }
+  let ort;
+  if(r<0){
+    ort = DS_ORTE.find(o=>(Number(DS.best[o])||0) >= DS.step-1e-9);
+    if(!ort){ toast('⚠️ Kein Dip-Slide mehr vorhanden'); return; }
+  } else {
+    ort = DS_ORTE[0];
+  }
+  const delta = r*DS.step;
+  DS.best[ort] = Math.round(((Number(DS.best[ort])||0)+delta)*1000)/1000;
+  dsRender();
+  _dsPending++;
+  const gen = _dsGen;
+  _dsChain = _dsChain.then(()=>dsBuche(ort,delta,gen));
+}
+
+async function dsBuche(ort,delta,gen){
+  try{
+    if(gen!==_dsGen) return;                        // eine frühere Buchung ist fehlgeschlagen → Rest verwerfen
+    const {data,error} = await _sb.rpc('rpc_buche_bestand',{
+      p_produkt_id:DS.pid, p_lagerort:ort, p_delta:delta, p_notiz:'Meldungen-App', p_kuerzel:kz||null
+    });
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if(_dsPending===1 && row && row.bestand_nach!=null){ DS.best[ort] = Number(row.bestand_nach); } // letzte Buchung: Serverstand übernehmen
+  }catch(e){
+    _dsGen++; _dsFehler = true;
+    let msg = (e && e.message) ? e.message : 'Unbekannter Fehler';
+    if(e && e.code==='PGRST202') msg = 'Server-Funktion rpc_buche_bestand nicht gefunden';
+    else if(/failed to fetch|network|load failed/i.test(msg)) msg = 'Keine Verbindung — Buchung nicht gespeichert';
+    toast('⛔ Dip-Slide: '+msg);
+  }finally{
+    _dsPending--;
+    if(_dsPending===0){
+      if(_dsFehler){ _dsFehler = false; dsLade(); }   // nach Fehler: echten Stand vom Server holen
+      else {
+        dsRender();
+        try{ localStorage.setItem(DS_CACHE_KEY, JSON.stringify({pid:DS.pid, step:DS.step, best:DS.best})); }catch(e){}
+      }
+    }
+  }
+}
+
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') dsLade(); });
+window.addEventListener('online', ()=>dsLade());
+window.addEventListener('offline',()=>dsRender());
 
 // ══════════════════════════════════════════════════════════
 // TABS
