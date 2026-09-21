@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.7</title>
+<title>Meldungen &amp; Angebote 2.10</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -270,7 +270,7 @@ textarea{resize:vertical;min-height:68px;}
 .btb-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;}
 .btb-feld{}
 .btb-feld-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin-bottom:3px;}
-.btb-last-hint{font-size:10px;color:var(--gn);margin-top:2px;font-style:italic;white-space:nowrap;}
+.btb-last-hint{font-size:13px;color:var(--gn);margin-top:2px;font-style:italic;white-space:nowrap;}
 .btb-feld input,.btb-feld select{font-size:16px!important;padding:8px 10px!important;}
 .btb-dipslide-box{background:#fff;border:1.5px solid #bae6fd;border-radius:8px;padding:9px;margin-top:6px;}
 .btb-dipslide-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#0369a1;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
@@ -464,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.7</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.10</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -869,6 +869,21 @@ textarea{resize:vertical;min-height:68px;}
         </p>
         <button class="bsend" onclick="btbFindeVerwaisteFirmen()">🔗 Verwaiste Firmennamen suchen & als Excel exportieren</button>
       </div>
+      <div class="admin-section">
+        <div class="admin-section-title">✏️ Kundenname zentral ändern</div>
+        <p style="font-size:13px;color:var(--mu);margin-bottom:10px;line-height:1.5">
+          Ändert den offiziellen Namen bei KBE/BTB <strong>und</strong> passt automatisch alle
+          Meldungen, Chemie-Angebote und freien Angebote an, die exakt den alten Namen tragen.
+          Für einen kompletten Neuen Namen (z.B. „Fraunhofer Aachen" → „Fraunhofer ILT Aachen")
+          oder zum Korrigieren eines falsch angelegten Namens.
+        </p>
+        <div style="position:relative;margin-bottom:8px">
+          <input type="text" id="rename-kunde-suche" placeholder="Kunde suchen…" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--bo);border-radius:8px;font-size:16px">
+          <div class="acl" id="acl-rename-kunde-suche"></div>
+        </div>
+        <input type="text" id="rename-neuer-name" placeholder="Neuer Name…" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--bo);border-radius:8px;font-size:16px;margin-bottom:8px">
+        <button class="bsend" onclick="btbUmbenenneKunde()">Umbenennen</button>
+      </div>
     </div>
 
   </div><!-- /cnt -->
@@ -940,7 +955,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.7';
+const APP_VERSION = '2.10';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1555,6 +1570,7 @@ async function swTab(n){
   if(kz) loadAll();
 }
 G('firma-edit-input').addEventListener('input', btbFirmaEditZeigeVorschlaege);
+G('rename-kunde-suche').addEventListener('input', btbRenameZeigeVorschlaege);
 
 // ══════════════════════════════════════════════════════════
 // LOGIK-HILFSFUNKTIONEN
@@ -3817,6 +3833,13 @@ function btbSetupEnterNavigation(form){
     ev.preventDefault();
     // Nur aktuell sichtbare Felder berücksichtigen (z.B. eingeklappter 2. Dosierzeit-Block wird übersprungen)
     const sichtbar=[...form.querySelectorAll(sel)].filter(el=>el.offsetParent!==null);
+    // Sonderfall: von "Lager" bei Produkt 1 (BZ) direkt zu "Vorgefunden" bei Produkt 2 (KT/LB)
+    // springen — die dazwischenliegenden Dosierfelder (Uhrzeit/Dauer/pro Dos) werden nur
+    // selten bearbeitet und sollen den normalen Eingabefluss nicht unterbrechen.
+    if(t.classList.contains('btb-lg') && t.closest('[data-prod]')?.dataset.prod==='1'){
+      const p2vg=form.querySelector('[data-prod="2"] .btb-vg');
+      if(p2vg && sichtbar.includes(p2vg)){ p2vg.focus(); p2vg.select(); return; }
+    }
     const idx=sichtbar.indexOf(t);
     if(idx===-1)return;
     const next=sichtbar[(idx+1)%sichtbar.length];
@@ -4080,6 +4103,74 @@ function btbFindeNamensDuplikate(){
   toast('✓ '+kandidaten.length+' mögliche Duplikat-Gruppe(n) — Excel wird heruntergeladen');
 }
 // ── Firmennamen in Meldungen/Chemie/Angebote ohne passenden KBE/BTB-Kunden finden ──
+// ── Kundenname zentral ändern: kbe_kunden.firma + alle exakt passenden MD/CH/FR-Einträge ──
+let _renameKundeId=null;
+function btbRenameZeigeVorschlaege(){
+  const l=G('acl-rename-kunde-suche');
+  const inp=G('rename-kunde-suche');
+  const vTrim=(inp.value||'').trim();
+  const vLower=vTrim.toLowerCase();
+  const treffer=vLower?[...new Set(KBE.map(k=>k.firma))].filter(x=>x.toLowerCase().includes(vLower)):[];
+  l.innerHTML='';
+  if(!treffer.length){l.classList.remove('open');return;}
+  treffer.slice(0,7).forEach(name=>{
+    const k=KBE.find(x=>x.firma===name);
+    const div=document.createElement('div');
+    div.className='aci';
+    div.textContent=name;
+    div.addEventListener('mousedown',()=>{
+      inp.value=name;
+      _renameKundeId=k?k.id:null;
+      G('rename-neuer-name').value=name;
+      l.classList.remove('open');
+    });
+    l.appendChild(div);
+  });
+  l.classList.add('open');
+}
+async function btbUmbenenneKunde(){
+  if(!_renameKundeId){ toast('⚠️ Bitte zuerst einen Kunden aus der Vorschlagsliste auswählen'); return; }
+  const k=KBE.find(x=>x.id===_renameKundeId);
+  if(!k){ toast('⚠️ Kunde nicht gefunden'); return; }
+  const alterName=k.firma;
+  const neuerName=(G('rename-neuer-name').value||'').trim();
+  if(!neuerName){ toast('⚠️ Bitte neuen Namen eingeben'); return; }
+  if(neuerName.toLowerCase()===alterName.trim().toLowerCase()){ toast('ℹ️ Name unverändert'); return; }
+  if(!confirm('„'+alterName+'" wirklich zu „'+neuerName+'" umbenennen?\n\nDas ändert den Namen bei KBE/BTB sowie bei allen Meldungen, Chemie-Angeboten und freien Angeboten, die exakt "'+alterName+'" als Firma haben.'))return;
+
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update({firma:neuerName}).eq('id',k.id);
+    if(error){ toast('⚠️ Fehler: '+error.message); return; }
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{firma:neuerName}}});
+  }
+  k.firma=neuerName;
+  const btbK=BTB_KUNDEN.find(x=>x.id===k.id);
+  if(btbK) btbK.firma=neuerName;
+
+  const alterNameLower=alterName.trim().toLowerCase();
+  let anzahl=0;
+  const tabellenMap=[[MD,'meldungen'],[CH,'chemie'],[FR,'freie_angebote']];
+  for(const [arr,tabelle] of tabellenMap){
+    for(const e of arr){
+      if((e.firma||'').trim().toLowerCase()===alterNameLower){
+        if(isOnline()){
+          const {error}=await _sb.from(tabelle).update({firma:neuerName}).eq('id',e.id);
+          if(!error){ e.firma=neuerName; anzahl++; }
+        } else {
+          addToQueue({type:'firma_rename', data:{tabelle, id:e.id, firma:neuerName}});
+          e.firma=neuerName; anzahl++;
+        }
+      }
+    }
+  }
+
+  toast((isOnline()?'✓ ':'📥 ')+'Umbenannt zu „'+neuerName+'"'+(anzahl?' ('+anzahl+' weitere Einträge aktualisiert)':'')+(isOnline()?'':' — Sync ausstehend'));
+  _renameKundeId=null;
+  G('rename-kunde-suche').value='';
+  G('rename-neuer-name').value='';
+  renderM();renderC();renderF();renderKbeKunden();renderBtbTab();renderInnendienstTab();
+}
 function btbFindeVerwaisteFirmen(){
   const kbeNamen=new Set(KBE.map(k=>btbNormalisiereName(k.firma)));
   const verwaiste=[]; // {firma, quellen:[]}
@@ -4775,7 +4866,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     // Entwurf oder Historie an dieser Anlage), sonst standardmäßig zugeklappt
     const istP3=pn2===3;
     const hatP3Daten=istP3&&(
-      dvP.vg!=null||dvP.af!=null||dvP.lg!=null
+      dvP.vg!==''||dvP.af!==''||dvP.lg!==''
       ||anlEintraege.some(e=>e.p3_vorgefunden!=null||e.p3_neu!=null||e.p3_lager!=null)
     );
     const titelZeile='<div class="'+(istP3?'btb-p3-toggle':'')+'" style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px'+(istP3?';cursor:pointer;display:flex;align-items:center;justify-content:space-between':'')+'">'
@@ -4847,31 +4938,48 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'</div>'
     // Wasserzähler: schmale Eingaben + live Verbrauch + Eindickung
     +'<div style="background:#f0fdf4;border:1.5px solid var(--gl);border-radius:8px;padding:9px;margin-top:7px">'
-    +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">💧 Wasserzähler</div>'
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
-    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Zusatzwasser</div>'
-    +'<input type="number" step="1" id="btb-zw-'+id+'-'+slug+'" class="btb-zw-input" placeholder="Zähler" value="'+(dv.zw||'')+'" style="width:100%;box-sizing:border-box"></div>'
-    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
-    +'<input type="text" readonly class="btb-zw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
-    +(letztesVerbrauchZW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letztesVerbrauchZW+'</b></div>':'')
-    +'</div>'
-    +'</div>'
-    +prevHinweis
-    +btbShareHtml('zusatzwasser', zwPartner)
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;margin-top:7px">'
-    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Abwasser opt.</div>'
-    +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box"></div>'
-    +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
-    +'<input type="text" readonly class="btb-aw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
-    +(letztesVerbrauchAW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letztesVerbrauchAW+'</b></div>':'')
-    +'</div>'
-    +'<div class="btb-feld" style="width:92px"><div class="btb-feld-lbl" style="color:#7c3aed">Eindickung</div>'
-    +'<input type="text" readonly class="btb-eindickung-live" value="–" style="width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;font-weight:800;text-align:center;cursor:default">'
-    +(letzteEindickung!=null?'<div class="btb-last-hint" style="text-align:center;color:#7c3aed">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzteEindickung+'-fach</b></div>':'')
-    +'</div>'
-    +'</div>'
-    +abwHinweis
-    +btbShareHtml('abwasser', awPartner)
+    +(()=>{
+      const hatZwDaten=dv.zw!==''||!!letzterMitWasser;
+      return '<div class="btb-zw-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between">'
+        +'<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:.05em">💧 Wasserzähler</span>'
+        +'<span class="btb-zw-arrow" style="font-size:14px;color:var(--gn)">'+(hatZwDaten?'⌃':'⌄')+'</span>'
+        +'</div>'
+        +'<div class="btb-zw-body" style="display:'+(hatZwDaten?'block':'none')+';margin-top:6px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Zusatzwasser</div>'
+        +'<input type="number" step="1" id="btb-zw-'+id+'-'+slug+'" class="btb-zw-input" placeholder="Zähler" value="'+(dv.zw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
+        +'<input type="text" readonly class="btb-zw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
+        +(letztesVerbrauchZW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letztesVerbrauchZW+'</b></div>':'')
+        +'</div>'
+        +'</div>'
+        +prevHinweis
+        +btbShareHtml('zusatzwasser', zwPartner)
+        +'</div>';
+    })()
+    +(()=>{
+      const hatAwDaten=dv.aw!==''||!!letzterMitAbwasser;
+      return '<div class="btb-aw-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-top:9px;padding-top:7px;border-top:1px dashed var(--gl)">'
+        +'<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--gn);text-transform:uppercase;letter-spacing:.05em">🚱 Abwasserzähler</span>'
+        +'<span class="btb-aw-arrow" style="font-size:14px;color:var(--gn)">'+(hatAwDaten?'⌃':'⌄')+'</span>'
+        +'</div>'
+        +'<div class="btb-aw-body" style="display:'+(hatAwDaten?'block':'none')+';margin-top:7px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Abwasser opt.</div>'
+        +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
+        +'<input type="text" readonly class="btb-aw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
+        +(letztesVerbrauchAW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letztesVerbrauchAW+'</b></div>':'')
+        +'</div>'
+        +'<div class="btb-feld" style="width:92px"><div class="btb-feld-lbl" style="color:#7c3aed">Eindickung</div>'
+        +'<input type="text" readonly class="btb-eindickung-live" value="–" style="width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;font-weight:800;text-align:center;cursor:default">'
+        +(letzteEindickung!=null?'<div class="btb-last-hint" style="text-align:center;color:#7c3aed">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzteEindickung+'-fach</b></div>':'')
+        +'</div>'
+        +'</div>'
+        +abwHinweis
+        +btbShareHtml('abwasser', awPartner)
+        +'</div>';
+    })()
     +'</div>'
     // Produkte
     +prodBlocks
@@ -5003,6 +5111,30 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     p3Toggle.addEventListener('click', ()=>{
       const body=p3Toggle.parentElement.querySelector('.btb-p3-body');
       const arrow=p3Toggle.querySelector('.btb-p3-arrow');
+      if(!body)return;
+      const offen=body.style.display!=='none';
+      body.style.display=offen?'none':'block';
+      if(arrow) arrow.textContent=offen?'⌄':'⌃';
+    });
+  }
+  // Zusatzwasserzähler ein-/ausklappen
+  const zwToggle=form.querySelector('.btb-zw-toggle');
+  if(zwToggle){
+    zwToggle.addEventListener('click', ()=>{
+      const body=zwToggle.parentElement.querySelector('.btb-zw-body');
+      const arrow=zwToggle.querySelector('.btb-zw-arrow');
+      if(!body)return;
+      const offen=body.style.display!=='none';
+      body.style.display=offen?'none':'block';
+      if(arrow) arrow.textContent=offen?'⌄':'⌃';
+    });
+  }
+  // Abwasserzähler ein-/ausklappen
+  const awToggle=form.querySelector('.btb-aw-toggle');
+  if(awToggle){
+    awToggle.addEventListener('click', ()=>{
+      const body=awToggle.parentElement.querySelector('.btb-aw-body');
+      const arrow=awToggle.querySelector('.btb-aw-arrow');
       if(!body)return;
       const offen=body.style.display!=='none';
       body.style.display=offen?'none':'block';
@@ -5957,6 +6089,13 @@ function btbReconcileQueue(){
         if(e){e.werte=d.werte;e.kuerzel=d.kuerzel;}
       });
     }
+    else if(item.type==='firma_rename'){
+      const d=item.data;
+      const arrMap={meldungen:MD, chemie:CH, freie_angebote:FR};
+      const arr=arrMap[d.tabelle];
+      const e=arr?arr.find(x=>x.id===d.id):null;
+      if(e) e.firma=d.firma;
+    }
   });
 }
 
@@ -5993,6 +6132,23 @@ async function flushQueue(){
       else if(item.type==='kbe_eintrag_update'){
         const d=item.data;
         const {error}=await _sb.from('kbe_eintraege').update({werte:d.werte,kuerzel:d.kuerzel}).eq('id',d.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
+      else if(item.type==='kbe_kunden_insert'){
+        // Fehlte bisher — offline angelegte Kunden ("+ Neuer Kunde") wurden dadurch nie
+        // tatsächlich hochgeladen. Prüft vorher ob die ID schon existiert (Doppel-Flush-sicher).
+        const d=item.data;
+        const {data:vorh}=await _sb.from('kbe_kunden').select('id').eq('id',d.id).maybeSingle();
+        if(!vorh){
+          const {error}=await _sb.from('kbe_kunden').insert({id:d.id,firma:d.firma,rkws:d.rkws||[],kuerzel_erstellt:d.kuerzel_erstellt});
+          if(!error){removeFromQueue(item.qid);flushed++;}
+        } else {
+          removeFromQueue(item.qid); // schon vorhanden → Warteschlangen-Eintrag ist erledigt
+        }
+      }
+      else if(item.type==='firma_rename'){
+        const d=item.data;
+        const {error}=await _sb.from(d.tabelle).update({firma:d.firma}).eq('id',d.id);
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
     } catch(e){}
