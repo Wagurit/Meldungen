@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.10</title>
+<title>Meldungen &amp; Angebote 2.12</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -464,7 +464,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.10</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.12</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -955,7 +955,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.10';
+const APP_VERSION = '2.12';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -4865,9 +4865,11 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     // Produkt 3 (BZ2) ist einklappbar: offen, wenn schon Daten vorhanden sind (aktueller
     // Entwurf oder Historie an dieser Anlage), sonst standardmäßig zugeklappt
     const istP3=pn2===3;
+    const hatWert=v=>v!=null&&v!=='';
     const hatP3Daten=istP3&&(
-      dvP.vg!==''||dvP.af!==''||dvP.lg!==''
+      hatWert(dvP.vg)||hatWert(dvP.af)||hatWert(dvP.lg)
       ||anlEintraege.some(e=>e.p3_vorgefunden!=null||e.p3_neu!=null||e.p3_lager!=null)
+      ||(dInfo.tage&&dInfo.tage.length>0)
     );
     const titelZeile='<div class="'+(istP3?'btb-p3-toggle':'')+'" style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px'+(istP3?';cursor:pointer;display:flex;align-items:center;justify-content:space-between':'')+'">'
       +'<span>🧪 '+esc(label)+'</span>'
