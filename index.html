@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.24</title>
+<title>Meldungen &amp; Angebote 2.25</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -483,7 +483,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.24</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.25</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -982,7 +982,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.24';
+const APP_VERSION = '2.25';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1223,10 +1223,35 @@ function applyUpdate(){
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
+// 2.25: gespeicherte Supabase-Sitzung direkt aus dem Gerätespeicher lesen (ohne Netz).
+// Supabase legt sie unter "sb-<projekt>-auth-token" ab; sie bleibt bei Netzfehlern erhalten.
+function btbGespeicherteSession(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key && /^sb-.*-auth-token$/.test(key)){
+        const s=JSON.parse(localStorage.getItem(key));
+        const sess=(s&&s.currentSession)||s;
+        if(sess && sess.user && sess.user.id) return sess;
+      }
+    }
+  }catch(e){}
+  return null;
+}
 async function init(){
-  // getSession() liest primär aus dem lokalen Storage (Supabase speichert die Session dort),
-  // also funktioniert das auch offline. Schlägt es trotzdem fehl (z.B. nach einem Absturz),
-  // zeigen wir den Login statt die App abstürzen zu lassen.
+  // 2.25: OFFLINE wird getSession() bewusst NICHT aufgerufen — ist das Zugangstoken älter als
+  // eine Stunde, versucht Supabase zuerst übers Netz ein neues zu holen, wiederholt das mehrfach
+  // ("Verbindung wird gesucht") und liefert dann "keine Sitzung" → Login-Bildschirm, obwohl die
+  // Anmeldung noch gespeichert ist. Offline starten wir direkt mit der gespeicherten Sitzung und
+  // dem gecachten Profil; das Token wird automatisch erneuert, sobald wieder Netz da ist.
+  if(!navigator.onLine){
+    const s=btbGespeicherteSession();
+    if(s){ await afterLogin(s.user, true); return; }
+    G('loading').style.display = 'none';
+    G('ls').style.display = 'flex';
+    showErr('Offline – bitte einmal online anmelden, danach funktioniert die App auch ohne Netz.');
+    return;
+  }
   try{
     const {data:{session}} = await _sb.auth.getSession();
     if(session){
@@ -1234,28 +1259,37 @@ async function init(){
       return;
     }
   }catch(e){
-    console.warn('getSession fehlgeschlagen (offline?):', e.message);
+    console.warn('getSession fehlgeschlagen:', e.message);
   }
+  // Gerät meldet "online", Token-Erneuerung ist aber am wackligen Netz gescheitert: Supabase behält
+  // die Sitzung in dem Fall gespeichert → trotzdem mit gecachtem Profil starten statt Login.
+  // (Nach echtem Abmelden oder ungültigem Token ist nichts gespeichert → normaler Login.)
+  const s=btbGespeicherteSession();
+  if(s && localStorage.getItem(PROFIL_KEY)){ await afterLogin(s.user, true); return; }
   G('loading').style.display = 'none';
   G('ls').style.display = 'flex';
 }
 
 const PROFIL_KEY='rkw_nutzer_profil';
 // ── BUG FIX #3: aktiv-Prüfung in afterLogin ──
-async function afterLogin(user){
+async function afterLogin(user, nurCache){
   userId = user.id;
-  let profil=null;
-  if(isOnline()){
-    const {data} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+  let profil=null, profilFrisch=false, netzFehler=false;
+  if(isOnline() && !nurCache){
+    const {data,error} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+    // 2.25: Netzfehler (Gerät meldet online, Anfrage scheitert) von "Nutzer existiert nicht"
+    // (PGRST116 = keine Zeile) unterscheiden — sonst würde ein wackliges Netz zum Abmelden führen
+    if(error && error.code!=='PGRST116') netzFehler=true;
     profil=data;
-    if(profil) try{localStorage.setItem(PROFIL_KEY, JSON.stringify(profil));}catch(e){}
-  } else {
-    // Offline: letztes bekanntes Profil aus localStorage verwenden — Aktivitätsprüfung
-    // entfällt (kann offline nicht geprüft werden), Vertrauen auf die letzte Online-Prüfung
+    if(profil){ profilFrisch=true; try{localStorage.setItem(PROFIL_KEY, JSON.stringify(profil));}catch(e){} }
+  }
+  if(!profil && (!isOnline() || nurCache || netzFehler)){
+    // Offline / Netzfehler: letztes bekanntes Profil verwenden — Aktivitätsprüfung
+    // entfällt (kann ohne Netz nicht geprüft werden), Vertrauen auf die letzte Online-Prüfung
     try{const raw=localStorage.getItem(PROFIL_KEY);if(raw)profil=JSON.parse(raw);}catch(e){}
   }
   if(!profil){
-    if(isOnline()){
+    if(isOnline() && !nurCache && !netzFehler){
       await _sb.auth.signOut();
       G('loading').style.display='none';
       G('ls').style.display='flex';
@@ -1268,7 +1302,7 @@ async function afterLogin(user){
     return;
   }
   // BUG FIX #3: Deaktivierte Nutzer abweisen (nur wenn online prüfbar)
-  if(isOnline() && profil.aktiv === false){
+  if(profilFrisch && profil.aktiv === false){
     await _sb.auth.signOut();
     G('loading').style.display='none';
     G('ls').style.display='flex';
@@ -1281,7 +1315,14 @@ async function afterLogin(user){
   G('hkz').textContent = kz;
   if(userRolle==='admin'){G('hadmin').classList.add('v');G('admin-tab').style.display='flex';}
 
-  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+  // 2.25: Nutzerliste (Zuweisen-Knöpfe) für offline zwischenspeichern
+  let alleN=null;
+  if(isOnline() && !nurCache){
+    const r=await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+    alleN=r.data;
+    if(alleN&&alleN.length) try{localStorage.setItem('rkw_alle_nutzer', JSON.stringify(alleN));}catch(e){}
+  }
+  if(!alleN||!alleN.length){ try{alleN=JSON.parse(localStorage.getItem('rkw_alle_nutzer')||'[]');}catch(e){alleN=[];} }
   allNutzer = alleN || [];
   buildZuwPills();
 
