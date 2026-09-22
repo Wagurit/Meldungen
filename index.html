@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.25</title>
+<title>Meldungen &amp; Angebote 2.26</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -483,7 +483,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.25</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.26</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -982,7 +982,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.25';
+const APP_VERSION = '2.26';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1331,6 +1331,9 @@ async function afterLogin(user, nurCache){
   G('ap').style.display='flex';
 
   await loadAll();
+  // 2.26: Warteschlange auch beim Start hochladen (z.B. Notfall-Sicherung vor Pull-down,
+  // oder Einträge vom Vortag) — bisher passierte das nur, wenn das Netz während der Nutzung zurückkam
+  if(isOnline() && getQueue().length) flushQueue();
   setupRealtime();
   setTimeout(subscribePush, 2000);
   if(userRolle==='admin') loadNutzerAdmin();
@@ -1721,6 +1724,57 @@ async function dsBuche(ort,delta,gen){
 }
 
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') dsLade(); });
+
+// ── 2.26: Notfall-Sicherung vor Neuladen (Pull-down) / Schließen / Wechsel in andere App ──
+// Beim Neuladen bleibt keine Zeit für Netzwerk-Anfragen. Deshalb werden offene, ungespeicherte
+// Eingaben SYNCHRON in die Warteschlange (Gerätespeicher) geschrieben. Nach dem Neuladen legt der
+// Abgleich sie wieder ins Formular, und sie werden automatisch hochgeladen.
+// Vergleich unabhängig von der Feld-Reihenfolge (Supabase-jsonb sortiert Schlüssel um)
+function btbStabilJSON(o){
+  if(o===null||typeof o!=='object') return JSON.stringify(o===undefined?null:o);
+  if(Array.isArray(o)) return '['+o.map(btbStabilJSON).join(',')+']';
+  return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+btbStabilJSON(o[k])).join(',')+'}';
+}
+function btbNotfallSicherung(){
+  try{
+    let gesichert=false;
+    document.querySelectorAll('#ebtb .btb-karte.open').forEach(karte=>{
+      const k=BTB_KUNDEN.find(x=>x.id===karte.dataset.btbId);
+      if(!k)return;
+      const aktTab=karte.querySelector('.btb-anlage-tab.active');
+      const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+      const form=karte.querySelector('.btb-anlage-panel.active .btb-form');
+      if(!anlageName||!form)return;
+      if(btbFormHatEingaben(form)){
+        const felder=btbLeseFormFelder(k, anlageName, form);
+        const vorhanden=k.entwuerfe.find(e=>e.anlage===anlageName);
+        // Unverändert gegenüber dem letzten Speichern → nichts zu tun
+        if(!vorhanden || btbStabilJSON(vorhanden.felder)!==btbStabilJSON(felder)){
+          const entwurfId=vorhanden?vorhanden.id:btbUuid();
+          if(vorhanden){ vorhanden.felder=felder; vorhanden.kuerzel=kz; }
+          else k.entwuerfe.push({id:entwurfId, anlage:anlageName, felder, kuerzel:kz});
+          btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===entwurfId);
+          addToQueue({type:'btb_entwurf_upsert', data:{id:entwurfId, kunde_id:k.id, anlage:anlageName, felder, kuerzel:kz, istUpdate:!!vorhanden}});
+          gesichert=true;
+        }
+      }
+      if(btbProduktnamenGeaendert(k, anlageName, form)){
+        const {alle}=btbBerechneProduktnamen(k, anlageName, form);
+        btbUebernehmeProduktnamenLokal(k, alle);
+        addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{produkt_namen_pro_anlage:alle}}});
+        gesichert=true;
+      }
+    });
+    if(gesichert) btbSaveSnapshot(); // sofort, nicht entprellt — die Seite wird gleich verlassen
+  }catch(e){ console.warn('Notfall-Sicherung fehlgeschlagen:', e); }
+}
+window.addEventListener('pagehide', btbNotfallSicherung);
+window.addEventListener('beforeunload', btbNotfallSicherung);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') btbNotfallSicherung();
+  // zurück in der App: Gesichertes zügig hochladen, damit nichts Veraltetes liegen bleibt
+  else if(isOnline() && getQueue().length) flushQueue();
+});
 window.addEventListener('online', ()=>dsLade());
 window.addEventListener('offline',()=>dsRender());
 
@@ -1741,8 +1795,8 @@ async function btbAutoSaveAlleOffenenFormulare(){
     if(!aktivesPanel||!anlageName)return;
     const form=aktivesPanel.querySelector('.btb-form');
     if(!form)return;
-    if(!btbFormHatEingaben(form))return; // nichts eingetragen -> kein Phantom-Entwurf anlegen
-    saves.push(saveBtbEntwurf(k, anlageName, form, false)); // kein Scroll bei automatischem Hintergrund-Speichern
+    // 2.26: Messwerte nur wenn eingetragen (kein Phantom-Entwurf), Produktnamen wenn geändert
+    saves.push(btbSichereFormular(k, anlageName, form, false)); // kein Scroll bei automatischem Hintergrund-Speichern
   });
   if(saves.length) await Promise.all(saves);
 }
@@ -4917,8 +4971,8 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
 
       // Danach im Hintergrund die vorherige Anlage automatisch zwischenspeichern —
       // aber nur, wenn dort tatsächlich etwas eingetragen wurde
-      if(!ohneEingabe && wechselt && vorherAnlageName && vorherForm && btbFormHatEingaben(vorherForm)){
-        await saveBtbEntwurf(k, vorherAnlageName, vorherForm, false); // kein Scroll bei automatischem Hintergrund-Speichern
+      if(!ohneEingabe && wechselt && vorherAnlageName && vorherForm){
+        await btbSichereFormular(k, vorherAnlageName, vorherForm, false); // kein Scroll bei automatischem Hintergrund-Speichern
       }
     };
     anlTabs.appendChild(tabBtn);
@@ -5238,10 +5292,13 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   });
 
   // Produktnamen-Editor
-  const pEditHtml='<div style="margin-top:6px;border:1px dashed var(--bo);border-radius:8px;overflow:hidden">'
+  // 2.26: solange nur die Standardbezeichnungen stehen, ist der Bereich aufgeklappt — so landet man
+  // per Enter direkt darin und denkt ans Eintragen. Mit eigenen Namen: zugeklappt (nur bewusst ändern).
+  const pnStandard=(pn.p1||'BZ')==='BZ' && (pn.p2||'KT/LB')==='KT/LB' && !pn.p3;
+  const pEditHtml='<div style="margin-top:6px;border:1px dashed '+(pnStandard?'var(--or)':'var(--bo)')+';border-radius:8px;overflow:hidden">'
     +'<div class="btb-pname-toggle" '
     +'style="padding:7px 10px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.05em">⚙️ Produktbezeichnungen ändern</div>'
-    +'<div class="btb-pname-body" style="display:none;padding:9px;background:var(--bg)">'
+    +'<div class="btb-pname-body" style="display:'+(pnStandard?'block':'none')+';padding:9px;background:var(--bg)">'
     +'<div class="btb-grid-3">'
     +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 1</div><input type="text" data-pname="1" value="'+esc(pn.p1||'BZ')+'" placeholder="z.B. BZ 300"></div>'
     +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" data-pname="2" value="'+esc(pn.p2||'KT/LB')+'" placeholder="z.B. KT 300 K"></div>'
@@ -5498,48 +5555,11 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   // Produktnamen-Speichern Button
   const pBtn=form.querySelector('[data-action="saveprod"]');
   if(pBtn) pBtn.addEventListener('click',async()=>{
-    const p1=form.querySelector('[data-pname="1"]')?.value.trim()||'';
-    const p2=form.querySelector('[data-pname="2"]')?.value.trim()||'';
-    const p3=form.querySelector('[data-pname="3"]')?.value.trim()||'';
-    const geteiltMit=[...form.querySelectorAll('.btb-pname-share-cb:checked')].map(cb=>cb.dataset.anlage);
-    // Erst aktuellen Formularstand sichern (wie Zwischenspeichern), aber nur falls dort
-    // tatsächlich etwas eingetragen wurde — Werte wurden oben schon gelesen, form kann
-    // durchs Neuladen danach ungültig werden
-    if(btbFormHatEingaben(form)) await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
-
-    // Produktnamen pro Anlage speichern — für die aktuelle Anlage und alle angekreuzten.
-    // "Seit"-Datum pro Produkt: nur aktualisieren, wenn sich der Name für DIESE Anlage
-    // tatsächlich geändert hat, sonst bleibt das bisherige Datum stehen (z.B. bei erneutem
-    // Speichern ohne inhaltliche Änderung)
-    const heute=new Date().toISOString().split('T')[0];
-    const berechneSeit=(alt, p1n,p2n,p3n)=>({
-      p1_seit:(p1n!==(alt.p1||''))?heute:(alt.p1_seit||heute),
-      p2_seit:(p2n!==(alt.p2||''))?heute:(alt.p2_seit||heute),
-      p3_seit:(p3n!==(alt.p3||''))?heute:(alt.p3_seit||heute)
-    });
-    const alleProduktNamen=Object.assign({}, k.produkt_namen_pro_anlage||{});
-    const altAktuelle=alleProduktNamen[slug]||{};
-    alleProduktNamen[slug]=Object.assign({p1,p2,p3}, berechneSeit(altAktuelle,p1,p2,p3));
-    geteiltMit.forEach(name=>{
-      const anlSlug=btbSlug(name);
-      const altGeteilt=alleProduktNamen[anlSlug]||{};
-      alleProduktNamen[anlSlug]=Object.assign({p1,p2,p3}, berechneSeit(altGeteilt,p1,p2,p3));
-    });
-    k.produkt_namen_pro_anlage=alleProduktNamen; // lokal sofort übernehmen
-    btbSaveSnapshot();
-
-    if(isOnline()){
-      const {error}=await _sb.from('kbe_kunden').update({produkt_namen_pro_anlage:alleProduktNamen}).eq('id',id);
-      if(error){
-        addToQueue({type:'kbe_kunden_update', data:{id, patch:{produkt_namen_pro_anlage:alleProduktNamen}}});
-        toast('⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen');
-      } else {
-        toast('✓ Bezeichnungen gespeichert'+(geteiltMit.length?' ('+(geteiltMit.length+1)+' Anlagen)':''));
-      }
-    } else {
-      addToQueue({type:'kbe_kunden_update', data:{id, patch:{produkt_namen_pro_anlage:alleProduktNamen}}});
-      toast('📥 Offline gespeichert — wird hochgeladen sobald online');
-    }
+    // 2.26: gemeinsame Logik — Namen immer speichern (bewusster Klick), Messwerte nur wenn
+    // eingetragen. Werte werden synchron gelesen, bevor neu geladen wird.
+    const namen=btbSpeichereProduktnamen(k, anlageName, form, false);
+    if(btbFormHatEingaben(form)) await saveBtbEntwurf(k, anlageName, form, false);
+    await namen;
     await loadAll();
   });
 
@@ -5772,9 +5792,107 @@ async function btbSaveDosierFromForm(form, id, k, anlageSlug){
 }
 
 // ── Entwurf zwischenspeichern (Supabase btb_entwurf) ──
+// 2.26: Formularfelder synchron auslesen — genutzt von saveBtbEntwurf und der Notfall-Sicherung
+// beim Neuladen (Pull-down), die keine asynchronen Schritte mehr abwarten kann
+function btbLeseFormFelder(k, anlageName, formEl){
+  const slug=btbSlug(anlageName), id=k.id;
+  const el=elId=>formEl.querySelector('#'+CSS.escape(elId))||G(elId);
+  const toN=elId=>{const v=el(elId)?.value;return(v===''||v==null)?null:Number(v);};
+  const toS=elId=>el(elId)?.value||null;
+  const getProd=pnr=>{
+    const block=formEl.querySelector('[data-prod="'+pnr+'"]');
+    if(!block)return{};
+    const n=cls=>{const x=parseFloat(block.querySelector('.btb-'+cls)?.value);return isNaN(x)?null:x;};
+    return{vg:n('vg'),af:n('af'),neu:n('neu'),lg:n('lg')};
+  };
+  return {
+    datum:toS('btb-datum-'+id+'-'+slug), uhr:toS('btb-uhr-'+id+'-'+slug),
+    lf:toN('btb-lf-'+id+'-'+slug), dh:toN('btb-dh-'+id+'-'+slug),
+    lfi:toN('btb-lfi-'+id+'-'+slug), lfs:toN('btb-lfs-'+id+'-'+slug),
+    ds:el('btb-ds-'+id+'-'+slug)?.checked||false,
+    zw:toN('btb-zw-'+id+'-'+slug), aw:toN('btb-aw-'+id+'-'+slug),
+    bem:((toS('btb-bem-'+id+'-'+slug)||'').trim()),
+    p1:getProd(1), p2:getProd(2), p3:getProd(3),
+  };
+}
+
+// ── 2.26: Produktbezeichnungen ──
+// Angezeigt werden im Editor pn.p1||'BZ', pn.p2||'KT/LB', pn.p3||'' — "geändert" heißt:
+// Eingabe weicht davon ab ODER es ist mindestens eine "Auch übernehmen für"-Anlage angekreuzt
+function btbProduktnamenGeaendert(k, anlageName, form){
+  const pn=btbGetProduktNamen(k, anlageName);
+  const v=i=>(form.querySelector('[data-pname="'+i+'"]')?.value||'').trim();
+  if(!form.querySelector('[data-pname="1"]')) return false;
+  if(form.querySelector('.btb-pname-share-cb:checked')) return true;
+  return v(1)!==(pn.p1||'BZ') || v(2)!==(pn.p2||'KT/LB') || v(3)!==(pn.p3||'');
+}
+// Berechnet die neue produkt_namen_pro_anlage-Struktur (synchron) inkl. "seit"-Datum pro Produkt
+function btbBerechneProduktnamen(k, anlageName, form){
+  const slug=btbSlug(anlageName);
+  const v=i=>(form.querySelector('[data-pname="'+i+'"]')?.value||'').trim();
+  const p1=v(1), p2=v(2), p3=v(3);
+  const geteiltMit=[...form.querySelectorAll('.btb-pname-share-cb:checked')].map(cb=>cb.dataset.anlage);
+  const heute=new Date().toISOString().split('T')[0];
+  // "Seit"-Datum nur aktualisieren, wenn sich der Name für DIESE Anlage tatsächlich geändert hat
+  const berechneSeit=(alt,a,b,d)=>({
+    p1_seit:(a!==(alt.p1||''))?heute:(alt.p1_seit||heute),
+    p2_seit:(b!==(alt.p2||''))?heute:(alt.p2_seit||heute),
+    p3_seit:(d!==(alt.p3||''))?heute:(alt.p3_seit||heute)
+  });
+  const alle=Object.assign({}, k.produkt_namen_pro_anlage||{});
+  alle[slug]=Object.assign({p1,p2,p3}, berechneSeit(alle[slug]||{},p1,p2,p3));
+  geteiltMit.forEach(name=>{
+    const s=btbSlug(name);
+    alle[s]=Object.assign({p1,p2,p3}, berechneSeit(alle[s]||{},p1,p2,p3));
+  });
+  return {alle, anzahl:geteiltMit.length+1};
+}
+function btbUebernehmeProduktnamenLokal(k, alle){
+  k.produkt_namen_pro_anlage=alle;
+  const kb=KBE.find(x=>x.id===k.id); if(kb&&kb!==k) kb.produkt_namen_pro_anlage=alle;
+  const bk=BTB_KUNDEN.find(x=>x.id===k.id); if(bk&&bk!==k) bk.produkt_namen_pro_anlage=alle;
+}
+// Speichert die Produktbezeichnungen (online direkt, sonst Warteschlange) — ohne Neuladen
+async function btbSpeichereProduktnamen(k, anlageName, form, still){
+  const {alle, anzahl}=btbBerechneProduktnamen(k, anlageName, form);
+  btbUebernehmeProduktnamenLokal(k, alle);
+  btbSaveSnapshot();
+  let ok=false;
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update({produkt_namen_pro_anlage:alle}).eq('id',k.id);
+    ok=!error;
+  }
+  if(!ok){
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{produkt_namen_pro_anlage:alle}}});
+    if(!still) toast(isOnline()?'⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen':'📥 Offline gespeichert — wird hochgeladen sobald online');
+  } else {
+    btbEntferneUeberholteQueue('kbe_kunden_update', x=>x.data.id===k.id && x.data.patch && Object.keys(x.data.patch).length===1 && x.data.patch.produkt_namen_pro_anlage);
+    if(!still) toast('✓ Bezeichnungen gespeichert'+(anzahl>1?' ('+anzahl+' Anlagen)':''));
+  }
+  return true;
+}
+// Entfernt Warteschlangen-Einträge, die durch ein erfolgreiches direktes Speichern überholt sind
+// (z.B. Notfall-Sicherung beim Wechsel in eine andere App, danach normal weitergearbeitet) —
+// sonst würde ein späteres Hochladen den neueren Stand mit dem älteren überschreiben
+function btbEntferneUeberholteQueue(typ, passt){
+  try{
+    const q=getQueue(), rest=q.filter(x=>!(x.type===typ && passt(x)));
+    if(rest.length!==q.length){ localStorage.setItem(QUEUE_KEY, JSON.stringify(rest)); updateQueueBadge(); }
+  }catch(e){}
+}
+// Sichert ein Formular vollständig: Messwerte (nur wenn etwas eingetragen ist) und Produktnamen
+// (nur wenn geändert). Genutzt von allen automatischen Speicherstellen.
+async function btbSichereFormular(k, anlageName, form, scroll){
+  if(btbFormHatEingaben(form)) return saveBtbEntwurf(k, anlageName, form, scroll); // speichert Namen mit
+  if(btbProduktnamenGeaendert(k, anlageName, form)){ await btbSpeichereProduktnamen(k, anlageName, form, true); renderAll(); }
+}
+
 async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   const slug=btbSlug(anlageName);
   const id=k.id;
+  // 2.26: geänderte Produktbezeichnungen mitspeichern (Werte sofort synchron lesen, bevor
+  // ein späteres Neuladen das Formular ersetzt)
+  const namenSpeichern=btbProduktnamenGeaendert(k, anlageName, formEl)?btbSpeichereProduktnamen(k, anlageName, formEl, true):null;
   const toN=elId=>{const v=G(elId)?.value;return(v===''||v==null)?null:Number(v);};
   const toS=elId=>G(elId)?.value||null;
   // Produkt-Daten per CSS-Klassen direkt aus formEl lesen (kein globaler ID-Lookup nötig)
@@ -5829,9 +5947,11 @@ async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
     toast(online?'⚠️ Kein Netz — trotzdem gespeichert, wird automatisch hochgeladen':'📥 Offline gespeichert — wird hochgeladen sobald online');
     console.log('BTB Entwurf in Warteschlange:', felder);
   } else {
+    btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===entwurfId);
     toast('✅ '+anlageName+' gespeichert');
     console.log('BTB Entwurf gespeichert:', felder);
   }
+  if(namenSpeichern) await namenSpeichern;
 
   if(online && !fehler){ await loadAll(); }
   else { renderAll(); updB(); }
@@ -5861,6 +5981,9 @@ async function btbFertigZumBerechnen(kid){
     const aktiverTab=karteElVorab.querySelector('.btb-anlage-tab.active');
     const anlageName=aktiverTab?aktiverTab.textContent.replace('✓','').trim():null;
     const form=aktivesPanel?aktivesPanel.querySelector('.btb-form'):null;
+    if(anlageName && form && !btbFormHatEingaben(form) && btbProduktnamenGeaendert(k, anlageName, form)){
+      await btbSpeichereProduktnamen(k, anlageName, form, true);
+    }
     if(anlageName && form && btbFormHatEingaben(form)){
       await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
       // k neu holen, da saveBtbEntwurf intern neu lädt und BTB_KUNDEN dabei neu aufgebaut wird
