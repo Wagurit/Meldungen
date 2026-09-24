@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.26</title>
+<title>Meldungen &amp; Angebote 2.28</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -50,6 +50,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bl);color:var(--tx);font-s
 
 /* ── APP ── */
 #ap{display:none;flex-direction:column;min-height:100dvh;}
+/* 2.27: nativen Pull-down-Neuladen abschalten — die App übernimmt das selbst (erst speichern, dann neu laden) */
+html,body{overscroll-behavior-y:none;}
+#ptr-ind{position:fixed;top:0;left:0;right:0;z-index:9998;background:var(--bd);color:#fff;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.03em;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 10px;transform:translateY(-110%);transition:transform .15s;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2);}
 .hdr{position:sticky;top:0;z-index:200;background:var(--bd);height:var(--hh);display:flex;align-items:center;padding:0 14px;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0;}
 .logo{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:#fff;}
 .logo span{color:#bae6fd;font-weight:400;}
@@ -483,7 +486,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.26</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.28</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -982,7 +985,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.26';
+const APP_VERSION = '2.28';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1768,6 +1771,56 @@ function btbNotfallSicherung(){
     if(gesichert) btbSaveSnapshot(); // sofort, nicht entprellt — die Seite wird gleich verlassen
   }catch(e){ console.warn('Notfall-Sicherung fehlgeschlagen:', e); }
 }
+// ── 2.27: Eigener Pull-down — erst speichern, dann neu laden ──
+// iOS löst in der installierten App beim Herunterziehen kein zuverlässiges "Seite wird verlassen"-
+// Ereignis aus, die Notfall-Sicherung kam dadurch oft nicht zum Zug. Der native Pull-down ist per
+// CSS abgeschaltet; diese Geste übernimmt es selbst:
+//   online:  sofort in den Gerätespeicher sichern → alles hochladen → erst dann neu laden
+//   offline: sofort in den Gerätespeicher sichern → neu laden (wie bisher, Daten bleiben erhalten)
+let _ptrLaeuft=false;
+async function btbSpeichernUndNeuLaden(){
+  if(_ptrLaeuft)return; _ptrLaeuft=true;
+  const ind=G('ptr-ind');
+  if(ind){ ind.textContent=isOnline()?'💾 Speichere …':'📥 Offline gesichert – lade neu …'; ind.style.transform='translateY(0)'; }
+  btbNotfallSicherung(); // synchron, damit auch bei einem Hänger danach nichts verloren geht
+  if(isOnline() && getQueue().length){
+    try{ await btbMitTimeout(flushQueue(), 10000); }catch(e){ console.warn('Hochladen vor Neuladen:', e.message); }
+  }
+  location.reload();
+}
+(function btbEigenerPullDown(){
+  const SCHWELLE=85;
+  let startY=null, dist=0;
+  const ind=document.createElement('div'); ind.id='ptr-ind'; document.body.appendChild(ind);
+  // Nur auslösen, wenn weder die Seite noch ein scrollbarer Bereich unter dem Finger gescrollt ist
+  const ganzOben=el=>{
+    if((document.scrollingElement||document.documentElement).scrollTop>0) return false;
+    for(let n=el; n && n!==document.body; n=n.parentElement){ if(n.scrollTop>0) return false; }
+    return true;
+  };
+  document.addEventListener('touchstart',e=>{
+    startY=null; dist=0;
+    if(_ptrLaeuft || e.touches.length!==1) return;
+    if(G('ap')?.style.display==='none') return;                      // Login/Ladebildschirm
+    if(document.querySelector('.modal-overlay[style*="flex"]')) return; // offenes Fenster
+    if(ganzOben(e.target)) startY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(startY==null) return;
+    dist=e.touches[0].clientY-startY;
+    if(dist<=10){ ind.style.transform='translateY(-110%)'; return; }
+    ind.textContent=dist>=SCHWELLE?'↑ Loslassen: speichern & aktualisieren':'↓ Weiter ziehen zum Aktualisieren';
+    ind.style.transform='translateY(0)';
+  },{passive:true});
+  const ende=()=>{
+    if(startY==null) return;
+    const d=dist; startY=null; dist=0;
+    if(d>=SCHWELLE) btbSpeichernUndNeuLaden();
+    else ind.style.transform='translateY(-110%)';
+  };
+  document.addEventListener('touchend',ende,{passive:true});
+  document.addEventListener('touchcancel',()=>{ startY=null; ind.style.transform='translateY(-110%)'; },{passive:true});
+})();
 window.addEventListener('pagehide', btbNotfallSicherung);
 window.addEventListener('beforeunload', btbNotfallSicherung);
 document.addEventListener('visibilitychange',()=>{
@@ -2351,10 +2404,26 @@ async function saveRq(id){
   const newRQ=[...(e.rueckfragen||[])];
   newRQ.forEach(rq=>{if(!rq.offen&&!rq.bestaetigt)rq.bestaetigt=true;});
   newRQ.push({id:'rq'+Date.now(),kuerzel:kz,kommentar:text,ts:new Date().toISOString(),antworten:[],offen:true});
-  await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',id);
+  // 2.28: lokal übernehmen + neu rendern (fehlte bisher — Eingabefeld und Zähler blieben stehen)
+  if(!(await btbSpeichereRueckfragen(id, newRQ))) return;
   if(ta)ta.value='';
   const b=G('rq-box-'+id);if(b)b.style.display='none';
   toast('✓ Rückfrage gesendet');
+}
+// 2.28: Rückfragen speichern — online direkt, offline/bei Netzfehler über die Warteschlange.
+// Aktualisiert immer den lokalen Stand und die Anzeige, damit Eingabefeld und Zähler stimmen.
+async function btbSpeichereRueckfragen(freiId, newRQ){
+  if(isOnline()){
+    const {error}=await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',freiId);
+    if(error){ toast('⚠️ Fehler: '+error.message); return false; }
+  } else {
+    addToQueue({type:'frei_update', data:{id:freiId, patch:{rueckfragen:newRQ}}});
+    toast('📥 Offline gespeichert — wird hochgeladen sobald online');
+  }
+  const idx=FR.findIndex(x=>x.id===freiId);
+  if(idx>-1) FR[idx].rueckfragen=newRQ;
+  renderF(); updB();
+  return true;
 }
 async function saveRqAntwort(freiId,rqId){
   const e=FR.find(x=>x.id===freiId);if(!e)return;
@@ -2368,9 +2437,11 @@ async function saveRqAntwort(freiId,rqId){
     else if(kz===IS_KZ){updated.bestaetigt=true;}
     return updated;
   });
-  await _sb.from('freie_angebote').update({rueckfragen:newRQ}).eq('id',freiId);
+  // 2.28: lokal übernehmen + neu rendern (fehlte bisher — Antwortfeld blieb gefüllt stehen und
+  // der Zähler "Offene Rückfragen" ging nicht weg)
+  if(!(await btbSpeichereRueckfragen(freiId, newRQ))) return;
   if(ta)ta.value='';
-  toast('✓ Antwort gespeichert');
+  toast(text?'✓ Antwort gespeichert':'✓ Erledigt');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3239,6 +3310,22 @@ function toggleKbeMeld(id,btn){const el=document.getElementById(id);if(!el)retur
 // muss einen Kundennamen nur einmal eingeben und sieht in jedem Reiter sofort
 // die zum Kunden passenden Einträge.
 const BTB_SYNC_FELDER=['ink','sm','sc','sff','sb-search','sk','kbe-suche','btb-suche','wm-suche','is-suche','wz-suche'];
+// 2.27: Kunde aus BTB Innen in alle Suchfelder übernehmen — AUSSER in das von BTB Innen selbst,
+// sonst wäre die Liste dort auf diesen Kunden gefiltert und der nächste nicht mehr anklickbar.
+// So kann der Innendienst "Export fällig" filtern, Kunde für Kunde aufklappen und in den anderen
+// Reitern (Meldungen, Angebote, Chemie …) direkt sehen, ob dort etwas Aktuelles steht.
+function btbSucheAusBtbInnen(firma){
+  btbNotfallSicherung(); // offene BTB-Formulare sichern, bevor der BTB-Reiter neu aufgebaut wird
+  BTB_SYNC_FELDER.forEach(id=>{
+    if(id==='is-suche') return;
+    const el=G(id); if(el) el.value=firma;
+  });
+  renderM(); renderC(); renderF();
+  renderKbeTab(); renderKbeKunden(); renderKbeListe();
+  renderWmTab(); renderBtbTab(); renderWasserzaehlerTab();
+  updB();
+  toast('🔍 „'+firma+'" in den anderen Reitern gesucht');
+}
 function btbSyncKundenSuche(val, quellId){
   BTB_SYNC_FELDER.forEach(id=>{
     if(id===quellId)return; // Quellfeld nicht anfassen (Cursor-Position beim Tippen bleibt erhalten)
@@ -4900,7 +4987,11 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
     '</div>';
   // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
   header.querySelectorAll('.btb-toggle-area').forEach(el=>{
-    el.addEventListener('click',()=>karte.classList.toggle('open'));
+    el.addEventListener('click',()=>{
+      karte.classList.toggle('open');
+      // 2.27: BTB Innen — beim Aufklappen den Kunden in die Suchfelder der anderen Reiter übernehmen
+      if(ohneEingabe && karte.classList.contains('open')) btbSucheAusBtbInnen(k.firma);
+    });
   });
   const anlagenBtn=header.querySelector('.btb-anlagen-btn');
   if(anlagenBtn){
@@ -6576,6 +6667,11 @@ function btbReconcileQueue(){
         if(e){e.werte=d.werte;e.kuerzel=d.kuerzel;}
       });
     }
+    else if(item.type==='frei_update'){
+      const d=item.data;
+      const e=FR.find(x=>x.id===d.id);
+      if(e) Object.assign(e, d.patch);
+    }
     else if(item.type==='firma_rename'){
       const d=item.data;
       const arrMap={meldungen:MD, chemie:CH, freie_angebote:FR};
@@ -6632,6 +6728,10 @@ async function flushQueue(){
         } else {
           removeFromQueue(item.qid); // schon vorhanden → Warteschlangen-Eintrag ist erledigt
         }
+      }
+      else if(item.type==='frei_update'){
+        const {error}=await _sb.from('freie_angebote').update(item.data.patch).eq('id',item.data.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='firma_rename'){
         const d=item.data;
