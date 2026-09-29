@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.28</title>
+<title>Meldungen &amp; Angebote 2.30</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -486,7 +486,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.28</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.30</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -985,7 +985,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.28';
+const APP_VERSION = '2.30';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1216,7 +1216,11 @@ if('serviceWorker' in navigator){
   // offline die Session zerstören, weil getSession() dann fehlschlägt. Stattdessen: nur neu
   // laden wenn wirklich eine neue App-Version da ist, und nur wenn online.
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(isOnline()) location.reload();
+    // 2.30: Vor dem Neuladen immer erst die offenen Eingaben sichern. Bis hierher konnte eine
+    // neue Version mitten im Tippen übernehmen und die Seite ungefragt neu laden.
+    if(!isOnline()) return;
+    if(typeof btbNotfallSicherung==='function') btbNotfallSicherung();
+    location.reload();
   });
 }
 function applyUpdate(){
@@ -1434,6 +1438,12 @@ async function loadAllEigentlich(){
       _sb.from('wm_eintraege').select('*').order('datum',{ascending:false}),
       _sb.from('btb_eintraege').select('*').order('datum_btb',{ascending:false}),
     ]);
+    // 2.29: Fehler der Abfragen prüfen. Supabase liefert bei vielen Störungen (abgebrochene
+    // Anfrage, Serverfehler, abgelaufenes Token nach Netzwechsel) eine Antwort MIT Fehler statt
+    // zu scheitern. Ungeprüft wurden daraus leere Listen — die App wirkte leer und überschrieb
+    // anschließend den guten Offline-Stand. Jetzt: abbrechen, bisherigen Stand behalten.
+    const ladeFehler=[m,c,f,k,ke,l,fav,wm,btb].map(r=>r&&r.error).filter(Boolean);
+    if(ladeFehler.length) throw new Error('Daten konnten nicht vollständig geladen werden: '+ladeFehler[0].message);
     // btb_entwurf separat laden — wenn Tabelle noch nicht existiert nicht abstürzen
     const btbDraft = await _sb.from('btb_entwurf').select('*').then(r=>r).catch(()=>({data:[]}));
     // btb_maengel_vorlagen (globale Mängel-Vorlagen) separat laden
@@ -1597,7 +1607,33 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'lager_bestand'},()=>dsLadeSpaeter())
     .subscribe();
 }
+// 2.29: Gibt es gerade ein offenes BTB-Formular mit noch nicht gespeicherten Eingaben?
+function btbEingabeLaeuft(){
+  const karten=[...document.querySelectorAll('#ebtb .btb-karte.open')];
+  return karten.some(karte=>{
+    const k=BTB_KUNDEN.find(x=>x.id===karte.dataset.btbId);
+    if(!k) return false;
+    if(_dosierOffen[k.id]) return true;
+    const aktTab=karte.querySelector('.btb-anlage-tab.active');
+    const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+    const form=karte.querySelector('.btb-anlage-panel.active .btb-form');
+    if(!anlageName||!form) return false;
+    if(btbProduktnamenGeaendert(k, anlageName, form)) return true;
+    if(!btbFormHatEingaben(form)) return false;
+    const vorhanden=k.entwuerfe.find(e=>e.anlage===anlageName);
+    // Nur "in Arbeit", wenn die Eingaben vom zuletzt gespeicherten Stand abweichen
+    return !vorhanden || btbStabilJSON(vorhanden.felder)!==btbStabilJSON(btbLeseFormFelder(k, anlageName, form));
+  });
+}
+// Neuladen durch die Live-Verbindung aufschieben, solange getippt wird — sonst wird das
+// Formular neu aufgebaut und ungespeicherte Messwerte gehen verloren ("Flackern")
+let _reloadWartet=null;
+function btbReloadSpaeter(tbl){
+  if(_reloadWartet) clearTimeout(_reloadWartet);
+  _reloadWartet=setTimeout(()=>{ _reloadWartet=null; reloadTable(tbl); }, 20000);
+}
 async function reloadTable(tbl){
+  if((tbl==='btb'||tbl==='kbe'||tbl==='wm') && btbEingabeLaeuft()){ btbReloadSpaeter(tbl); return; }
   if(tbl==='meldungen'){const {data}=await _sb.from('meldungen').select('*').order('erstellt_am',{ascending:false});MD=(data||[]).map(mapMeld);renderM();updB();}
   else if(tbl==='chemie'){const {data}=await _sb.from('chemie').select('*').order('erstellt_am',{ascending:false});CH=(data||[]).map(mapChem);renderC();updB();}
   else if(tbl==='freie_angebote'){const {data}=await _sb.from('freie_angebote').select('*').order('erstellt_am',{ascending:false});FR=(data||[]).map(mapFrei);renderF();updB();}
@@ -1767,6 +1803,11 @@ function btbNotfallSicherung(){
         addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{produkt_namen_pro_anlage:alle}}});
         gesichert=true;
       }
+      if(_dosierOffen[k.id]){ // 2.29: vorgemerkte Dosierdaten mitsichern
+        delete _dosierOffen[k.id];
+        addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{dosier_info:k.dosier_info||{}}}});
+        gesichert=true;
+      }
     });
     if(gesichert) btbSaveSnapshot(); // sofort, nicht entprellt — die Seite wird gleich verlassen
   }catch(e){ console.warn('Notfall-Sicherung fehlgeschlagen:', e); }
@@ -1789,7 +1830,7 @@ async function btbSpeichernUndNeuLaden(){
   location.reload();
 }
 (function btbEigenerPullDown(){
-  const SCHWELLE=85;
+  const SCHWELLE=170; // 2.29: deutlich strammer ziehen — löst beim normalen Scrollen nicht mehr aus
   let startY=null, dist=0;
   const ind=document.createElement('div'); ind.id='ptr-ind'; document.body.appendChild(ind);
   // Nur auslösen, wenn weder die Seite noch ein scrollbarer Bereich unter dem Finger gescrollt ist
@@ -1808,7 +1849,7 @@ async function btbSpeichernUndNeuLaden(){
   document.addEventListener('touchmove',e=>{
     if(startY==null) return;
     dist=e.touches[0].clientY-startY;
-    if(dist<=10){ ind.style.transform='translateY(-110%)'; return; }
+    if(dist<=45){ ind.style.transform='translateY(-110%)'; return; } // erst ab deutlichem Ziehen anzeigen
     ind.textContent=dist>=SCHWELLE?'↑ Loslassen: speichern & aktualisieren':'↓ Weiter ziehen zum Aktualisieren';
     ind.style.transform='translateY(0)';
   },{passive:true});
@@ -4421,8 +4462,48 @@ function btbKbeClass(val){
 }
 
 // ── Tab rendern ──
+// 2.29: Sicherheitsnetz — getippte, noch nicht gespeicherte Feldwerte über einen Neuaufbau
+// des Reiters hinweg retten (der Neuaufbau befüllt die Felder sonst aus dem letzten Entwurf)
+function btbFeldSchluessel(el){
+  if(el.id) return el.id;
+  const dos=el.getAttribute('data-dosier'); if(dos) return 'dos:'+dos;
+  const prod=el.closest('[data-prod]')?.dataset.prod;
+  return (prod?'p'+prod+':':'')+el.className;
+}
+function btbSichereOffeneEingaben(container){
+  const store={};
+  container.querySelectorAll('.btb-karte.open').forEach(karte=>{
+    const kid=karte.dataset.btbId;
+    karte.querySelectorAll('.btb-anlage-panel').forEach(panel=>{
+      const form=panel.querySelector('.btb-form'); if(!form) return;
+      const werte={};
+      form.querySelectorAll('input:not([readonly]), select, textarea').forEach(el=>{
+        werte[btbFeldSchluessel(el)]=(el.type==='checkbox')?el.checked:el.value;
+      });
+      store[kid+'\u00a7'+panel.dataset.anlage]=werte;
+    });
+  });
+  return store;
+}
+function btbStelleOffeneEingabenHer(container, store){
+  container.querySelectorAll('.btb-karte.open').forEach(karte=>{
+    const kid=karte.dataset.btbId;
+    karte.querySelectorAll('.btb-anlage-panel').forEach(panel=>{
+      const werte=store[kid+'\u00a7'+panel.dataset.anlage]; if(!werte) return;
+      const form=panel.querySelector('.btb-form'); if(!form) return;
+      form.querySelectorAll('input:not([readonly]), select, textarea').forEach(el=>{
+        const alt=werte[btbFeldSchluessel(el)];
+        if(alt===undefined) return;
+        if(el.type==='checkbox'){ if(el.checked!==alt) el.checked=alt; return; }
+        // Nichts mit Leerem überschreiben — nur tatsächlich Getipptes zurückholen
+        if(alt!=='' && el.value!==alt){ el.value=alt; el.dispatchEvent(new Event('input',{bubbles:true})); }
+      });
+    });
+  });
+}
 function renderBtbTab(){
   const c=G('ebtb');if(!c)return;
+  const offeneEingaben=btbSichereOffeneEingaben(c);
   // Offene Karten vor dem Neuaufbau merken
   const offeneKarten=new Set(
     [...c.querySelectorAll('.btb-karte.open')].map(el=>el.dataset.btbId)
@@ -4448,6 +4529,7 @@ function renderBtbTab(){
     if(offeneKarten.has(k.id)) karte.classList.add('open');
     c.appendChild(karte);
   });
+  btbStelleOffeneEingabenHer(c, offeneEingaben);
 }
 
 // ── Innendienst: gleiche Ansicht wie BTB, aber ohne Eingabemaske + mit Excel-Export ──
@@ -5868,18 +5950,32 @@ async function btbSaveDosierFromForm(form, id, k, anlageSlug){
   });
   alleInfo[anlageSlug]=anlInfo;
   k.dosier_info=alleInfo;
+  // 2.29: NICHT mehr sofort in die Datenbank schreiben. Das löste über die Live-Verbindung
+  // ein komplettes Neuladen aus, wodurch die noch nicht gespeicherten Messwerte im selben
+  // Formular verloren gingen. Die Dosierdaten werden jetzt lokal vorgemerkt und zusammen mit
+  // dem Formular gespeichert (Zwischenspeichern, Tab-/Anlagenwechsel, FERTIG, Pull-down).
+  _dosierOffen[id]=true;
   btbSaveSnapshot();
+}
+// Vorgemerkte Dosierdaten je Kunde (id → true), bis sie mitgespeichert wurden
+let _dosierOffen={};
+function btbDosierOffen(kid){ return !!_dosierOffen[kid]; }
+async function btbSpeichereDosierFalls(k, still){
+  if(!k || !_dosierOffen[k.id]) return false;
+  const alleInfo=k.dosier_info||{};
+  delete _dosierOffen[k.id];
   if(isOnline()){
-    _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',id)
-      .then(({error})=>{
-        if(error){
-          addToQueue({type:'kbe_kunden_update', data:{id, patch:{dosier_info:alleInfo}}});
-          toast('⚠️ Kein Netz — Dosierdaten gespeichert, werden automatisch hochgeladen');
-        }
-      });
+    const {error}=await _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',k.id);
+    if(error){
+      addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{dosier_info:alleInfo}}});
+      if(!still) toast('⚠️ Kein Netz — Dosierdaten gespeichert, werden automatisch hochgeladen');
+    } else {
+      btbEntferneUeberholteQueue('kbe_kunden_update', x=>x.data.id===k.id && x.data.patch && Object.keys(x.data.patch).length===1 && x.data.patch.dosier_info);
+    }
   } else {
-    addToQueue({type:'kbe_kunden_update', data:{id, patch:{dosier_info:alleInfo}}});
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{dosier_info:alleInfo}}});
   }
+  return true;
 }
 
 // ── Entwurf zwischenspeichern (Supabase btb_entwurf) ──
@@ -5974,8 +6070,11 @@ function btbEntferneUeberholteQueue(typ, passt){
 // Sichert ein Formular vollständig: Messwerte (nur wenn etwas eingetragen ist) und Produktnamen
 // (nur wenn geändert). Genutzt von allen automatischen Speicherstellen.
 async function btbSichereFormular(k, anlageName, form, scroll){
-  if(btbFormHatEingaben(form)) return saveBtbEntwurf(k, anlageName, form, scroll); // speichert Namen mit
-  if(btbProduktnamenGeaendert(k, anlageName, form)){ await btbSpeichereProduktnamen(k, anlageName, form, true); renderAll(); }
+  if(btbFormHatEingaben(form)) return saveBtbEntwurf(k, anlageName, form, scroll); // speichert Namen + Dosierdaten mit
+  let etwas=false;
+  if(btbProduktnamenGeaendert(k, anlageName, form)){ await btbSpeichereProduktnamen(k, anlageName, form, true); etwas=true; }
+  if(await btbSpeichereDosierFalls(k, true)) etwas=true;
+  if(etwas) renderAll();
 }
 
 async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
@@ -5984,6 +6083,7 @@ async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   // 2.26: geänderte Produktbezeichnungen mitspeichern (Werte sofort synchron lesen, bevor
   // ein späteres Neuladen das Formular ersetzt)
   const namenSpeichern=btbProduktnamenGeaendert(k, anlageName, formEl)?btbSpeichereProduktnamen(k, anlageName, formEl, true):null;
+  const dosierSpeichern=btbSpeichereDosierFalls(k, true); // 2.29: vorgemerkte Dosierdaten mitspeichern
   const toN=elId=>{const v=G(elId)?.value;return(v===''||v==null)?null:Number(v);};
   const toS=elId=>G(elId)?.value||null;
   // Produkt-Daten per CSS-Klassen direkt aus formEl lesen (kein globaler ID-Lookup nötig)
@@ -6043,6 +6143,7 @@ async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
     console.log('BTB Entwurf gespeichert:', felder);
   }
   if(namenSpeichern) await namenSpeichern;
+  await dosierSpeichern;
 
   if(online && !fehler){ await loadAll(); }
   else { renderAll(); updB(); }
@@ -6075,6 +6176,7 @@ async function btbFertigZumBerechnen(kid){
     if(anlageName && form && !btbFormHatEingaben(form) && btbProduktnamenGeaendert(k, anlageName, form)){
       await btbSpeichereProduktnamen(k, anlageName, form, true);
     }
+    if(anlageName && form && !btbFormHatEingaben(form)) await btbSpeichereDosierFalls(k, true);
     if(anlageName && form && btbFormHatEingaben(form)){
       await saveBtbEntwurf(k, anlageName, form, false); // kein Scroll bei automatischem Hintergrund-Speichern
       // k neu holen, da saveBtbEntwurf intern neu lädt und BTB_KUNDEN dabei neu aufgebaut wird
@@ -6543,6 +6645,11 @@ function showOfflineBanner(show){const b=G('offline-banner');if(b) b.classList.t
 const BTB_SNAPSHOT_KEY = 'rkw_btb_snapshot';
 function btbSaveSnapshot(){
   try{
+    // 2.29: einen gefüllten Offline-Stand niemals durch einen leeren ersetzen
+    if(!(BTB_KUNDEN.length||KBE.length||MD.length||CH.length||FR.length)){
+      const alt=btbLoadSnapshot();
+      if(alt && ((alt.BTB_KUNDEN||[]).length||(alt.KBE||[]).length||(alt.MD||[]).length)) return;
+    }
     localStorage.setItem(BTB_SNAPSHOT_KEY, JSON.stringify({
       BTB_KUNDEN, KBE, BTB_MAENGEL,
       // v102: kompletter Datenstand, nicht nur BTB/KBE — sonst sind bei einem Offline-Neustart
@@ -6751,15 +6858,12 @@ if(!isOnline()) showOfflineBanner(true);
 // ══════════════════════════════════════════════════════════
 // PULL TO REFRESH
 // ══════════════════════════════════════════════════════════
-(function(){
-  let startY=0, pulling=false, threshold=120, triggered=false;
-  const ptr=document.getElementById('ptr');const ptrSpin=document.getElementById('ptr-spin');
-  const ptrTxt=document.getElementById('ptr-txt');const cnt=document.querySelector('.cnt');
-  if(!ptr||!cnt)return;
-  cnt.addEventListener('touchstart',e=>{if(cnt.scrollTop>8)return;startY=e.touches[0].clientY;pulling=true;triggered=false;ptr.classList.add('pulling');},{passive:true});
-  cnt.addEventListener('touchmove',e=>{if(!pulling)return;const dy=e.touches[0].clientY-startY;if(dy<0){pulling=false;ptr.style.height='0';return;}const h=Math.min(dy*0.5, threshold+10);ptr.style.height=h+'px';if(dy>threshold&&!triggered){ptrTxt.textContent='Loslassen zum Aktualisieren';ptrSpin.classList.remove('go');}else if(dy<=threshold*1.5){ptrTxt.textContent='Zum Aktualisieren ziehen…';}},{passive:true});
-  cnt.addEventListener('touchend',async e=>{if(!pulling)return;pulling=false;ptr.classList.remove('pulling');const dy=e.changedTouches[0].clientY-startY;if(dy>threshold){ptr.style.height=threshold+'px';ptrSpin.classList.add('go');ptrTxt.textContent='Aktualisiere…';if(swReg) swReg.update();await loadAll();ptr.style.height='0';ptrSpin.classList.remove('go');}else{ptr.style.height='0';}},{passive:true});
-})();
+// 2.30: Der frühere Pull-to-Refresh an dieser Stelle wurde entfernt. Er rief bei jeder Geste
+// sofort loadAll() auf, OHNE vorher zu speichern — dabei wurde der BTB-Reiter neu aufgebaut und
+// alle noch nicht gespeicherten Eingaben (z.B. Härte und Leitfähigkeit) waren weg. Das sah wie
+// ein kurzes "Flackern" aus und trat nur auf Touch-Geräten auf, mit der Maus also nicht
+// reproduzierbar. Die Geste übernimmt jetzt allein btbEigenerPullDown (weiter oben):
+// erst sichern, dann hochladen, dann neu laden — mit deutlich höherer Auslöseschwelle.
 
 renderPills();
 updateQueueBadge();

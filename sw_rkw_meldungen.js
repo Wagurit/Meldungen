@@ -1,5 +1,8 @@
 // ══════════════════════════════════════════════════════════
-// sw_rkw_meldungen.js – Service Worker v26
+// sw_rkw_meldungen.js – Service Worker v27
+// v27: Neue Versionen übernehmen nicht mehr automatisch (kein skipWaiting beim Installieren) —
+//      sie warten auf "Jetzt aktualisieren" im Banner. Verhindert ungefragtes Neuladen mitten
+//      in einer Eingabe.
 // v26: Bibliotheken von cdn.jsdelivr.net (Supabase, Excel, JSZip) und die Google-Schriften
 //      werden jetzt vom Service Worker zwischengespeichert: online immer frisch vom Netz
 //      (Network-first), offline aus dem SW-Cache. Bisher kamen sie offline nur aus dem normalen
@@ -11,7 +14,7 @@
 // v23: {cache:'no-store'} gegen iOS HTTP-Cache.
 // v22: Network-first für alle .html-Dateien.
 // ══════════════════════════════════════════════════════════
-const CACHE = 'rkw-v26';
+const CACHE = 'rkw-v27';
 const FILES = ['./', './manifest.json', './icon-192.png'];
 
 // Daten & Anmeldung: niemals cachen
@@ -39,15 +42,18 @@ self.addEventListener('install', e => {
       ));
     })
   );
-  self.skipWaiting();
+  // v27: KEIN skipWaiting() mehr beim Installieren. Bisher übernahm jede neu erkannte Version
+  // sofort die Kontrolle und die App lud ungefragt neu — auch mitten in einer Eingabe. Jetzt
+  // wartet die neue Version, bis der Nutzer im Banner auf "Jetzt aktualisieren" tippt
+  // (das schickt SKIP_WAITING, siehe unten).
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.map(k => { if(k !== CACHE) { console.log('[SW v26] Lösche alten Cache:', k); return caches.delete(k); } })
+      keys.map(k => { if(k !== CACHE) { console.log('[SW v27] Lösche alten Cache:', k); return caches.delete(k); } })
     )).then(() => {
-      console.log('[SW v26] Aktiv');
+      console.log('[SW v27] Aktiv');
       return self.clients.claim();
     })
   );
