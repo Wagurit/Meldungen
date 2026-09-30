@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.30</title>
+<title>Meldungen &amp; Angebote 2.36</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -373,10 +373,13 @@ textarea{resize:vertical;min-height:68px;}
 .sync-dot.syncing{background:#fbbf24;animation:pulse .8s ease-in-out infinite;}
 .sync-dot.err{background:var(--rd);}
 .sync-dot.offline{background:#94a3b8;}
+/* 2.33: roter Ring = online, aber keine Live-Verbindung (Änderungen anderer kommen nicht an) */
+.sync-dot.nolive{box-shadow:0 0 0 2.5px rgba(239,68,68,.6);}
+.sync-dot{cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .empty{text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:20px 0;font-style:italic;}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:10px 20px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:10px 20px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:pre-line;text-align:center;max-width:90vw;line-height:1.5;}
 .toast.on{opacity:1;}
 
 /* Update-Banner */
@@ -486,7 +489,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.30</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.36</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -828,6 +831,7 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('l','chemie',this)">Chemie</button>
           <button class="ft" onclick="setF('l','frei',this)">Frei</button>
           <button class="ft" onclick="setF('l','kbe',this)">KBE</button>
+          <button class="ft" onclick="setF('l','btb',this)">BTB</button>
         </div>
       </div>
       <div id="el"><div class="empty" id="el0">Noch keine gelöschten Einträge</div></div>
@@ -985,7 +989,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.30';
+const APP_VERSION = '2.36';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1182,8 +1186,38 @@ const G = id => document.getElementById(id);
 const V = id => (G(id) ? G(id).value || '' : '').trim();
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fd(ts){if(!ts)return'–';return new Date(ts).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
-function toast(msg){const t=G('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600);}
-function setSyncing(state){const d=G('sync-dot');if(!d)return;d.className='sync-dot'+(state==='ok'?'':state==='err'?' err':state==='offline'?' offline':' syncing');}
+let _toastTimer=null;
+function toast(msg, dauer){
+  const t=G('toast'); t.textContent=msg; t.classList.add('on');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>t.classList.remove('on'), dauer||2600);
+}
+// 2.33: Der Sync-Punkt zeigt jetzt ZWEI Dinge: den Ladezustand (Farbe) und ob die
+// Live-Verbindung steht (roter Ring = steht nicht). Antippen zeigt die Diagnose.
+let _syncState='ok', _rtStatus='–', _rtSeit=null, _letztesLaden=null;
+function syncDotMalen(){
+  const d=G('sync-dot'); if(!d) return;
+  const st=_syncState;
+  let cls='sync-dot'+(st==='ok'?'':st==='err'?' err':st==='offline'?' offline':' syncing');
+  // Ring nur zeigen, wenn wir online sind — offline ist eine fehlende Live-Verbindung normal
+  if(isOnline() && _rtStatus!=='SUBSCRIBED') cls+=' nolive';
+  d.className=cls;
+  d.title='Sync: '+st+' · Live-Verbindung: '+rtKlartext()+' (antippen für Details)';
+}
+function setSyncing(state){ _syncState=state; syncDotMalen(); }
+function rtKlartext(){
+  return {SUBSCRIBED:'aktiv', CLOSED:'getrennt', CHANNEL_ERROR:'Fehler', TIMED_OUT:'Zeitüberschreitung', JOINING:'verbindet…'}[_rtStatus]||_rtStatus;
+}
+function rtDiagnose(){
+  const q=getQueue().length;
+  const ll=_letztesLaden?new Date(_letztesLaden).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'noch nicht';
+  const rt=_rtSeit?' seit '+new Date(_rtSeit).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
+  toast('Version '+APP_VERSION+' · '+(isOnline()?'online':'offline')
+    +'\nLive-Verbindung: '+rtKlartext()+rt
+    +'\nLetztes Laden: '+ll
+    +'\nWarteschlange: '+(q?q+' ausstehend':'leer'), 6000);
+  if(isOnline() && _rtStatus!=='SUBSCRIBED') setupRealtime();
+}
 function kbeValClass(val){
   if(!val)return '';
   const m={'10⁰':'v0','10²':'v2','10³':'v3','10⁴':'v4','10⁵':'v5','10⁶':'v6','Nicht auswertbar':'vna'};
@@ -1527,6 +1561,7 @@ async function loadAllEigentlich(){
       payload:x.payload||null
     }));
     setSyncing('ok');
+    _letztesLaden=Date.now();
     // Ausstehende Warteschlangen-Einträge (noch nicht synchronisiert) auf die frisch geladenen
     // Daten anwenden — sonst würde ein loadAll() (z.B. durch Tab-Wechsel) einen noch nicht
     // hochgeladenen Entwurf/Eintrag wieder "verschwinden" lassen, obwohl er sicher in der
@@ -1593,8 +1628,29 @@ function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunde
 // ══════════════════════════════════════════════════════════
 // REALTIME
 // ══════════════════════════════════════════════════════════
+// 2.33: Bisher wurde der Live-Kanal EINMAL beim Anmelden geöffnet — ohne jede Prüfung, ob
+// das überhaupt geklappt hat, und ohne einen zweiten Versuch. Genau das war die Ursache dafür,
+// dass ein gelöschter BTB-Eintrag bei allen anderen stehen blieb:
+//   · Anmelden ohne/mit wackligem Netz (Hotspot)  → Abo scheitert still
+//   · iPad legt die App schlafen, Netzwechsel, abgelaufenes Token → Verbindung stirbt still
+// Danach erfuhr das Gerät für den Rest des Tages NICHTS mehr von Änderungen anderer.
+// Jetzt: Status wird ausgewertet, bei Fehlern automatisch neu verbunden (mit wachsendem
+// Abstand), und beim Zurückkehren in die App bzw. sobald das Netz da ist erneut geprüft.
+let _rtChannel=null, _rtVersuch=0, _rtTimer=null, _rtAbbau=false;
+function rtSetStatus(st){ _rtStatus=st; if(st==='SUBSCRIBED') _rtSeit=Date.now(); syncDotMalen(); }
 function setupRealtime(){
-  _sb.channel('rkw-changes')
+  if(!kz) return;
+  if(_rtTimer){ clearTimeout(_rtTimer); _rtTimer=null; }
+  // alten Kanal sauber abbauen, sonst laufen mehrere Abos parallel
+  if(_rtChannel){
+    _rtAbbau=true;
+    try{ _sb.removeChannel(_rtChannel); }catch(e){}
+    _rtChannel=null;
+    setTimeout(()=>{ _rtAbbau=false; }, 500);
+  }
+  if(!isOnline()){ rtSetStatus('CLOSED'); return; }   // offline: erst bei "online" versuchen
+  rtSetStatus('JOINING');
+  _rtChannel=_sb.channel('rkw-changes')
     .on('postgres_changes',{event:'*',schema:'public',table:'meldungen'},()=>reloadTable('meldungen'))
     .on('postgres_changes',{event:'*',schema:'public',table:'chemie'},()=>reloadTable('chemie'))
     .on('postgres_changes',{event:'*',schema:'public',table:'freie_angebote'},()=>reloadTable('freie_angebote'))
@@ -1605,7 +1661,38 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'btb_entwurf'},()=>reloadTable('btb'))
     .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
     .on('postgres_changes',{event:'*',schema:'public',table:'lager_bestand'},()=>dsLadeSpaeter())
-    .subscribe();
+    .subscribe(status=>{
+      rtSetStatus(status);
+      if(status==='SUBSCRIBED'){
+        _rtVersuch=0;
+        console.log('Live-Verbindung steht');
+        // Beim (Wieder-)Verbinden einmal frisch laden — in der Zwischenzeit kann etwas
+        // gelöscht oder geändert worden sein, wovon dieses Gerät nichts mitbekommen hat.
+        btbFrischeDaten();
+        return;
+      }
+      if(_rtAbbau) return;                       // wir haben selbst abgebaut → kein Neuversuch
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        const warte=Math.min(60000, 3000*Math.pow(2,_rtVersuch++));
+        console.warn('Live-Verbindung: '+status+' — neuer Versuch in '+Math.round(warte/1000)+' s');
+        if(_rtTimer) clearTimeout(_rtTimer);
+        _rtTimer=setTimeout(()=>{ _rtTimer=null; if(isOnline()&&kz) setupRealtime(); }, warte);
+      }
+    });
+}
+// Wächter: prüft regelmäßig, ob die Live-Verbindung noch steht, und baut sie sonst neu auf
+function rtWaechter(){
+  if(!kz || !isOnline()) return;
+  if(document.visibilityState!=='visible') return;
+  if(_rtStatus!=='SUBSCRIBED' && !_rtTimer) setupRealtime();
+}
+setInterval(rtWaechter, 60*1000);
+// 2.35: Der Anlagen-Tab trägt jetzt zusätzliche Hinweise im Etikett (Datum/Kürzel eines
+// fremden oder alten Entwurfs). Der Name darf deshalb nicht mehr aus dem Text gelesen werden.
+function btbTabAnlage(tabEl){
+  if(!tabEl) return null;
+  if(tabEl.dataset && tabEl.dataset.anlageName) return tabEl.dataset.anlageName;
+  return tabEl.textContent.replace('✓','').trim();
 }
 // 2.29: Gibt es gerade ein offenes BTB-Formular mit noch nicht gespeicherten Eingaben?
 function btbEingabeLaeuft(){
@@ -1615,7 +1702,7 @@ function btbEingabeLaeuft(){
     if(!k) return false;
     if(_dosierOffen[k.id]) return true;
     const aktTab=karte.querySelector('.btb-anlage-tab.active');
-    const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+    const anlageName=btbTabAnlage(aktTab);
     const form=karte.querySelector('.btb-anlage-panel.active .btb-form');
     if(!anlageName||!form) return false;
     if(btbProduktnamenGeaendert(k, anlageName, form)) return true;
@@ -1781,7 +1868,7 @@ function btbNotfallSicherung(){
       const k=BTB_KUNDEN.find(x=>x.id===karte.dataset.btbId);
       if(!k)return;
       const aktTab=karte.querySelector('.btb-anlage-tab.active');
-      const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+      const anlageName=btbTabAnlage(aktTab);
       const form=karte.querySelector('.btb-anlage-panel.active .btb-form');
       if(!anlageName||!form)return;
       if(btbFormHatEingaben(form)){
@@ -1862,13 +1949,36 @@ async function btbSpeichernUndNeuLaden(){
   document.addEventListener('touchend',ende,{passive:true});
   document.addEventListener('touchcancel',()=>{ startY=null; ind.style.transform='translateY(-110%)'; },{passive:true});
 })();
+const _syncDotEl=G('sync-dot');
+if(_syncDotEl) _syncDotEl.addEventListener('click', rtDiagnose);
 window.addEventListener('pagehide', btbNotfallSicherung);
 window.addEventListener('beforeunload', btbNotfallSicherung);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden') btbNotfallSicherung();
-  // zurück in der App: Gesichertes zügig hochladen, damit nichts Veraltetes liegen bleibt
-  else if(isOnline() && getQueue().length) flushQueue();
+  else if(isOnline()){
+    // zurück in der App: Gesichertes zügig hochladen, damit nichts Veraltetes liegen bleibt
+    if(getQueue().length) flushQueue();
+    // 2.32: und den Datenstand auffrischen. Ohne das zeigte ein Gerät, das die App nur
+    // im Hintergrund liegen hatte, beliebig lange alte Einträge an — z.B. einen vom
+    // Innendienst längst gelöschten BTB-Chip.
+    else btbFrischeDaten();
+    // 2.33: nach dem Schlafen ist die Live-Verbindung oft tot — hier neu aufbauen
+    if(_rtStatus!=='SUBSCRIBED' && !_rtTimer) setupRealtime();
+  }
+  syncDotMalen();
 });
+// 2.32: Datenstand auffrischen, ohne laufende Eingaben zu zerstören.
+// Sicherheitsnetz für den Fall, dass die Live-Verbindung nichts liefert (Realtime in
+// Supabase nicht für alle Tabellen freigeschaltet, Verbindung nach Netzwechsel tot, …).
+function btbFrischeDaten(){
+  if(!kz || !isOnline()) return;
+  if(document.visibilityState!=='visible') return;
+  if(btbEingabeLaeuft()) return;                        // offenes BTB-Formular mit Eingaben
+  const a=document.activeElement;
+  if(a && (a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT')) return; // jemand tippt
+  loadAll();
+}
+setInterval(btbFrischeDaten, 5*60*1000);
 window.addEventListener('online', ()=>dsLade());
 window.addEventListener('offline',()=>dsRender());
 
@@ -1885,7 +1995,7 @@ async function btbAutoSaveAlleOffenenFormulare(){
     if(!k)return;
     const aktivesPanel=karte.querySelector('.btb-anlage-panel.active');
     const aktTab=karte.querySelector('.btb-anlage-tab.active');
-    const anlageName=aktTab?aktTab.textContent.replace('✓','').trim():null;
+    const anlageName=btbTabAnlage(aktTab);
     if(!aktivesPanel||!anlageName)return;
     const form=aktivesPanel.querySelector('.btb-form');
     if(!form)return;
@@ -3678,6 +3788,31 @@ function buildGeloeschtChip(logEntry){
     bodyHtml+='<div class="v2-text" style="font-weight:600">Anlagen: '+(p.rkws||[]).map(r=>esc(r.name)).join(', ')+'</div>';
     bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel_erstellt||'')+'</span></div>';
     if(p.eintraege&&p.eintraege.length){bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px">'+p.eintraege.length+' Einträge · Letzter: '+esc(p.eintraege[0].datum||'')+'</div>';}
+  } else if(typ==='BTB'){
+    // 2.32: gelöschten BTB-Eintrag mit allen Messwerten nachvollziehbar anzeigen
+    bodyHtml+='<div class="v2-text" style="font-weight:700">'+esc((p.datumFmt||p.datum_btb||'')+' · '+(p.anlage||''))+'</div>';
+    const w=[];
+    if(p.lf_messung_ist!=null) w.push('LF ist: '+esc(String(p.lf_messung_ist)));
+    if(p.lf_geraet_ist!=null) w.push('LF Gerät ist: '+esc(String(p.lf_geraet_ist)));
+    if(p.lf_geraet_soll!=null) w.push('LF Gerät soll: '+esc(String(p.lf_geraet_soll)));
+    if(p.dh!=null) w.push('°dH: '+esc(String(p.dh)));
+    if(p.dipslide_basis!=null) w.push('KBE: '+esc(String(p.dipslide_basis))+'·10^'+esc(String(p.dipslide_exponent==null?'':p.dipslide_exponent)));
+    if(p.zusatzwasser!=null) w.push('Zusatzwasser: '+esc(String(p.zusatzwasser))+' m³');
+    if(p.abwasser!=null) w.push('Abwasser: '+esc(String(p.abwasser))+' m³');
+    [1,2,3].forEach(i=>{
+      const vg=p['p'+i+'_vorgefunden'], af=p['p'+i+'_aufgefuellt'], nu=p['p'+i+'_neu'], la=p['p'+i+'_lager'];
+      if(vg!=null||af!=null||nu!=null||la!=null)
+        w.push('P'+i+': vorgef. '+esc(String(vg==null?'–':vg))+' / aufgef. '+esc(String(af==null?'–':af))
+               +' / neu '+esc(String(nu==null?'–':nu))+' / Lager '+esc(String(la==null?'–':la)));
+    });
+    if(p.schwefelsa) w.push('H₂SO₄ ✓');
+    if(w.length) bodyHtml+='<div style="font-size:11px;color:var(--mu);margin-top:4px;line-height:1.6">'+w.join(' · ')+'</div>';
+    if(p.bemerkung) bodyHtml+='<div class="v2-text" style="font-style:italic;color:var(--mu)">📝 '+esc(p.bemerkung)+'</div>';
+    const st=p.btb_status==='berechnet'
+      ? '✅ war berechnet'+(p.rechnung_nr?' · RE '+esc(p.rechnung_nr):'')
+      : (p.btb_status==='offen'?'⏳ stand zum Abrechnen':'');
+    if(st) bodyHtml+='<div style="font-size:11px;font-weight:700;color:#0369a1;margin-top:3px">'+st+'</div>';
+    bodyHtml+='<div class="v2-meta"><span class="v2-kz" style="background:#6b21a8">'+esc(p.kuerzel||'')+'</span></div>';
   } else {bodyHtml+='<div class="v2-text">'+esc(logEntry.kurzinfo||'–')+'</div>';}
   bodyHtml+='</div>';
   el.innerHTML='<div class="v2-header"><div class="v2-stripe" style="background:#6b21a8"></div>'+headerInner+'</div>'+bodyHtml;
@@ -3689,7 +3824,7 @@ function renderLog(){
   const q=(V('sl-search')||'').toLowerCase();
   let d=LOG_DATA.filter(e=>{
     const p=e.payload||{};
-    const suchText=(e.firma+e.typ+(e.geloescht_von||'')+(e.kurzinfo||'')+(p.text||'')+(p.kuerzel||'')).toLowerCase();
+    const suchText=(e.firma+e.typ+(e.geloescht_von||'')+(e.kurzinfo||'')+(p.text||'')+(p.kuerzel||'')+(p.anlage||'')).toLowerCase();
     if(q&&!suchText.includes(q))return false;
     if(fil.l!=='alle'&&e.typ.toLowerCase()!==fil.l)return false;
     return true;
@@ -4513,7 +4648,7 @@ function renderBtbTab(){
   c.querySelectorAll('.btb-karte').forEach(karte=>{
     const kid=karte.dataset.btbId;
     const aktTab=karte.querySelector('.btb-anlage-tab.active');
-    if(aktTab) aktiveAnlagen[kid]=aktTab.textContent.replace('✓','').trim();
+    if(aktTab) aktiveAnlagen[kid]=btbTabAnlage(aktTab);
   });
   c.querySelectorAll('.btb-karte').forEach(e=>e.remove());
   const q=(G('btb-suche')?G('btb-suche').value||'':'').toLowerCase();
@@ -4544,7 +4679,7 @@ function renderInnendienstTab(){
   c.querySelectorAll('.btb-karte').forEach(karte=>{
     const kid=karte.dataset.btbId;
     const aktTab=karte.querySelector('.btb-anlage-tab.active');
-    if(aktTab) aktiveAnlagen[kid]=aktTab.textContent.replace('✓','').trim();
+    if(aktTab) aktiveAnlagen[kid]=btbTabAnlage(aktTab);
   });
   c.querySelectorAll('.btb-karte').forEach(e=>e.remove());
   const q=(G('is-suche')?G('is-suche').value||'':'').toLowerCase();
@@ -5126,12 +5261,30 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
     // Aktiven Tab: gespeicherter Zustand wenn vorhanden, sonst erster Tab
     const istAktiv=aktiveAnlageName ? (r.name===aktiveAnlageName) : (ri===0);
     tabBtn.className='btb-anlage-tab'+(istAktiv?' active':'');
-    tabBtn.innerHTML=esc(r.name)+(entwurf?'<span style="margin-left:4px;font-size:9px;background:#f59e0b;color:#fff;border-radius:4px;padding:0 4px">✓</span>':'');
+    tabBtn.dataset.anlageName=r.name;
+    // 2.35: Der Haken allein hat zu Fehlern geführt — ein Techniker sah einen Haken an einer
+    // Anlage, die er nie angefasst hatte (Entwurf eines Kollegen bzw. Rest eines früheren
+    // Besuchs), und hat ihn mit FERTIG mitübertragen, samt dem ALTEN Datum darin. Jetzt
+    // steht am Haken, von wann und von wem der Entwurf ist — fremd/alt wird rot markiert.
+    let hakenHtml='';
+    if(entwurf){
+      const eDat=(entwurf.felder||{}).datum||null;
+      const heute=new Date().toISOString().split('T')[0];
+      const fremd=entwurf.kuerzel && entwurf.kuerzel!==kz;
+      const alt=eDat && eDat!==heute;
+      const farbe=(fremd||alt)?'#dc2626':'#f59e0b';
+      const zusatz=[eDat&&eDat!==heute?btbFmtDatumDE(eDat):null, fremd?entwurf.kuerzel:null].filter(Boolean).join(' ');
+      hakenHtml='<span style="margin-left:4px;font-size:9px;background:'+farbe+';color:#fff;border-radius:4px;padding:0 4px;white-space:nowrap">✓'
+               +(zusatz?' '+esc(zusatz):'')+'</span>';
+      if(fremd||alt) tabBtn.title='Entwurf'+(eDat?' vom '+btbFmtDatumDE(eDat):'')+(entwurf.kuerzel?' von '+entwurf.kuerzel:'')
+        +' — bitte prüfen, bevor FERTIG gedrückt wird';
+    }
+    tabBtn.innerHTML=esc(r.name)+hakenHtml;
     tabBtn.onclick=async()=>{
       // Vorherige aktive Anlage (falls Formular vorhanden, also nicht im Innendienst-Modus) merken
       const vorherPanel=anlPanels.querySelector('.btb-anlage-panel.active');
       const vorherTab=anlTabs.querySelector('.btb-anlage-tab.active');
-      const vorherAnlageName=vorherTab?vorherTab.textContent.replace('✓','').trim():null;
+      const vorherAnlageName=btbTabAnlage(vorherTab);
       const vorherForm=vorherPanel?vorherPanel.querySelector('.btb-form'):null;
       const wechselt=vorherPanel && vorherPanel.dataset.anlage!==String(ri);
 
@@ -5814,6 +5967,15 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   saveBtn.addEventListener('click',()=>saveBtbEntwurf(k, anlageName, form));
   form.appendChild(saveBtn);
 
+  // 2.31: Eingaben dieser Anlage verwerfen (falsche Anlage erwischt) — betrifft NUR den aktuellen
+  // Entwurf, bereits mit FERTIG übertragene Besuche und die Historie bleiben unangetastet
+  const verwerfBtn=document.createElement('button');
+  verwerfBtn.className='bsend';
+  verwerfBtn.style.cssText='margin-top:7px;background:#fff;color:var(--rd);border:1.5px solid #fca5a5';
+  verwerfBtn.textContent='🗑 Eingaben dieser Anlage löschen';
+  verwerfBtn.addEventListener('click',()=>btbVerwerfeAnlage(k, anlageName, form));
+  form.appendChild(verwerfBtn);
+
   // Enter-Taste springt zum nächsten Feld (links→rechts, dann nächste Zeile) — für iPad-Bedienung
   btbSetupEnterNavigation(form);
 
@@ -6069,6 +6231,38 @@ function btbEntferneUeberholteQueue(typ, passt){
 }
 // Sichert ein Formular vollständig: Messwerte (nur wenn etwas eingetragen ist) und Produktnamen
 // (nur wenn geändert). Genutzt von allen automatischen Speicherstellen.
+// 2.31: Alle Eingaben einer Anlage aus der laufenden Sitzung verwerfen.
+// Entfernt den Entwurf (Datenbank, lokal und Warteschlange) und leert das Formular.
+// Historische Einträge dieser Anlage und die Dosier-Stammdaten bleiben erhalten.
+async function btbVerwerfeAnlage(k, anlageName, form){
+  const entwurf=k.entwuerfe.find(e=>e.anlage===anlageName);
+  const hatFormularWerte=btbFormHatEingaben(form);
+  if(!entwurf && !hatFormularWerte){ toast('ℹ️ Für diese Anlage ist nichts eingetragen'); return; }
+  if(!confirm('Alle Eingaben aus dieser Sitzung für „'+anlageName+'" werden gelöscht.\n\n'
+    +'Bereits mit FERTIG übertragene Besuche und die Historie bleiben erhalten.\n\nOK?')) return;
+
+  if(entwurf){
+    // Noch nicht hochgeladene Speicherungen dieses Entwurfs aus der Warteschlange nehmen
+    btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===entwurf.id);
+    if(isOnline()){
+      const {error}=await _sb.from('btb_entwurf').delete().eq('id',entwurf.id);
+      if(error){ toast('⚠️ Fehler: '+error.message); return; }
+    } else {
+      addToQueue({type:'btb_entwurf_delete', data:{id:entwurf.id}});
+    }
+    k.entwuerfe=k.entwuerfe.filter(e=>e.id!==entwurf.id);
+    BTB_ENTWURF=BTB_ENTWURF.filter(e=>e.id!==entwurf.id);
+  }
+  // Formularfelder leeren, damit nichts durch die Eingaben-Rettung zurückkommt
+  form.querySelectorAll('input:not([readonly]):not([data-dosier]), textarea').forEach(el=>{
+    if(el.type==='checkbox') el.checked=false;
+    else if(el.type!=='date') el.value='';
+  });
+  form.querySelectorAll('.btb-mangel-cb').forEach(cb=>cb.checked=false);
+  btbSaveSnapshot();
+  toast(isOnline()?'🗑 Eingaben für „'+anlageName+'" gelöscht':'🗑 Gelöscht — wird beim nächsten Netz übernommen');
+  renderBtbTab(); renderInnendienstTab(); updB();
+}
 async function btbSichereFormular(k, anlageName, form, scroll){
   if(btbFormHatEingaben(form)) return saveBtbEntwurf(k, anlageName, form, scroll); // speichert Namen + Dosierdaten mit
   let etwas=false;
@@ -6171,7 +6365,7 @@ async function btbFertigZumBerechnen(kid){
   if(karteElVorab){
     const aktivesPanel=karteElVorab.querySelector('.btb-anlage-panel.active');
     const aktiverTab=karteElVorab.querySelector('.btb-anlage-tab.active');
-    const anlageName=aktiverTab?aktiverTab.textContent.replace('✓','').trim():null;
+    const anlageName=btbTabAnlage(aktiverTab);
     const form=aktivesPanel?aktivesPanel.querySelector('.btb-form'):null;
     if(anlageName && form && !btbFormHatEingaben(form) && btbProduktnamenGeaendert(k, anlageName, form)){
       await btbSpeichereProduktnamen(k, anlageName, form, true);
@@ -6189,7 +6383,48 @@ async function btbFertigZumBerechnen(kid){
     toast('⚠️ Kein Entwurf vorhanden – bitte zuerst Anlage zwischenspeichern');
     return;
   }
-  if(!confirm('Alle '+k.entwuerfe.length+' Anlage(n) als „FERTIG" übertragen?\nDer Innendienst kann dann die Rechnung eintragen.'))return;
+  // 2.34/2.35: Vor dem Übertragen aufschlüsseln, WAS genau übertragen wird.
+  // Der reale Fehlerfall: AG hatte am 24.09. korrekt gespeichert, ein Entwurf blieb offen,
+  // am 29.09. trug er etwas ein und sah nicht, dass darin noch das alte Datum stand und
+  // zwei Anlagen, die er nie angefasst hatte, schon einen Haken trugen. FERTIG hat dann
+  // alles zusammen mit dem ALTEN Datum übertragen. Die alte Rückfrage nannte nur die Anzahl.
+  const heute=new Date().toISOString().split('T')[0];
+  const uebersicht=k.entwuerfe.map(e=>{
+    const dat=(e.felder||{}).datum||heute;
+    const treffer=k.eintraege.find(x=>x.anlage===e.anlage && x.datum_btb===dat);
+    return {
+      anlage:e.anlage,
+      datum:dat,
+      datumDE:btbFmtDatumDE(dat),
+      kuerzel:e.kuerzel||kz,
+      fremd:!!(e.kuerzel && e.kuerzel!==kz),
+      alt:dat!==heute,
+      doppelt:treffer?{datum:treffer.datumFmt||dat, kuerzel:treffer.kuerzel||'?', status:treffer.btb_status}:null
+    };
+  });
+  const auffaellig=uebersicht.filter(x=>x.alt||x.fremd||x.doppelt);
+
+  // Schritt 1: alles auflisten, Auffälliges markiert
+  const zeile=x=>'• '+x.anlage+' — '+x.datumDE+' — '+x.kuerzel
+    + (x.alt?'  ⚠️ NICHT heute':'')
+    + (x.fremd?'  ⚠️ von einem Kollegen':'')
+    + (x.doppelt?'  ⚠️ steht schon drin'+(x.doppelt.status==='berechnet'?' (berechnet!)':''):'');
+  if(!confirm('Es werden '+uebersicht.length+' Anlage(n) als „FERTIG" übertragen:\n\n'
+    + uebersicht.map(zeile).join('\n')
+    + '\n\nDer Innendienst kann danach die Rechnung eintragen.\n\nÜbertragen?')) return;
+
+  // Schritt 2: bei Auffälligkeiten noch einmal ausdrücklich nachfragen
+  if(auffaellig.length){
+    const gruende=[];
+    if(auffaellig.some(x=>x.alt))     gruende.push('· trägt ein anderes Datum als heute');
+    if(auffaellig.some(x=>x.fremd))   gruende.push('· wurde von einem Kollegen gespeichert');
+    if(auffaellig.some(x=>x.doppelt)) gruende.push('· ist für dieses Datum schon eingetragen');
+    if(!confirm('⚠️ BITTE PRÜFEN — '+auffaellig.length+' von '+uebersicht.length+' Anlage(n) sind auffällig:\n\n'
+      + auffaellig.map(zeile).join('\n')
+      + '\n\nMögliche Gründe:\n' + gruende.join('\n')
+      + '\n\nWar eine dieser Anlagen heute NICHT dran, bitte ABBRECHEN und die Eingaben dort\n'
+      + 'über „🗑 Eingaben dieser Anlage löschen" entfernen.\n\nTrotzdem alle übertragen?')) return;
+  }
 
   const rows=k.entwuerfe.map(e=>{
     const dv=e.felder||{};
@@ -6264,16 +6499,43 @@ async function btbFertigZumBerechnen(kid){
 
   const online=isOnline();
   let fehler=null;
+  let offeneRows=rows;      // was noch hochgeladen werden muss
   if(online){
     console.log('FERTIG: Übertrage', rows.length, 'Einträge:', rows);
     try{
       const {error:insErr}=await btbMitTimeout(_sb.from('btb_eintraege').insert(rows), 8000);
       if(insErr){ fehler=insErr; }
-      else { await _sb.from('btb_entwurf').delete().in('id',entwurfIds); }
+      else { await _sb.from('btb_entwurf').delete().in('id',entwurfIds); offeneRows=[]; }
     }catch(e){ fehler=e; }
+
+    // 2.34 — WICHTIG: Eine Zeitüberschreitung heißt NICHT, dass nichts angekommen ist.
+    // Bei schlechtem Hotspot war der Eintrag oft längst in der Datenbank, nur die Antwort
+    // kam nicht zurück. Bisher landete er dann trotzdem in der Warteschlange, die Entwürfe
+    // blieben stehen, der Techniker drückte später nochmal FERTIG — und weil die IDs jedes
+    // Mal neu erzeugt werden, stand der Besuch danach doppelt (bis zu 4× in der Auswertung).
+    // Jetzt: nachsehen, was wirklich angekommen ist, und nur den Rest nachschieben.
+    if(fehler){
+      try{
+        const ids=rows.map(r=>r.id);
+        const {data:vorh, error:pruefErr}=await btbMitTimeout(
+          _sb.from('btb_eintraege').select('id').in('id', ids), 8000);
+        if(!pruefErr && vorh){
+          const angekommen=new Set(vorh.map(x=>x.id));
+          offeneRows=rows.filter(r=>!angekommen.has(r.id));
+          if(!offeneRows.length){
+            // Alles war doch da → Entwürfe aufräumen und als Erfolg behandeln
+            await _sb.from('btb_entwurf').delete().in('id',entwurfIds);
+            fehler=null;
+            console.log('FERTIG: Zeitüberschreitung, Daten waren aber vollständig angekommen');
+          } else {
+            console.warn('FERTIG: '+angekommen.size+' von '+rows.length+' angekommen, '+offeneRows.length+' gehen in die Warteschlange');
+          }
+        }
+      }catch(e){ console.warn('FERTIG: Nachprüfung nicht möglich:', e.message); }
+    }
   }
   if(!online || fehler){
-    addToQueue({type:'btb_fertig', data:{rows, entwurf_ids:entwurfIds}});
+    addToQueue({type:'btb_fertig', data:{rows:offeneRows, entwurf_ids:entwurfIds}});
     toast(online?'⚠️ Kein Netz — trotzdem übertragen, wird automatisch hochgeladen':'📥 Offline übertragen — wird hochgeladen sobald online');
     if(fehler) console.error('FERTIG Fehler (in Warteschlange gelegt):', fehler);
   } else {
@@ -6315,13 +6577,86 @@ async function btbSetBerechnet(btn){
 
 
 
-// ── Eintrag löschen ──
+// ── Eintrag löschen (2.32 überarbeitet) ──
+// Bisheriges Problem: der Eintrag war nur beim Löschenden weg. Gründe und Gegenmaßnahmen:
+//  1. Andere Geräte erfuhren nichts davon  → Löschung landet jetzt im „Gelöscht"-Log, das
+//     bei jedem Laden mitkommt (Nachweis, wer wann was gelöscht hat, inkl. aller Werte).
+//  2. Löschung konnte stillschweigend ins Leere laufen (fehlende Datenbank-Berechtigung
+//     liefert KEINEN Fehler, sondern nur „0 Zeilen betroffen")  → wir lassen uns die
+//     gelöschte Zeile zurückgeben und melden ehrlich, wenn nichts gelöscht wurde.
+//  3. Lag auf einem Gerät noch ein unversendetes FERTIG mit dieser Zeile in der Warteschlange,
+//     wurde sie beim nächsten Netz mit derselben ID WIEDER eingefügt  → passende
+//     Warteschlangen-Zeilen werden entfernt und die ID dauerhaft gesperrt.
+//  4. Offline war Löschen gar nicht möglich  → geht jetzt über die Warteschlange.
+const BTB_DEL_KEY = 'rkw_btb_geloescht';         // IDs, die nie wieder auftauchen dürfen
+function btbGeloeschteIds(){
+  try{ const a=JSON.parse(localStorage.getItem(BTB_DEL_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; }
+}
+function btbMerkeGeloescht(eid){
+  try{
+    const a=btbGeloeschteIds();
+    if(!a.includes(eid)) a.push(eid);
+    // nicht unbegrenzt wachsen lassen — die letzten 500 reichen weit über jede Warteschlange hinaus
+    localStorage.setItem(BTB_DEL_KEY, JSON.stringify(a.slice(-500)));
+  }catch(e){}
+}
+function btbIstGeloescht(eid){ return btbGeloeschteIds().includes(eid); }
+// Zeile aus noch nicht hochgeladenen FERTIG-Paketen herausnehmen, damit sie nicht neu entsteht
+function btbEntferneAusFertigWarteschlange(eid){
+  try{
+    const q=getQueue(); let geaendert=false;
+    const rest=q.filter(x=>{
+      if(x.type!=='btb_fertig' || !x.data || !Array.isArray(x.data.rows)) return true;
+      const vorher=x.data.rows.length;
+      x.data.rows=x.data.rows.filter(r=>r.id!==eid);
+      if(x.data.rows.length!==vorher) geaendert=true;
+      return x.data.rows.length>0 || (x.data.entwurf_ids||[]).length>0;
+    });
+    if(geaendert||rest.length!==q.length){ localStorage.setItem(QUEUE_KEY, JSON.stringify(rest)); updateQueueBadge(); }
+  }catch(e){}
+}
+
 async function btbDelEintrag(eid, kid){
-  if(!confirm('BTB-Eintrag wirklich löschen?'))return;
-  const {error}=await _sb.from('btb_eintraege').delete().eq('id',eid);
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
-  toast('✓ Eintrag gelöscht');
-  await loadAll();
+  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  const e=k?k.eintraege.find(x=>x.id===eid):null;
+  const info=(e?(e.datumFmt||e.datum_btb||'')+' · '+(e.anlage||''):'')+(e&&e.kuerzel?' · '+e.kuerzel:'');
+  // 2.36: Beim Aufräumen von Dopplern trifft man auch schon berechnete Einträge. Das muss
+  // ausdrücklich dastehen — dahinter hängt eine Rechnung, die der Kunde bekommen hat.
+  const warnung=(e&&e.btb_status==='berechnet')
+    ? '\n\n⚠️ DIESER EINTRAG IST BEREITS BERECHNET'
+      + (e.rechnung_nr?'\nRechnung: '+e.rechnung_nr:'')
+      + (e.berechnet_von?'  ·  von '+e.berechnet_von:'')
+      + '\nBitte vorher klären, ob die Rechnung angepasst werden muss.'
+    : '';
+  if(!confirm('BTB-Eintrag wirklich löschen?'+(info?'\n\n'+info:'')+warnung
+    +'\n\nDer Eintrag wird im „Gelöscht"-Log mit allen Werten protokolliert und kann dort nachgesehen werden.')) return;
+
+  // ID sofort sperren und aus offenen FERTIG-Paketen entfernen — auch wenn das Netz gleich abbricht
+  btbMerkeGeloescht(eid);
+  btbEntferneAusFertigWarteschlange(eid);
+
+  if(isOnline()){
+    // Protokoll zuerst: lieber ein Log ohne Löschung als eine Löschung ohne Log
+    const {error:logErr}=await _sb.from('loeschlog').insert({
+      typ:'BTB', firma:(k?k.firma:'')||'', original_id:eid,
+      kurzinfo:info||'BTB-Eintrag', geloescht_von:kz, payload:e||null
+    });
+    if(logErr){ toast('⚠️ Log-Fehler: '+logErr.message); return; }
+    // .select() zurückgeben lassen: leeres Ergebnis = nichts gelöscht (z.B. fehlende Berechtigung)
+    const {data:weg, error}=await _sb.from('btb_eintraege').delete().eq('id',eid).select('id');
+    if(error){ toast('⚠️ Fehler: '+error.message); return; }
+    if(!weg||!weg.length){ toast('⚠️ Eintrag wurde NICHT gelöscht — bitte Innendienst/Admin informieren'); return; }
+    toast('✓ Eintrag gelöscht & im Log gespeichert');
+  } else {
+    addToQueue({type:'btb_eintrag_delete', data:{id:eid, kunde_id:kid, firma:(k?k.firma:'')||'', kurzinfo:info||'BTB-Eintrag', payload:e||null, kuerzel:kz}});
+    toast('📥 Gelöscht — wird hochgeladen sobald online');
+  }
+
+  // Lokal sofort entfernen (nicht auf loadAll() warten — offline gibt es kein loadAll())
+  if(k) k.eintraege=k.eintraege.filter(x=>x.id!==eid);
+  btbSaveSnapshot();
+  if(isOnline()) await loadAll();
+  else { renderAll(); updB(); }
 }
 
 // ── Eintrag bearbeiten (öffnet Inline-Edit-Overlay) ──
@@ -6720,7 +7055,8 @@ function btbReconcileQueue(){
       else { k.entwuerfe.push({id:d.id, anlage:d.anlage, felder:d.felder, kuerzel:d.kuerzel}); }
     }
     else if(item.type==='btb_fertig'){
-      const rows=item.data.rows||[];
+      // 2.32: bereits gelöschte Einträge nicht wieder aufleben lassen
+      const rows=(item.data.rows||[]).filter(r=>!btbIstGeloescht(r.id));
       const entwurfIds=item.data.entwurf_ids||[];
       if(!rows.length)return;
       const k=BTB_KUNDEN.find(x=>x.id===rows[0].kunde_id);
@@ -6743,6 +7079,11 @@ function btbReconcileQueue(){
         }
       });
       k.entwuerfe=k.entwuerfe.filter(e=>!entwurfIds.includes(e.id));
+    }
+    else if(item.type==='btb_eintrag_delete'){
+      // 2.32: offline gelöschter Eintrag darf durch ein Neuladen nicht zurückkommen
+      const k=BTB_KUNDEN.find(x=>x.id===item.data.kunde_id);
+      if(k) k.eintraege=k.eintraege.filter(x=>x.id!==item.data.id);
     }
     else if(item.type==='kbe_kunden_update'){
       const d=item.data;
@@ -6774,6 +7115,11 @@ function btbReconcileQueue(){
         if(e){e.werte=d.werte;e.kuerzel=d.kuerzel;}
       });
     }
+    else if(item.type==='btb_entwurf_delete'){
+      const d=item.data;
+      BTB_KUNDEN.forEach(kk=>{ kk.entwuerfe=(kk.entwuerfe||[]).filter(e=>e.id!==d.id); });
+      BTB_ENTWURF=BTB_ENTWURF.filter(e=>e.id!==d.id);
+    }
     else if(item.type==='frei_update'){
       const d=item.data;
       const e=FR.find(x=>x.id===d.id);
@@ -6804,11 +7150,43 @@ async function flushQueue(){
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='btb_fertig'){
-        const {error}=await _sb.from('btb_eintraege').insert(item.data.rows);
-        if(!error){
-          await _sb.from('btb_entwurf').delete().in('id',item.data.entwurf_ids);
+        // 2.32: zwischenzeitlich gelöschte Einträge NICHT wieder einfügen
+        let zeilen=(item.data.rows||[]).filter(r=>!btbIstGeloescht(r.id));
+        // 2.34: Doppel-Schutz — was für Anlage+Datum schon in der Datenbank steht, wird
+        // nicht noch einmal eingefügt. Greift auch, wenn dieselbe Übertragung auf einem
+        // zweiten Gerät bzw. mit neu erzeugten IDs schon durchgelaufen ist.
+        if(zeilen.length){
+          try{
+            const kid=zeilen[0].kunde_id;
+            const {data:vorh}=await _sb.from('btb_eintraege')
+              .select('anlage,datum_btb').eq('kunde_id',kid)
+              .in('datum_btb',[...new Set(zeilen.map(r=>r.datum_btb))]);
+            if(vorh&&vorh.length){
+              const belegt=new Set(vorh.map(x=>x.anlage+'|'+x.datum_btb));
+              const vorher=zeilen.length;
+              zeilen=zeilen.filter(r=>!belegt.has(r.anlage+'|'+r.datum_btb));
+              if(zeilen.length!==vorher)
+                console.warn('Warteschlange: '+(vorher-zeilen.length)+' Eintrag/Einträge übersprungen — Anlage+Datum stehen schon in der Datenbank');
+            }
+          }catch(e){ console.warn('Warteschlange: Doppel-Prüfung nicht möglich:', e.message); }
+        }
+        const {error}= zeilen.length ? await _sb.from('btb_eintraege').insert(zeilen) : {error:null};
+        // 23505 = Schlüssel existiert bereits → die Zeilen sind längst da, der
+        // Warteschlangen-Eintrag ist erledigt. Ohne das blieb er ewig hängen und
+        // btbReconcileQueue() zeigte den Eintrag lokal immer wieder als "vorhanden" an.
+        if(!error || error.code==='23505'){
+          if((item.data.entwurf_ids||[]).length) await _sb.from('btb_entwurf').delete().in('id',item.data.entwurf_ids);
           removeFromQueue(item.qid);flushed++;
         }
+      }
+      else if(item.type==='btb_eintrag_delete'){
+        const d=item.data;
+        await _sb.from('loeschlog').insert({
+          typ:'BTB', firma:d.firma||'', original_id:d.id,
+          kurzinfo:d.kurzinfo||'BTB-Eintrag', geloescht_von:d.kuerzel||kz, payload:d.payload||null
+        });
+        const {error}=await _sb.from('btb_eintraege').delete().eq('id',d.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='kbe_kunden_update'){
         const {error}=await _sb.from('kbe_kunden').update(item.data.patch).eq('id',item.data.id);
@@ -6836,6 +7214,10 @@ async function flushQueue(){
           removeFromQueue(item.qid); // schon vorhanden → Warteschlangen-Eintrag ist erledigt
         }
       }
+      else if(item.type==='btb_entwurf_delete'){
+        const {error}=await _sb.from('btb_entwurf').delete().eq('id',item.data.id);
+        if(!error){removeFromQueue(item.qid);flushed++;}
+      }
       else if(item.type==='frei_update'){
         const {error}=await _sb.from('freie_angebote').update(item.data.patch).eq('id',item.data.id);
         if(!error){removeFromQueue(item.qid);flushed++;}
@@ -6851,8 +7233,10 @@ async function flushQueue(){
   updateQueueBadge();
 }
 
-window.addEventListener('online', ()=>{showOfflineBanner(false);flushQueue();setSyncing('ok');});
-window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('offline');});
+window.addEventListener('online', ()=>{showOfflineBanner(false);flushQueue();setSyncing('ok');
+  // 2.33: Netz zurück → Live-Verbindung neu aufbauen (vorher blieb sie für immer tot)
+  _rtVersuch=0; setupRealtime();});
+window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('offline');rtSetStatus('CLOSED');});
 if(!isOnline()) showOfflineBanner(true);
 
 // ══════════════════════════════════════════════════════════
