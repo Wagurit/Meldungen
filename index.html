@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.38</title>
+<title>Meldungen &amp; Angebote 2.45</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -400,19 +400,23 @@ textarea{resize:vertical;min-height:68px;}
 #nachweis-blatt .nw-txt b{letter-spacing:.02em;}
 #nachweis-blatt .nw-fuss{margin-top:24px;padding-top:9px;border-top:1px solid #b9c3cf;font-size:10.5px;color:#555;line-height:1.55;}
 #nachweis-blatt .nw-anlage{page-break-inside:avoid;break-inside:avoid;margin-bottom:6px;}
+/* 2.43-FIX: Diese Regeln galten unbedingt. Da #nachweis-modal direktes body-Kind ist und
+   display:block!important das inline gesetzte display:none schlägt, druckte JEDER Druckversuch
+   irgendwo in der App das Nachweis-Blatt — und war es leer, eine weiße Seite. Jetzt nur noch,
+   wenn die Nachweis-Ansicht wirklich offen ist (Klasse am body). */
 @media print{
-  body>*:not(#nachweis-modal){display:none!important;}
-  #nachweis-modal{position:static!important;display:block!important;background:#fff!important;inset:auto!important;}
-  #nachweis-leiste{display:none!important;}
-  #nachweis-scroll{overflow:visible!important;padding:0!important;flex:none!important;}
-  #nachweis-blatt{box-shadow:none!important;max-width:none!important;margin:0!important;padding:0!important;font-size:11.5pt;}
+  body.drucke-nachweis>*:not(#nachweis-modal){display:none!important;}
+  body.drucke-nachweis #nachweis-modal{position:static!important;display:block!important;background:#fff!important;inset:auto!important;}
+  body.drucke-nachweis #nachweis-leiste{display:none!important;}
+  body.drucke-nachweis #nachweis-scroll{overflow:visible!important;padding:0!important;flex:none!important;}
+  body.drucke-nachweis #nachweis-blatt{box-shadow:none!important;max-width:none!important;margin:0!important;padding:0!important;font-size:11.5pt;}
   @page{size:A4;margin:14mm 13mm;}
 }
 .sync-dot{cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .empty{text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:20px 0;font-style:italic;}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:10px 20px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:pre-line;text-align:center;max-width:90vw;line-height:1.5;}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bd);color:#fff;padding:10px 20px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;z-index:1400;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:pre-line;text-align:center;max-width:90vw;line-height:1.5;}
 .toast.on{opacity:1;}
 
 /* Update-Banner */
@@ -522,7 +526,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.38</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.45</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1031,7 +1035,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.38';
+const APP_VERSION = '2.45';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1228,11 +1232,24 @@ const G = id => document.getElementById(id);
 const V = id => (G(id) ? G(id).value || '' : '').trim();
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fd(ts){if(!ts)return'–';return new Date(ts).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
-let _toastTimer=null;
-function toast(msg, dauer){
-  const t=G('toast'); t.textContent=msg; t.classList.add('on');
+let _toastTimer=null, _toastWichtigBis=0;
+// 2.43: Die langen Warnungen (Schemafehler, dreifach gleiche Produktbezeichnung) wurden vom
+// direkt danach folgenden „✅ gespeichert" nach Millisekunden ersetzt — der Techniker sah die
+// Warnung praktisch nie. Ein als wichtig markierter Toast bleibt jetzt für seine Dauer stehen
+// und verdrängt nur gewöhnliche Meldungen, nicht umgekehrt.
+function toast(msg, dauer, wichtig){
+  const t=G('toast'); if(!t) return;
+  // 2.44-FIX: Ohne das hier wurde JEDE gewöhnliche Fehlermeldung (⚠️) verschluckt, die
+  // innerhalb der Standzeit einer wichtigen Warnung auftrat — z.B. „Kein Netz — trotzdem
+  // übertragen" direkt nach der Dreifach-Namens-Warnung. Fehlermeldungen sind immer wichtig.
+  if(!wichtig && /^\s*⚠️/.test(String(msg))) wichtig=true;
+  const jetzt=Date.now();
+  if(!wichtig && jetzt<_toastWichtigBis) return;   // wichtige Meldung läuft noch → nicht überschreiben
+  t.textContent=msg; t.classList.add('on');
+  const ms=dauer||2600;
+  if(wichtig) _toastWichtigBis=jetzt+ms;
   if(_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer=setTimeout(()=>t.classList.remove('on'), dauer||2600);
+  _toastTimer=setTimeout(()=>{ t.classList.remove('on'); _toastWichtigBis=0; }, ms);
 }
 // 2.33: Der Sync-Punkt zeigt jetzt ZWEI Dinge: den Ladezustand (Farbe) und ob die
 // Live-Verbindung steht (roter Ring = steht nicht). Antippen zeigt die Diagnose.
@@ -1241,8 +1258,9 @@ function syncDotMalen(){
   const d=G('sync-dot'); if(!d) return;
   const st=_syncState;
   let cls='sync-dot'+(st==='ok'?'':st==='err'?' err':st==='offline'?' offline':' syncing');
-  // Ring nur zeigen, wenn wir online sind — offline ist eine fehlende Live-Verbindung normal
-  if(isOnline() && _rtStatus!=='SUBSCRIBED') cls+=' nolive';
+  // Ring nur zeigen, wenn angemeldet UND online — vor dem Anmelden bzw. offline ist eine
+  // fehlende Live-Verbindung normal und kein Grund für einen Alarmring (2.43)
+  if(kz && isOnline() && _rtStatus!=='SUBSCRIBED') cls+=' nolive';
   d.className=cls;
   d.title='Sync: '+st+' · Live-Verbindung: '+rtKlartext()+' (antippen für Details)';
 }
@@ -1604,6 +1622,7 @@ async function loadAllEigentlich(){
     }));
     setSyncing('ok');
     _letztesLaden=Date.now();
+    btbSperrlisteAusLog();   // 2.43: Löschungen anderer Geräte übernehmen (vor dem Reconcile)
     // Ausstehende Warteschlangen-Einträge (noch nicht synchronisiert) auf die frisch geladenen
     // Daten anwenden — sonst würde ein loadAll() (z.B. durch Tab-Wechsel) einen noch nicht
     // hochgeladenen Entwurf/Eintrag wieder "verschwinden" lassen, obwohl er sicher in der
@@ -1704,6 +1723,11 @@ function setupRealtime(){
     .on('postgres_changes',{event:'*',schema:'public',table:'loeschlog'},()=>reloadTable('log'))
     .on('postgres_changes',{event:'*',schema:'public',table:'lager_bestand'},()=>dsLadeSpaeter())
     .subscribe(status=>{
+      // 2.43-FIX: rtSetStatus lief VOR der Abbau-Prüfung. Ein verspätetes CLOSED des gerade
+      // abgebauten Kanals setzte den Status auf CLOSED, obwohl der neue Kanal schon stand —
+      // der Wächter riss dann 60 s später eine funktionierende Verbindung wieder ab und der
+      // Punkt zeigte dauerhaft den roten Ring.
+      if(_rtAbbau && status!=='SUBSCRIBED') return;
       rtSetStatus(status);
       if(status==='SUBSCRIBED'){
         _rtVersuch=0;
@@ -1713,7 +1737,6 @@ function setupRealtime(){
         btbFrischeDaten();
         return;
       }
-      if(_rtAbbau) return;                       // wir haben selbst abgebaut → kein Neuversuch
       if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
         const warte=Math.min(60000, 3000*Math.pow(2,_rtVersuch++));
         console.warn('Live-Verbindung: '+status+' — neuer Versuch in '+Math.round(warte/1000)+' s');
@@ -1729,6 +1752,18 @@ function rtWaechter(){
   if(_rtStatus!=='SUBSCRIBED' && !_rtTimer) setupRealtime();
 }
 setInterval(rtWaechter, 60*1000);
+// 2.44: Beginn der Schonzeit für offene Bearbeitungen (siehe btbEingabeLaeuft)
+let _schutzSeit=0;
+// 2.44: Meldet eine dauerhaft hängende Warteschlangen-Position, aber höchstens alle 10 Minuten
+// pro Art — sonst bliebe so etwas völlig unbemerkt oder würde die Anzeige zuspammen.
+const _stockungZuletzt={};
+function btbMeldeStockung(art, text){
+  const jetzt=Date.now();
+  if(_stockungZuletzt[art] && jetzt-_stockungZuletzt[art] < 10*60*1000) return;
+  _stockungZuletzt[art]=jetzt;
+  console.warn('Warteschlange stockt ('+art+')');
+  toast('⚠️ '+text+' —\nbitte Igor informieren', 7000, true);
+}
 // 2.35: Der Anlagen-Tab trägt jetzt zusätzliche Hinweise im Etikett (Datum/Kürzel eines
 // fremden oder alten Entwurfs). Der Name darf deshalb nicht mehr aus dem Text gelesen werden.
 function btbTabAnlage(tabEl){
@@ -1738,6 +1773,18 @@ function btbTabAnlage(tabEl){
 }
 // 2.29: Gibt es gerade ein offenes BTB-Formular mit noch nicht gespeicherten Eingaben?
 function btbEingabeLaeuft(){
+  // 2.43: Das Bearbeiten-Fenster eines historischen Eintrags und die Rechnungsnummer-Felder
+  // des Innendienst hingen in keinem Schutznetz — die 5-Minuten-Auffrischung und jedes
+  // Neuzeichnen haben sie mitsamt Eingaben weggeräumt.
+  // 2.44: aber nur zeitlich begrenzt. Ein liegengelassenes Bearbeiten-Fenster oder ein
+  // gefülltes Rechnungsnummer-Feld hätte sonst btb/kbe/wm dauerhaft auf veraltetem Stand
+  // gehalten — im Innendienst genau die typische „liegen lassen"-Situation.
+  const offen=document.querySelector('.btb-edit-panel')
+    || [...document.querySelectorAll('.btb-rnr-input')].some(el=>(el.value||'').trim()!=='');
+  if(offen){
+    if(!_schutzSeit) _schutzSeit=Date.now();
+    if(Date.now()-_schutzSeit < 15*60*1000) return true;   // 15 Minuten Schonzeit
+  } else { _schutzSeit=0; }
   const karten=[...document.querySelectorAll('#ebtb .btb-karte.open')];
   return karten.some(karte=>{
     const k=BTB_KUNDEN.find(x=>x.id===karte.dataset.btbId);
@@ -1769,7 +1816,7 @@ async function reloadTable(tbl){
   else if(tbl==='kbe'){loadAll();}
   else if(tbl==='wm'){loadAll();}
   else if(tbl==='btb'){loadAll();}
-  else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));renderLog();updB();}
+  else if(tbl==='log'){const {data}=await _sb.from('loeschlog').select('*').order('geloescht_am',{ascending:false}).limit(200);LOG_DATA=(data||[]).map(x=>({id:x.id,ts:x.geloescht_am,geloescht_von:x.geloescht_von,typ:x.typ,firma:x.firma,original_id:x.original_id,kurzinfo:x.kurzinfo,payload:x.payload||null}));btbSperrlisteAusLog();renderLog();updB();}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2296,6 +2343,24 @@ async function btbSpeichereAnlagen(){
   const k=_anlagenManagerKunde; if(!k) return;
   btbAnlagenUebernehmeEingaben();
   if(_anlagenManagerListe.some(r=>!r.name)){ toast('⚠️ Bitte alle Anlagennamen ausfüllen'); return; }
+  // 2.43: Beim Umbenennen fehlte die Dublettenprüfung (nur das Hinzufügen prüfte). Zwei
+  // gleichnamige Anlagen sind gravierend, weil der Name inzwischen als Schlüssel dient:
+  // zwei Tabs gleichzeitig aktiv, zwei Entwürfe auf derselben Anlage, Formular arbeitet
+  // am falschen Panel.
+  // 2.44: zusätzlich über den Schlüssel prüfen. btbSlug ersetzt alles Nicht-Alphanumerische
+  // durch „_", deshalb ergeben „Kessel 1" und „Kessel-1" denselben Schlüssel — die Namen
+  // wären verschieden, Produktbezeichnungen und Dosierdaten würden aber kollidieren.
+  const schluessel=_anlagenManagerListe.map(r=>btbSlug(r.name));
+  const dubIdx=schluessel.findIndex((sl,i)=>schluessel.indexOf(sl)!==i);
+  if(dubIdx>=0){
+    const a=_anlagenManagerListe[schluessel.indexOf(schluessel[dubIdx])].name;
+    const b=_anlagenManagerListe[dubIdx].name;
+    toast(a.toLowerCase()===b.toLowerCase()
+      ? '⚠️ „'+b+'" kommt zweimal vor — Anlagennamen müssen eindeutig sein'
+      : '⚠️ „'+a+'" und „'+b+'" sind zu ähnlich — sie ergäben dieselben Produktdaten. Bitte deutlicher unterscheiden.',
+      6000, true);
+    return;
+  }
   const neueRkws=_anlagenManagerListe.map(r=>({name:r.name}));
   // 2.38-FIX: Umbenennungen erkennen und die anlagenbezogenen Daten MITNEHMEN.
   // Bisher wurde nur rkws geschrieben — Produktbezeichnungen und Dosierdaten liegen aber
@@ -2313,8 +2378,18 @@ async function btbSpeichereAnlagen(){
     umbenannt.forEach(({alt,neu})=>{
       const sAlt=btbSlug(alt), sNeu=btbSlug(neu);
       if(sAlt!==sNeu){
-        if(pna[sAlt]!=null && pna[sNeu]==null){ pna[sNeu]=pna[sAlt]; delete pna[sAlt]; }
-        if(di[sAlt]!=null  && di[sNeu]==null ){ di[sNeu] =di[sAlt];  delete di[sAlt];  }
+        // 2.43: Kopieren statt verschieben — der alte Schlüssel bleibt stehen, damit
+        // historische Einträge OHNE eigene Namen (vor 2.15 erfasst) ihn weiter auflösen können.
+        // 2.44-FIX: Der alte Wächter „nur wenn Ziel leer" ließ das Zurück-Umbenennen scheitern:
+        // nach A→B lag unter A eine eingefrorene Kopie; bei B→A wurde sie deshalb NICHT
+        // überschrieben und die Anlage fiel auf den alten Stand zurück — samt veralteter
+        // Dosierdaten und damit falscher Soll-Berechnung. Jetzt wird das Ziel überschrieben,
+        // sofern es nicht zu einer ANDEREN aktiven Anlage gehört.
+        const zielAktivFremd=neueRkws.some(r=>r.name!==neu && btbSlug(r.name)===sNeu);
+        if(!zielAktivFremd){
+          if(pna[sAlt]!=null) pna[sNeu]=pna[sAlt];
+          if(di[sAlt]!=null ) di[sNeu] =di[sAlt];
+        }
       }
       // Zählergruppen speichern Klarnamen
       Object.keys(wz).forEach(typ=>{
@@ -2332,9 +2407,15 @@ async function btbSpeichereAnlagen(){
   if(isOnline()){
     const {error}=await _sb.from('kbe_kunden').update(patch).eq('id',k.id);
     if(error){toast('⚠️ Fehler: '+error.message);return;}
-    // Offene Entwürfe umbenennen, damit sie der Anlage weiter zugeordnet bleiben
-    for(const {alt,neu} of umbenannt){
-      await _sb.from('btb_entwurf').update({anlage:neu}).eq('kunde_id',k.id).eq('anlage',alt);
+    // Offene Entwürfe umbenennen, damit sie der Anlage weiter zugeordnet bleiben.
+    // 2.43: über die ID, nicht über den Namen. Beim Tausch zweier Namen (A→B und B→A in einem
+    // Durchgang) zogen die aufeinanderfolgenden Namens-Updates beide Entwürfe auf denselben Namen.
+    const zuBenennen=umbenannt.map(({alt,neu})=>{
+      const e=(k.entwuerfe||[]).find(x=>x.anlage===alt);
+      return e?{id:e.id, neu}:null;
+    }).filter(Boolean);
+    for(const {id:eid2, neu} of zuBenennen){
+      await _sb.from('btb_entwurf').update({anlage:neu}).eq('id',eid2);
     }
   } else {
     addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch}});
@@ -4181,6 +4262,7 @@ async function btbExportKundeExcel(k){
       const namenE=btbNamenFuerEintrag(e, pn);
       const row={
         'Datum': e.datumFmt,
+        'Uhrzeit': e.besuch_uhrzeit?String(e.besuch_uhrzeit).slice(0,5):'',   // 2.39: fehlte bisher
         'Kürzel': e.kuerzel||'',
         '°dH': e.dh!=null?e.dh:'',
         'LF IST': e.lf_messung_ist!=null?e.lf_messung_ist:'',
@@ -4204,7 +4286,7 @@ async function btbExportKundeExcel(k){
 
     const ws=XLSX.utils.json_to_sheet(rows);
     const breiteSpalten=new Set(['Vorgefunden','Aufgefüllt','Neu','Lager']);
-    const schmaleSpalten=new Set(['Kürzel','°dH','KBE-Auswertung']); // nur kurze Werte → ca. 1/3 der Standardbreite
+    const schmaleSpalten=new Set(['Kürzel','°dH','KBE-Auswertung','Uhrzeit']); // nur kurze Werte → ca. 1/3 der Standardbreite
     const spaltenNamen=Object.keys(rows[0]);
     const textSpalten=new Set(['Bemerkung','Dosierung']); // lange Texte: breit + Zeilenumbruch
     ws['!cols']=spaltenNamen.map(h=>({wch:h==='Bemerkung'?40:(h==='Dosierung'?20:(breiteSpalten.has(h)?34:(schmaleSpalten.has(h)?5:14)))}));
@@ -4561,6 +4643,48 @@ async function saveWmLetztenEdit(k, eid, datumInp, box){
 function btbSlug(str){ return String(str||'').replace(/[^a-zA-Z0-9äöüÄÖÜ]/g,'_'); }
 // Produktnamen für eine bestimmte Anlage: erst Anlage-spezifisch, dann alter globaler
 // Kundenwert (Rückwärtskompatibilität), dann Standard-Default
+// 2.40: Schutz für die Produktbezeichnungs-Felder. Ohne autocomplete="off" setzt Safari
+// in drei gleich aussehende, namenlose Textfelder nebeneinander denselben gemerkten Wert
+// ein — dann steht in Produkt 1, 2 und 3 dieselbe Bezeichnung, und über den Snapshot
+// landet sie dauerhaft im Eintrag. autocorrect/spellcheck aus, damit Bezeichnungen wie
+// „BZ 219S" nicht verändert werden.
+const PNAME_ATTR='autocomplete="off" autocorrect="off" spellcheck="false"';
+// 2.41: Fehlt eine Spalte in der Datenbank, scheitert der Schreibvorgang mit einem
+// Schemafehler — und kann NIE erfolgreich werden. Bisher landete er trotzdem in der
+// Warteschlange („wird hochgeladen sobald online"), wo er bei jedem Versuch neu scheiterte:
+// die Produktnamen pro Anlage waren dadurch monatelang nicht gespeichert, ohne dass es
+// irgendwo auffiel. Solche Fehler gehören gemeldet, nicht in die Warteschlange.
+//   42703  = Postgres: Spalte existiert nicht
+//   PGRST204 = PostgREST: Spalte nicht im Schema-Cache (Schema nach ALTER TABLE nicht neu geladen)
+function btbIstSchemaFehler(error){
+  if(!error) return false;
+  const code=String(error.code||'');
+  if(code==='42703'||code==='PGRST204'||code==='PGRST202') return true;
+  const txt=String(error.message||'')+' '+String(error.details||'');
+  return /does not exist|could not find the .* column|schema cache/i.test(txt);
+}
+// Einheitliche Meldung. Gibt true zurück, wenn es ein Schemafehler war.
+// 2.43: Pro Sitzung und Feld nur EINMAL melden — sonst überschreibt die Meldung bei jedem
+// Warteschlangen-Durchlauf andere Hinweise.
+// 2.44: nicht nur einmal pro Sitzung, sondern höchstens alle 10 Minuten erneut — eine App,
+// die den ganzen Tag offen ist, würde die Meldung sonst genau einmal zeigen, während sich die
+// Warteschlange weiter füllt.
+const _schemaGemeldet={};
+const SPALTEN_KLARTEXT={produkt_namen_pro_anlage:'Produktbezeichnungen', dosier_info:'Dosierdaten',
+  wasserzaehler_gruppen:'Zähler-Zuordnung', btb_letzter_export:'Export-Vermerk',
+  rkws:'Anlagenliste', produkt_namen:'Produktbezeichnungen'};
+function btbMeldeSchemaFehler(error, was){
+  if(!btbIstSchemaFehler(error)) return false;
+  // Rohe Spaltennamen in Klartext übersetzen, damit Techniker die Meldung lesen können
+  const lesbar=String(was||'').split(',').map(x=>SPALTEN_KLARTEXT[x.trim()]||x.trim()).filter(Boolean).join(', ')||'Ein Feld';
+  console.error('Schemafehler beim Speichern von '+was+':', error);
+  const jetzt=Date.now();
+  if(!_schemaGemeldet[lesbar] || jetzt-_schemaGemeldet[lesbar] > 10*60*1000){
+    _schemaGemeldet[lesbar]=jetzt;
+    toast('⚠️ „'+lesbar+'" kann nicht gespeichert werden —\nin der Datenbank fehlt eine Spalte.\nBitte Igor informieren.', 8000, true);
+  }
+  return true;
+}
 function btbGetProduktNamen(k, anlageName){
   const slug=btbSlug(anlageName);
   return (k.produkt_namen_pro_anlage||{})[slug] || k.produkt_namen || {p1:'BZ',p2:'KT/LB',p3:''};
@@ -4592,7 +4716,20 @@ function btbSetupEnterNavigation(form){
     const idx=sichtbar.indexOf(t);
     if(idx===-1)return;
     const next=sichtbar[(idx+1)%sichtbar.length];
-    if(next){ next.focus(); if(typeof next.select==='function') next.select(); }
+    if(next){
+      next.focus();
+      // 2.42: Bei den Produktbezeichnungen NICHT den ganzen Inhalt markieren, wenn dort schon
+      // ein echter Name steht. Beim Durchgehen mit Enter lag der komplette Name markiert im
+      // Feld — ein einzelner Tastendruck oder ein Vorschlag der iPad-Tastatur ersetzt ihn dann
+      // vollständig, und zwar unbemerkt. Steht noch die Standardbezeichnung drin, bleibt das
+      // Markieren erhalten (schnelles Überschreiben beim ersten Eintragen).
+      const istName=next.dataset && next.dataset.pname;
+      const istStandard=istName && (next.value===''||next.value==='BZ'||next.value==='KT/LB');
+      if(typeof next.select==='function' && (!istName || istStandard)) next.select();
+      else if(istName && typeof next.setSelectionRange==='function'){
+        try{ next.setSelectionRange(next.value.length, next.value.length); }catch(e){}
+      }
+    }
   });
 }
 
@@ -5439,7 +5576,11 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
 
         const eBox=document.createElement('div');eBox.className='btb-eintrag';eBox.dataset.btbEid=e.id;
         let html='<div class="btb-eintrag-header">';
-        html+='<div class="btb-eintrag-datum">'+esc(e.datumFmt)+'</div>';
+        // 2.39-FIX: Die Uhrzeit des Besuchs wurde gespeichert, aber nirgends angezeigt —
+        // weder hier noch im Excel-Export. Sie steht jetzt neben dem Datum.
+        html+='<div class="btb-eintrag-datum">'+esc(e.datumFmt)
+          +(e.besuch_uhrzeit?' <span style="font-size:12px;font-weight:700;color:#64748b">'+esc(String(e.besuch_uhrzeit).slice(0,5))+'</span>':'')
+          +'</div>';
         if(e.kuerzel) html+='<div class="btb-eintrag-kz">'+esc(e.kuerzel)+'</div>';
         html+='</div>';
         // Messwerte
@@ -5472,7 +5613,19 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         //   · der Name wurde pro Anlage gesetzt, der Eintrag stammt aber aus einer Zeit
         //     mit anderer Bezeichnung
         // Richtig ist in beiden Fällen der Name, der ZUM ZEITPUNKT des Eintrags galt.
-        const pn=btbNamenFuerEintrag(e, btbGetProduktNamen(k, e.anlage));
+        const pnAktuellHist=btbGetProduktNamen(k, e.anlage);
+        const pn=btbNamenFuerEintrag(e, pnAktuellHist);
+        // 2.43-FIX: Der Snapshot führt nur p1/p2/p3, keine *_seit-Felder. Seit 2.38 fiel die
+        // „(seit TT.MM.JJJJ)"-Angabe damit für JEDEN Eintrag mit Snapshot-Namen weg — also für
+        // alle neueren, während die alten sie noch zeigten. Die Marke gehört zur aktuellen
+        // Kundenangabe, deshalb holen wir sie von dort — aber nur, wenn der angezeigte Name
+        // tatsächlich derselbe ist, sonst wäre das Datum irreführend.
+        const seitFuer=nr=>{
+          const angezeigt=(pn['p'+nr]||'').trim();
+          if(!angezeigt) return null;
+          if(angezeigt!==(pnAktuellHist['p'+nr]||'').trim()) return null;
+          return pnAktuellHist['p'+nr+'_seit']||null;
+        };
         // Dosierdaten: Snapshot aus dem Eintrag (historisch korrekt), Fallback auf aktuelle Kundendaten dieser Anlage
         const di=e.dosier_snapshot||(k.dosier_info||{})[btbSlug(e.anlage)]||{};
         const hasProd=[1,2,3].some(pn2=>e['p'+pn2+'_vorgefunden']!=null||e['p'+pn2+'_neu']!=null||e['p'+pn2+'_lager']!=null);
@@ -5488,7 +5641,7 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
             if(vg==null&&neu==null&&lg==null)return;
             const colorMap={1:'var(--bd)',2:'#0891b2',3:'#7c3aed'};
             const bgMap={1:'#e0f2fe',2:'#e0f7ff',3:'#ede9fe'};
-            const pnameSeit=pn['p'+pn2+'_seit'];
+            const pnameSeit=seitFuer(pn2);
             html+='<div style="background:'+bgMap[pn2]+';border-radius:7px;padding:6px 9px;min-width:100px;flex:1">';
             html+='<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+(pname||(pn2===3?'BZ 2':('P'+pn2)))+(pname&&pnameSeit?' <span style="font-weight:600;text-transform:none;letter-spacing:normal;opacity:.75">(seit '+btbFmtDatumDE(pnameSeit)+')</span>':'')+'</div>';
             html+='<div style="display:grid;grid-template-columns:max-content max-content;gap:2px 6px;font-size:11px">';
@@ -5748,9 +5901,9 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'style="padding:7px 10px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.05em">⚙️ Produktbezeichnungen ändern</div>'
     +'<div class="btb-pname-body" style="display:'+(pnStandard?'block':'none')+';padding:9px;background:var(--bg)">'
     +'<div class="btb-grid-3">'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 1</div><input type="text" data-pname="1" value="'+esc(pn.p1||'BZ')+'" placeholder="z.B. BZ 300"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" data-pname="2" value="'+esc(pn.p2||'KT/LB')+'" placeholder="z.B. KT 300 K"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" data-pname="3" value="'+esc(pn.p3||'')+'" placeholder="z.B. BZ 219S"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 1</div><input type="text" data-pname="1" name="btb-pname1-'+id+'-'+slug+'" '+PNAME_ATTR+' value="'+esc(pn.p1||'BZ')+'" placeholder="z.B. BZ 300"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" data-pname="2" name="btb-pname2-'+id+'-'+slug+'" '+PNAME_ATTR+' value="'+esc(pn.p2||'KT/LB')+'" placeholder="z.B. KT 300 K"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" data-pname="3" name="btb-pname3-'+id+'-'+slug+'" '+PNAME_ATTR+' value="'+esc(pn.p3||'')+'" placeholder="z.B. BZ 219S"></div>'
     +'</div>'
     +(andereAnlagen.length
       ? '<div style="margin-top:8px;font-size:11px;color:var(--mu)">Gilt zunächst nur für <b>'+esc(anlageName)+'</b>. Auch übernehmen für:</div>'
@@ -5911,6 +6064,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       btbSaveSnapshot();
       if(isOnline()){
         const {error}=await _sb.from('kbe_kunden').update({wasserzaehler_gruppen:neueGruppen}).eq('id',id);
+        if(btbMeldeSchemaFehler(error,'Zähler-Zuordnung')) return;   // 2.41
         if(error){ addToQueue({type:'kbe_kunden_update', data:{id, patch:{wasserzaehler_gruppen:neueGruppen}}}); toast('⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen'); }
         else { toast('✓ Zähler-Zuordnung gespeichert'); }
       } else {
@@ -6250,6 +6404,7 @@ async function btbSpeichereDosierFalls(k, still){
   delete _dosierOffen[k.id];
   if(isOnline()){
     const {error}=await _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',k.id);
+    if(btbMeldeSchemaFehler(error,'Dosierdaten')) return false;   // 2.41
     if(error){
       addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{dosier_info:alleInfo}}});
       if(!still) toast('⚠️ Kein Netz — Dosierdaten gespeichert, werden automatisch hochgeladen');
@@ -6323,14 +6478,35 @@ function btbUebernehmeProduktnamenLokal(k, alle){
   const kb=KBE.find(x=>x.id===k.id); if(kb&&kb!==k) kb.produkt_namen_pro_anlage=alle;
   const bk=BTB_KUNDEN.find(x=>x.id===k.id); if(bk&&bk!==k) bk.produkt_namen_pro_anlage=alle;
 }
+// 2.42: Prüft, ob in Produkt 1, 2 und 3 dieselbe Bezeichnung steht. Das ist praktisch immer
+// ein Versehen (bei Krampe Harex stand am 29.09. dreimal „W 23" im Eintrag) und hat bisher
+// niemandem auffallen können. Fängt das Ergebnis ab, unabhängig davon, wie es entstanden ist.
+function btbNamenAlleGleich(neu){
+  const a=(neu.p1||'').trim(), b=(neu.p2||'').trim(), c=(neu.p3||'').trim();
+  return (a && a===b && b===c) ? a : null;
+}
 // Speichert die Produktbezeichnungen (online direkt, sonst Warteschlange) — ohne Neuladen
 async function btbSpeichereProduktnamen(k, anlageName, form, still){
   const {alle, anzahl}=btbBerechneProduktnamen(k, anlageName, form);
+  const dreifach=btbNamenAlleGleich(alle[btbSlug(anlageName)]||{});
+  if(dreifach){
+    if(!still){
+      // Bewusstes Speichern → nachfragen
+      if(!confirm('⚠️ Produkt 1, 2 und 3 tragen alle die Bezeichnung „'+dreifach+'".\n\n'
+        +'Das ist meist ein Versehen — z.B. wenn die Tastatur denselben Vorschlag in alle drei\n'
+        +'Felder gesetzt hat.\n\nTrotzdem so speichern?')) return;
+    } else {
+      // Automatisches Speichern (Anlagenwechsel, FERTIG, Pull-down): nicht blockieren, aber melden
+      toast('⚠️ Produkt 1, 2 und 3 haben dieselbe Bezeichnung („'+dreifach+'") — bitte prüfen', 6000, true);
+    }
+  }
   btbUebernehmeProduktnamenLokal(k, alle);
   btbSaveSnapshot();
   let ok=false;
   if(isOnline()){
     const {error}=await _sb.from('kbe_kunden').update({produkt_namen_pro_anlage:alle}).eq('id',k.id);
+    // 2.41: fehlende Spalte → melden statt endlos einreihen
+    if(btbMeldeSchemaFehler(error,'Produktbezeichnungen')) return;
     ok=!error;
   }
   if(!ok){
@@ -6372,6 +6548,7 @@ async function btbVerwerfeAnlage(k, anlageName, form){
     } else {
       addToQueue({type:'btb_entwurf_delete', data:{id:entwurf.id}});
     }
+    btbMerkeEntwurfVerworfen(entwurf.id);   // 2.45: darf nicht wieder auferstehen
     k.entwuerfe=k.entwuerfe.filter(e=>e.id!==entwurf.id);
     BTB_ENTWURF=BTB_ENTWURF.filter(e=>e.id!==entwurf.id);
   }
@@ -6382,7 +6559,9 @@ async function btbVerwerfeAnlage(k, anlageName, form){
   });
   form.querySelectorAll('.btb-mangel-cb').forEach(cb=>cb.checked=false);
   btbSaveSnapshot();
-  toast(isOnline()?'🗑 Eingaben für „'+anlageName+'" gelöscht':'🗑 Gelöscht — wird beim nächsten Netz übernommen');
+  toast(isOnline()
+    ? '🗑 Eingaben für „'+anlageName+'" gelöscht — auch für die Kollegen'
+    : '🗑 Gelöscht — wird beim nächsten Netz auch für die Kollegen übernommen');
   renderBtbTab(); renderInnendienstTab(); updB();
 }
 async function btbSichereFormular(k, anlageName, form, scroll){
@@ -6688,13 +6867,28 @@ async function btbSetBerechnet(btn){
   // Rechnungsnummer auf alle offenen Anlagen dieses Datums übertragen
   const geschwister=k.eintraege.filter(e=>e.datum_btb===eintrag.datum_btb && e.btb_status==='offen');
   const ids=geschwister.length?geschwister.map(e=>e.id):[eid];
-  const {error}=await _sb.from('btb_eintraege').update({
-    btb_status:'berechnet', rechnung_nr:rnr,
-    berechnet_von:kz, berechnet_am:new Date().toISOString()
-  }).in('id',ids);
-  if(error){toast('⚠️ '+error.message);return;}
-  toast('✅ '+ids.length+' Anlage(n) als berechnet markiert · RNr: '+rnr);
-  await loadAll();
+  const patch={btb_status:'berechnet', rechnung_nr:rnr,
+    berechnet_von:kz, berechnet_am:new Date().toISOString()};
+
+  // 2.45: Lokal sofort übernehmen und offline einreihen — vorher war die Eingabe ohne Netz weg.
+  ids.forEach(id2=>{ const e2=k.eintraege.find(x=>x.id===id2); if(e2) Object.assign(e2, patch); });
+  btbSaveSnapshot();
+
+  let ok=false;
+  if(isOnline()){
+    const {error}=await _sb.from('btb_eintraege').update(patch).in('id',ids);
+    if(error){
+      ids.forEach(id2=>addToQueue({type:'btb_eintrag_update', data:{id:id2, kunde_id:kid, patch}}));
+      toast('⚠️ Kein Netz — als berechnet gespeichert, wird automatisch hochgeladen');
+    } else {
+      ok=true;
+      toast('✅ '+ids.length+' Anlage(n) als berechnet markiert · RNr: '+rnr);
+    }
+  } else {
+    ids.forEach(id2=>addToQueue({type:'btb_eintrag_update', data:{id:id2, kunde_id:kid, patch}}));
+    toast('📥 Offline als berechnet gespeichert — wird hochgeladen sobald online');
+  }
+  if(ok) await loadAll(); else { renderAll(); updB(); }
 }
 
 
@@ -6719,10 +6913,15 @@ function btbNachweisOeffnen(kid, datum){
   _nachweisKunde=k; _nachweisDatum=datum;
   G('nachweis-blatt').innerHTML=btbNachweisBlattHtml(k, datum, tagesEintraege);
   G('nachweis-modal').style.display='flex';
+  document.body.classList.add('drucke-nachweis');   // 2.43: schaltet das Druck-Layout erst jetzt scharf
   G('nachweis-scroll').scrollTop=0;
 }
 function btbNachweisSchliessen(){
   G('nachweis-modal').style.display='none';
+  document.body.classList.remove('drucke-nachweis');
+  // 2.43: Blatt leeren — sonst würde ein späterer Druckversuch den Nachweis eines
+  // fremden Kunden/Tages im Speicher behalten
+  const blatt=G('nachweis-blatt'); if(blatt) blatt.innerHTML='';
   _nachweisKunde=null; _nachweisDatum=null;
 }
 function btbNachweisDrucken(){ window.print(); }
@@ -6900,6 +7099,35 @@ function btbMerkeGeloescht(eid){
   }catch(e){}
 }
 function btbIstGeloescht(eid){ return btbGeloeschteIds().includes(eid); }
+// 2.45: Dasselbe für verworfene ENTWÜRFE („🗑 Eingaben dieser Anlage löschen").
+// Ohne das konnte ein noch nicht hochgeladenes Zwischenspeichern denselben Entwurf über
+// btbReconcileQueue lokal und über flushQueue in der Datenbank wieder auferstehen lassen —
+// der Haken an der Anlage war dann wieder da, obwohl jemand ihn gelöscht hatte.
+const BTB_ENTW_DEL_KEY='rkw_btb_entwurf_geloescht';
+function btbVerworfeneEntwuerfe(){
+  try{ const a=JSON.parse(localStorage.getItem(BTB_ENTW_DEL_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; }
+}
+function btbMerkeEntwurfVerworfen(id){
+  try{ const a=btbVerworfeneEntwuerfe(); if(!a.includes(id)) a.push(id);
+    localStorage.setItem(BTB_ENTW_DEL_KEY, JSON.stringify(a.slice(-300))); }catch(e){}
+}
+function btbEntwurfVerworfen(id){ return btbVerworfeneEntwuerfe().includes(id); }
+// 2.43: Bisher kannte die Sperrliste nur die EIGENEN Löschungen. Löschte der Innendienst einen
+// Eintrag, während auf einem iPad noch ein FERTIG-Paket mit dieser Zeile in der Warteschlange
+// lag, fügte flushQueue() sie später wieder ein. Das Löschprotokoll wird bei jedem Laden
+// mitgeladen und enthält die IDs — daraus füllen wir die Sperrliste auf.
+function btbSperrlisteAusLog(){
+  try{
+    const ids=(LOG_DATA||[]).filter(x=>x.typ==='BTB'&&x.original_id).map(x=>x.original_id);
+    if(!ids.length) return;
+    const a=btbGeloeschteIds(), neu=ids.filter(id=>!a.includes(id));
+    if(!neu.length) return;
+    localStorage.setItem(BTB_DEL_KEY, JSON.stringify(a.concat(neu).slice(-500)));
+    // Betroffene Zeilen gleich aus offenen FERTIG-Paketen nehmen
+    neu.forEach(id=>btbEntferneAusFertigWarteschlange(id));
+    console.log('Sperrliste aus Löschprotokoll ergänzt:', neu.length);
+  }catch(e){}
+}
 // Zeile aus noch nicht hochgeladenen FERTIG-Paketen herausnehmen, damit sie nicht neu entsteht
 function btbEntferneAusFertigWarteschlange(eid){
   try{
@@ -6930,24 +7158,55 @@ async function btbDelEintrag(eid, kid){
   if(!confirm('BTB-Eintrag wirklich löschen?'+(info?'\n\n'+info:'')+warnung
     +'\n\nDer Eintrag wird im „Gelöscht"-Log mit allen Werten protokolliert und kann dort nachgesehen werden.')) return;
 
-  // ID sofort sperren und aus offenen FERTIG-Paketen entfernen — auch wenn das Netz gleich abbricht
-  btbMerkeGeloescht(eid);
-  btbEntferneAusFertigWarteschlange(eid);
+  // 2.43-FIX: Sperrliste und das Beschneiden der Warteschlange standen VOR dem Netzversuch und
+  // wurden bei keinem der Abbrüche zurückgenommen. Ein noch nicht hochgeladener Besuch (FERTIG
+  // offline gedrückt, liegt als btb_fertig in der Warteschlange) war damit unwiederbringlich weg:
+  // aus dem Paket entfernt, ID dauerhaft gesperrt — und der Nutzer las „wurde NICHT gelöscht".
+  // Jetzt wird erst gelöscht bzw. eingereiht und nur bei tatsächlichem Erfolg gesperrt.
+  // Sonderfall zuerst: Der Eintrag existiert nur lokal (FERTIG noch in der Warteschlange).
+  // Dann gibt es in der Datenbank nichts zu löschen — es genügt, ihn aus dem Paket zu nehmen.
+  const nurInWarteschlange=getQueue().some(x=>x.type==='btb_fertig'
+    && Array.isArray(x.data&&x.data.rows) && x.data.rows.some(r=>r.id===eid));
 
-  if(isOnline()){
-    // Protokoll zuerst: lieber ein Log ohne Löschung als eine Löschung ohne Log
-    const {error:logErr}=await _sb.from('loeschlog').insert({
-      typ:'BTB', firma:(k?k.firma:'')||'', original_id:eid,
-      kurzinfo:info||'BTB-Eintrag', geloescht_von:kz, payload:e||null
-    });
-    if(logErr){ toast('⚠️ Log-Fehler: '+logErr.message); return; }
+  if(nurInWarteschlange){
+    btbEntferneAusFertigWarteschlange(eid);
+    btbMerkeGeloescht(eid);
+    // 2.44: „liegt in der Warteschlange" heißt NICHT zwingend „nicht in der Datenbank" — ging
+    // die Antwort eines FERTIG-Inserts verloren, ist die Zeile dort trotzdem angekommen.
+    // Online deshalb zusätzlich löschen und, falls es eine Zeile traf, auch protokollieren.
+    if(isOnline()){
+      const {data:weg}=await _sb.from('btb_eintraege').delete().eq('id',eid).select('id');
+      if(weg&&weg.length){
+        await _sb.from('loeschlog').insert({
+          typ:'BTB', firma:(k?k.firma:'')||'', original_id:eid,
+          kurzinfo:info||'BTB-Eintrag', geloescht_von:kz, payload:e||null
+        });
+        toast('✓ Eintrag gelöscht & im Log gespeichert');
+      } else {
+        toast('🗑 Eintrag entfernt (war noch nicht übertragen)');
+      }
+    } else {
+      toast('🗑 Eintrag entfernt (war noch nicht übertragen)');
+    }
+  } else if(isOnline()){
     // .select() zurückgeben lassen: leeres Ergebnis = nichts gelöscht (z.B. fehlende Berechtigung)
     const {data:weg, error}=await _sb.from('btb_eintraege').delete().eq('id',eid).select('id');
     if(error){ toast('⚠️ Fehler: '+error.message); return; }
     if(!weg||!weg.length){ toast('⚠️ Eintrag wurde NICHT gelöscht — bitte Innendienst/Admin informieren'); return; }
-    toast('✓ Eintrag gelöscht & im Log gespeichert');
+    // Erst jetzt sperren — die Löschung ist bestätigt
+    btbMerkeGeloescht(eid);
+    btbEntferneAusFertigWarteschlange(eid);
+    // Protokoll danach: scheitert es, ist der Eintrag trotzdem korrekt gelöscht — nur ohne Logzeile
+    const {error:logErr}=await _sb.from('loeschlog').insert({
+      typ:'BTB', firma:(k?k.firma:'')||'', original_id:eid,
+      kurzinfo:info||'BTB-Eintrag', geloescht_von:kz, payload:e||null
+    });
+    toast(logErr ? '✓ Eintrag gelöscht (⚠️ Logeintrag fehlgeschlagen)' : '✓ Eintrag gelöscht & im Log gespeichert');
+    if(logErr) console.error('loeschlog fehlgeschlagen:', logErr);
   } else {
     addToQueue({type:'btb_eintrag_delete', data:{id:eid, kunde_id:kid, firma:(k?k.firma:'')||'', kurzinfo:info||'BTB-Eintrag', payload:e||null, kuerzel:kz}});
+    btbMerkeGeloescht(eid);              // Auftrag liegt verlässlich in der Warteschlange
+    btbEntferneAusFertigWarteschlange(eid);
     toast('📥 Gelöscht — wird hochgeladen sobald online');
   }
 
@@ -6977,6 +7236,14 @@ function btbEditEintrag(kid, anlageName, eid){
 
   // 2.38: beim Bearbeiten eines historischen Eintrags die damals gültigen Namen zeigen
   const pn=btbNamenFuerEintrag(e, btbGetProduktNamen(k, e.anlage));
+  // 2.43-FIX: Die Eingabefelder für die Bezeichnungen wurden mit pn vorbelegt. Hat der Eintrag
+  // noch keine eigenen Namen, standen dort die HEUTIGEN Kundenangaben — wer nur eine Bemerkung
+  // korrigierte und speicherte, fror sie damit rückwirkend im historischen Eintrag ein.
+  // Jetzt: nur vorbelegen, wenn der Eintrag eigene Namen hat; sonst leer mit Platzhalter.
+  const pnEigen=(e.dosier_snapshot && e.dosier_snapshot.namen) ? e.dosier_snapshot.namen : null;
+  const pnFeld=nr=>pnEigen ? (pnEigen['p'+nr]||'') : '';
+  const PN_BEISPIEL={1:'z.B. BZ 300', 2:'z.B. KT 300 K', 3:'z.B. BZ 219S'};   // 2.44: war für Produkt 2 falsch
+  const pnPlatz=nr=>pnEigen ? '' : ((pn['p'+nr]||'').trim() || PN_BEISPIEL[nr]);
   let prodEditHtml='';
   [1,2,3].forEach(pn2=>{
     const pname=pn['p'+pn2]||'';
@@ -6997,6 +7264,23 @@ function btbEditEintrag(kid, anlageName, eid){
   });
 
   panel.innerHTML='<div class="btb-form-title" style="color:var(--bd)">✏️ Bearbeiten – '+esc(anlageName)+' · '+esc(e.datumFmt)+'</div>'+
+    // 2.39-FIX: Datum und Uhrzeit fehlten hier. Ein versehentlich falsches Datum war
+    // dadurch nur über Löschen und komplette Neueingabe zu korrigieren.
+    '<div class="btb-grid" style="margin-top:6px">'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Datum</div><input type="date" id="edit-datum" value="'+esc(e.datum_btb||'')+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Uhrzeit</div><input type="time" id="edit-uhr" value="'+esc(e.besuch_uhrzeit?String(e.besuch_uhrzeit).slice(0,5):'')+'"></div>'+
+    '</div>'+
+    // 2.40: Die im Eintrag mitgespeicherten Bezeichnungen korrigierbar machen. Sie bestimmen,
+    // was Historie, Nachweis und Excel für DIESEN Eintrag anzeigen — eine falsche Bezeichnung
+    // war bisher nur per SQL zu beheben. Leer lassen = auf die aktuelle Kundenangabe zurückfallen.
+    '<div style="font-size:10px;color:#64748b;margin-top:8px;letter-spacing:.03em">PRODUKTBEZEICHNUNGEN DIESES EINTRAGS'
+      +(pnEigen?'':' <span style="text-transform:none;letter-spacing:normal">— leer = Kundenangabe verwenden</span>')+'</div>'+
+    '<div class="btb-grid" style="margin-top:3px">'+
+    // data-pname: damit die Enter-Navigation einen vorhandenen Namen NICHT komplett markiert (2.43)
+    '<div class="btb-feld"><div class="btb-feld-lbl">Produkt 1</div><input type="text" id="edit-pn1" data-pname="1" name="edit-pn1-'+eid+'" '+PNAME_ATTR+' value="'+esc(pnFeld(1))+'" placeholder="'+esc(pnPlatz(1))+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Produkt 2</div><input type="text" id="edit-pn2" data-pname="2" name="edit-pn2-'+eid+'" '+PNAME_ATTR+' value="'+esc(pnFeld(2))+'" placeholder="'+esc(pnPlatz(2))+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" id="edit-pn3" data-pname="3" name="edit-pn3-'+eid+'" '+PNAME_ATTR+' value="'+esc(pnFeld(3))+'" placeholder="'+esc(pnPlatz(3))+'"></div>'+
+    '</div>'+
     '<div class="btb-grid" style="margin-top:6px">'+
     '<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="number" step="0.1" id="edit-dh" value="'+(e.dh!=null?e.dh:'')+'"></div>'+
     '<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="number" id="edit-lf" value="'+(e.lf_messung_ist!=null?e.lf_messung_ist:'')+'"></div>'+
@@ -7062,7 +7346,44 @@ async function btbSaveEdit(eid, kid){
   const dsChecked=G('edit-ds')?.checked||false;
   const kbeVal=toStr('edit-kbe');
 
+  // 2.39: Datum/Uhrzeit sind jetzt änderbar. Beim Datumswechsel prüfen, ob für diese
+  // Anlage am neuen Datum schon ein Besuch steht — sonst entsteht beim Korrigieren ein Doppler.
+  const kEdit=BTB_KUNDEN.find(x=>x.id===kid);
+  const eAlt=kEdit?kEdit.eintraege.find(x=>x.id===eid):null;
+  const neuesDatum=toStr('edit-datum');
+  if(!neuesDatum){ toast('⚠️ Bitte ein Datum angeben'); return; }
+  if(eAlt && neuesDatum!==eAlt.datum_btb){
+    const kollision=kEdit.eintraege.find(x=>x.id!==eid && x.anlage===eAlt.anlage && x.datum_btb===neuesDatum);
+    if(kollision && !confirm('⚠️ Für „'+eAlt.anlage+'" steht am '+btbFmtDatumDE(neuesDatum)+' schon ein Besuch'
+      + (kollision.kuerzel?' von '+kollision.kuerzel:'')
+      + (kollision.btb_status==='berechnet'?' (bereits berechnet)':'')
+      + '.\n\nTrotzdem auf dieses Datum ändern? Dann steht der Besuch doppelt.')) return;
+  }
+
+  // 2.40: Bezeichnungen im Eintrags-Snapshot mitschreiben (bestimmen Historie/Nachweis/Excel)
+  let snapNeu=null;
+  if(G('edit-pn1')||G('edit-pn2')||G('edit-pn3')){
+    const n1=(G('edit-pn1')?.value||'').trim(), n2=(G('edit-pn2')?.value||'').trim(), n3=(G('edit-pn3')?.value||'').trim();
+    const basis=(eAlt&&eAlt.dosier_snapshot&&typeof eAlt.dosier_snapshot==='object')?eAlt.dosier_snapshot:{};
+    snapNeu=Object.assign({}, basis);
+    if(n1||n2||n3){
+      // 2.44-FIX: Vorher wurden die drei Felder wörtlich übernommen. Füllte jemand nur EIN Feld
+      // (z.B. Produkt 3 richtigstellen), standen Produkt 1 und 2 danach leer — in Historie,
+      // Nachweis und Excel. Nicht gefüllte Felder übernehmen jetzt den Wert, der im Panel als
+      // Platzhalter angezeigt wurde, also den bisher gültigen Namen.
+      const bisher=btbNamenFuerEintrag(eAlt||{}, btbGetProduktNamen(kEdit||{}, (eAlt||{}).anlage));
+      snapNeu.namen={
+        p1: n1 || (bisher.p1||''),
+        p2: n2 || (bisher.p2||''),
+        p3: n3 || (bisher.p3||'')
+      };
+    }
+    else delete snapNeu.namen;   // alle leer → wieder die aktuelle Kundenangabe verwenden
+  }
+
   const payload={
+    datum_btb: neuesDatum,
+    besuch_uhrzeit: toStr('edit-uhr'),
     lf_messung_ist: toN('edit-lf'),
     dh: toN('edit-dh'),
     lf_geraet_ist: toN('edit-lfi'),
@@ -7077,12 +7398,38 @@ async function btbSaveEdit(eid, kid){
     p3_vorgefunden: toN('edit-p3vg'), p3_aufgefuellt: toN('edit-p3af'), p3_neu: toN('edit-p3neu'), p3_lager: toN('edit-p3lg'),
     bemerkung: G('edit-bem')?.value||''
   };
+  if(snapNeu) payload.dosier_snapshot=snapNeu;
 
-  const {error}=await _sb.from('btb_eintraege').update(payload).eq('id',eid);
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
-  toast('✓ BTB-Eintrag aktualisiert');
+  // 2.45: Bisher gab es hier KEINEN Offline-Weg — ohne Netz war die Korrektur mit einem
+  // „⚠️ Fehler" einfach verloren. Jetzt: lokal sofort übernehmen und, wenn nötig, einreihen.
+  // Lokal anwenden (optimistisch) — gleiche Feldform wie beim Laden
+  if(eAlt){
+    Object.assign(eAlt, payload);
+    eAlt.datumFmt=new Date(payload.datum_btb+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+  btbSaveSnapshot();
+
+  let ok=false;
+  if(isOnline()){
+    const {error}=await _sb.from('btb_eintraege').update(payload).eq('id',eid);
+    if(error && !btbIstSchemaFehler(error)){
+      // echter Übertragungsfehler → einreihen, nicht verlieren
+      addToQueue({type:'btb_eintrag_update', data:{id:eid, kunde_id:kid, patch:payload}});
+      toast('⚠️ Kein Netz — Änderung gespeichert, wird automatisch hochgeladen');
+    } else if(error){
+      btbMeldeSchemaFehler(error, Object.keys(payload).join(', '));
+    } else {
+      ok=true;
+      btbEntferneUeberholteQueue('btb_eintrag_update', x=>x.data.id===eid);
+      toast('✓ BTB-Eintrag aktualisiert');
+    }
+  } else {
+    addToQueue({type:'btb_eintrag_update', data:{id:eid, kunde_id:kid, patch:payload}});
+    toast('📥 Offline gespeichert — wird hochgeladen sobald online');
+  }
   document.querySelector('.btb-edit-panel')?.remove();
-  await loadAll();
+  _schutzSeit=0;                       // Schonzeit für das geschlossene Panel beenden
+  if(ok) await loadAll(); else { renderAll(); updB(); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -7348,6 +7695,7 @@ function btbReconcileQueue(){
     }
     if(item.type==='btb_entwurf_upsert'){
       const d=item.data;
+      if(btbEntwurfVerworfen(d.id)) return;   // 2.45: bewusst verworfener Entwurf
       const k=BTB_KUNDEN.find(x=>x.id===d.kunde_id);
       if(!k)return;
       const vorhanden=k.entwuerfe.find(e=>e.id===d.id || e.anlage===d.anlage);
@@ -7384,6 +7732,17 @@ function btbReconcileQueue(){
       // 2.32: offline gelöschter Eintrag darf durch ein Neuladen nicht zurückkommen
       const k=BTB_KUNDEN.find(x=>x.id===item.data.kunde_id);
       if(k) k.eintraege=k.eintraege.filter(x=>x.id!==item.data.id);
+    }
+    else if(item.type==='btb_eintrag_update'){
+      // 2.45: noch nicht hochgeladene Korrektur nach einem Neuladen wieder auflegen,
+      // sonst springt der Eintrag sichtbar auf den alten Stand zurück
+      const k=BTB_KUNDEN.find(x=>x.id===item.data.kunde_id);
+      const e=k?k.eintraege.find(x=>x.id===item.data.id):null;
+      if(e){
+        Object.assign(e, item.data.patch);
+        if(item.data.patch.datum_btb)
+          e.datumFmt=new Date(item.data.patch.datum_btb+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+      }
     }
     else if(item.type==='kbe_kunden_update'){
       const d=item.data;
@@ -7435,9 +7794,26 @@ function btbReconcileQueue(){
   });
 }
 
+let _flushPromise=null;
 async function flushQueue(){
-  if(!isOnline())return;const q=getQueue();if(!q.length)return;let flushed=0;
+  if(!isOnline())return;
+  // 2.43: Ohne Sperre konnten zwei Durchläufe (flackerndes Netz feuert „online" mehrfach,
+  // dazu visibilitychange und der Pull-down) denselben Schnappschuss abarbeiten und dieselben
+  // Einträge zweimal hochladen.
+  // 2.44: Läuft schon einer, wird auf DIESEN gewartet statt sofort zurückzukehren — sonst
+  // hat der Pull-down den fremden Durchlauf mit seinem location.reload() mitten im Upload
+  // zerschnitten (Schreibvorgang abgesetzt, removeFromQueue nie ausgeführt → Doppler).
+  if(_flushPromise) return _flushPromise;
+  _flushPromise=(async()=>{ try{ await flushQueueIntern(); } finally { _flushPromise=null; } })();
+  return _flushPromise;
+}
+async function flushQueueIntern(){
+  const q=getQueue();if(!q.length)return;let flushed=0;
   for(const item of q){
+    // 2.43: Zwischenzeitlich überholte Einträge (btbEntferneUeberholteQueue hat sie aus dem
+    // Speicher genommen, während dieser Durchlauf lief) nicht mehr hochladen — sonst
+    // überschreibt ein alter Stand die gerade direkt gespeicherten Werte.
+    if(!getQueue().some(x=>x.qid===item.qid)) continue;
     try{
       if(item.type==='meldung'){const {error}=await _sb.from('meldungen').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
       else if(item.type==='chemie'){const {error}=await _sb.from('chemie').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
@@ -7446,6 +7822,8 @@ async function flushQueue(){
         // upsert statt insert/update — läuft auch korrekt, wenn dieselbe Anlage offline mehrfach
         // zwischengespeichert wurde (mehrere Warteschlangen-Einträge mit derselben id)
         const d=item.data;
+        // 2.45: inzwischen verworfen → nicht wieder in die Datenbank schreiben
+        if(btbEntwurfVerworfen(d.id)){ removeFromQueue(item.qid); continue; }
         const {error}=await _sb.from('btb_entwurf').upsert({id:d.id,kunde_id:d.kunde_id,anlage:d.anlage,felder:d.felder,kuerzel:d.kuerzel});
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
@@ -7458,15 +7836,29 @@ async function flushQueue(){
         if(zeilen.length){
           try{
             const kid=zeilen[0].kunde_id;
-            const {data:vorh}=await _sb.from('btb_eintraege')
+            const {data:vorh, error:pruefErr}=await _sb.from('btb_eintraege')
               .select('anlage,datum_btb').eq('kunde_id',kid)
               .in('datum_btb',[...new Set(zeilen.map(r=>r.datum_btb))]);
+            // 2.43: Scheitert die Prüfabfrage, NICHT filtern (sonst würde bei einem
+            // Abfragefehler nichts erkannt und mit neuen IDs doppelt eingefügt) — aber auch
+            // nicht blind einfügen: der Eintrag bleibt für den nächsten Durchlauf liegen.
+            if(pruefErr){
+              console.warn('Doppel-Prüfung fehlgeschlagen, Paket bleibt liegen:', pruefErr.message);
+              // 2.44: Bei einem dauerhaften Fehler (Berechtigung/Schema) bliebe das Paket sonst
+              // unbegrenzt und völlig unbemerkt liegen. Höchstens alle 10 Minuten melden.
+              btbMeldeStockung('btb_fertig', 'Ein übertragener Besuch kann nicht hochgeladen werden');
+              continue;
+            }
             if(vorh&&vorh.length){
               const belegt=new Set(vorh.map(x=>x.anlage+'|'+x.datum_btb));
               const vorher=zeilen.length;
               zeilen=zeilen.filter(r=>!belegt.has(r.anlage+'|'+r.datum_btb));
-              if(zeilen.length!==vorher)
+              if(zeilen.length!==vorher){
                 console.warn('Warteschlange: '+(vorher-zeilen.length)+' Eintrag/Einträge übersprungen — Anlage+Datum stehen schon in der Datenbank');
+                // 2.43: Der Nutzer erfuhr davon gar nichts — beim Hochladen still verworfene
+                // Besuche sind genau das, was niemand übersehen darf.
+                toast('ℹ️ '+(vorher-zeilen.length)+' Besuch(e) nicht hochgeladen —\nfür Anlage und Datum steht schon ein Eintrag in der Datenbank', 7000, true);
+              }
             }
           }catch(e){ console.warn('Warteschlange: Doppel-Prüfung nicht möglich:', e.message); }
         }
@@ -7479,18 +7871,61 @@ async function flushQueue(){
           removeFromQueue(item.qid);flushed++;
         }
       }
-      else if(item.type==='btb_eintrag_delete'){
+      else if(item.type==='btb_eintrag_update'){
+        // 2.45: Korrekturen an bestehenden BTB-Einträgen (Bearbeiten, „Berechnet")
         const d=item.data;
-        await _sb.from('loeschlog').insert({
-          typ:'BTB', firma:d.firma||'', original_id:d.id,
-          kurzinfo:d.kurzinfo||'BTB-Eintrag', geloescht_von:d.kuerzel||kz, payload:d.payload||null
-        });
-        const {error}=await _sb.from('btb_eintraege').delete().eq('id',d.id);
-        if(!error){removeFromQueue(item.qid);flushed++;}
+        if(btbIstGeloescht(d.id)){ removeFromQueue(item.qid); }   // Eintrag inzwischen gelöscht
+        else {
+          const {error}=await _sb.from('btb_eintraege').update(d.patch).eq('id',d.id);
+          if(btbIstSchemaFehler(error)) btbMeldeSchemaFehler(error, Object.keys(d.patch||{}).join(', '));
+          else if(!error){removeFromQueue(item.qid);flushed++;}
+        }
+      }
+      else if(item.type==='btb_eintrag_delete'){
+        // 2.43-FIX: Vorher stand der Logeintrag VOR dem Löschen und wurde bei einem Fehler
+        // nicht zurückgenommen → beim nächsten Durchlauf entstand eine zweite Logzeile.
+        // Ausserdem fehlte das .select(): eine von der Datenbank blockierte Löschung liefert
+        // keinen Fehler und wurde als Erfolg gezählt.
+        const d=item.data;
+        const {data:weg, error}=await _sb.from('btb_eintraege').delete().eq('id',d.id).select('id');
+        if(!error){
+          // Zeile war weg (gelöscht) oder schon vorher nicht mehr da → Auftrag erledigt.
+          // Nur wenn sie noch existiert, wäre weg leer UND ein erneuter Versuch sinnvoll —
+          // das lässt sich nicht unterscheiden, deshalb einmal gegenprüfen.
+          let erledigt=(weg&&weg.length>0);
+          if(!erledigt){
+            // 2.44-FIX: Der Fehler dieser Gegenprüfung wurde nicht ausgewertet. Scheiterte sie
+            // (Netz), galt der Auftrag als erledigt: Logzeile geschrieben, Auftrag verworfen —
+            // obwohl die Zeile noch in der Datenbank stand. Jetzt: bei Fehler liegen lassen.
+            const {data:noch, error:nochErr}=await _sb.from('btb_eintraege').select('id').eq('id',d.id).limit(1);
+            if(nochErr){ console.warn('Löschauftrag: Gegenprüfung fehlgeschlagen, bleibt liegen:', nochErr.message); continue; }
+            if(noch&&noch.length){
+              // Zeile steht noch da → die Datenbank hat die Löschung nicht zugelassen.
+              // Auftrag liegen lassen und einmal deutlich melden.
+              console.warn('Löschauftrag konnte nicht ausgeführt werden (Berechtigung?):', d.id);
+              toast('⚠️ Ein Löschauftrag wurde von der Datenbank abgelehnt —\nbitte Igor informieren', 7000, true);
+            } else { erledigt=true; }
+          }
+          if(erledigt){
+            await _sb.from('loeschlog').insert({
+              typ:'BTB', firma:d.firma||'', original_id:d.id,
+              kurzinfo:d.kurzinfo||'BTB-Eintrag', geloescht_von:d.kuerzel||kz, payload:d.payload||null
+            });
+            removeFromQueue(item.qid);flushed++;
+          }
+        }
       }
       else if(item.type==='kbe_kunden_update'){
         const {error}=await _sb.from('kbe_kunden').update(item.data.patch).eq('id',item.data.id);
-        if(!error){removeFromQueue(item.qid);flushed++;}
+        // 2.43-FIX: 2.41 hat solche Einträge VERWORFEN. Das war zu scharf: PGRST204
+        // („Spalte nicht im Schema-Cache") tritt auch vorübergehend auf — direkt nach einem
+        // ALTER TABLE, solange PostgREST das Schema nicht neu geladen hat. In diesem Fenster
+        // wären echte Kundendaten endgültig vernichtet worden. Jetzt: einmal pro Sitzung
+        // melden, Eintrag aber BEHALTEN, damit er nach dem Anlegen der Spalte durchgeht.
+        if(btbIstSchemaFehler(error)){
+          btbMeldeSchemaFehler(error, Object.keys(item.data.patch||{}).join(', '));
+        }
+        else if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='kbe_eintrag_insert'){
         const d=item.data;
@@ -7535,7 +7970,10 @@ async function flushQueue(){
 
 window.addEventListener('online', ()=>{showOfflineBanner(false);flushQueue();setSyncing('ok');
   // 2.33: Netz zurück → Live-Verbindung neu aufbauen (vorher blieb sie für immer tot)
-  _rtVersuch=0; setupRealtime();});
+  // 2.43: nur wenn sie nicht schon steht oder ein Neuversuch geplant ist — ein flackernder
+  // Hotspot feuert „online" mehrfach und riss sonst jedes Mal einen gesunden Kanal ab,
+  // samt vollem Neuladen pro Runde.
+  if(_rtStatus!=='SUBSCRIBED' && !_rtTimer){ _rtVersuch=0; setupRealtime(); }});
 window.addEventListener('offline', ()=>{showOfflineBanner(true);setSyncing('offline');rtSetStatus('CLOSED');});
 if(!isOnline()) showOfflineBanner(true);
 
