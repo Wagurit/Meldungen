@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.36</title>
+<title>Meldungen &amp; Angebote 2.38</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -294,6 +294,7 @@ textarea{resize:vertical;min-height:68px;}
 .btb-wasser-box{margin-top:5px;background:#f0fdf4;border:1px solid var(--gl);border-radius:7px;padding:7px 10px;font-size:12px;}
 .btb-edit-btn{font-size:11px;padding:3px 9px;border:1.5px solid var(--bo);background:var(--bg);color:var(--mu);border-radius:6px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-top:5px;}
 .btb-del-btn{font-size:11px;padding:3px 9px;border:1.5px solid #fca5a5;background:#fee2e2;color:var(--rd);border-radius:6px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-top:5px;margin-left:4px;}
+.btb-nw-btn{font-size:11px;padding:3px 9px;border:1.5px solid #a5b4fc;background:#eef2ff;color:#4338ca;border-radius:6px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-top:5px;margin-left:4px;}
 
 .kbe-karte-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px;}
 .kbe-karte-firma{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;color:var(--bd);}
@@ -375,6 +376,38 @@ textarea{resize:vertical;min-height:68px;}
 .sync-dot.offline{background:#94a3b8;}
 /* 2.33: roter Ring = online, aber keine Live-Verbindung (Änderungen anderer kommen nicht an) */
 .sync-dot.nolive{box-shadow:0 0 0 2.5px rgba(239,68,68,.6);}
+/* ═══ 2.37: BTB-NACHWEIS (ein Besuchstag als Dokument zum Drucken/PDF oder als Word-Datei) ═══ */
+#nachweis-modal{position:fixed;inset:0;background:#e2e8f0;z-index:1200;display:none;flex-direction:column;}
+#nachweis-leiste{flex-shrink:0;display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bd);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+#nachweis-leiste .nb{padding:8px 14px;border:none;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.03em;white-space:nowrap;}
+#nachweis-scroll{flex:1;overflow-y:auto;padding:18px 10px 40px;-webkit-overflow-scrolling:touch;}
+#nachweis-blatt{background:#fff;max-width:760px;margin:0 auto;padding:26px 30px 30px;box-shadow:0 3px 14px rgba(0,0,0,.14);color:#111;
+  font-family:'Barlow Condensed','Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;}
+#nachweis-blatt h1{font-size:21px;margin:0 0 2px;letter-spacing:.02em;}
+#nachweis-blatt h2{font-size:15px;margin:20px 0 6px;padding-bottom:3px;border-bottom:2px solid #0891b2;color:#0e7490;letter-spacing:.03em;}
+#nachweis-blatt .nw-kopf{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2.5px solid #111;padding-bottom:9px;margin-bottom:14px;}
+#nachweis-blatt .nw-firma{font-size:11px;color:#555;text-align:right;line-height:1.45;white-space:pre-line;}
+#nachweis-blatt .nw-meta{display:flex;flex-wrap:wrap;gap:4px 26px;margin-bottom:6px;}
+#nachweis-blatt .nw-meta div{font-size:13px;}
+#nachweis-blatt .nw-anlkopf{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+#nachweis-blatt .nw-anlkopf small{font-size:11px;color:#555;font-weight:600;}
+#nachweis-blatt table{width:100%;border-collapse:collapse;margin:5px 0 3px;font-size:12px;}
+#nachweis-blatt th,#nachweis-blatt td{border:1px solid #b9c3cf;padding:4px 7px;text-align:left;vertical-align:top;}
+#nachweis-blatt th{background:#f1f5f9;font-weight:800;letter-spacing:.02em;}
+#nachweis-blatt td.z{text-align:right;white-space:nowrap;}
+#nachweis-blatt .nw-lbl{width:40%;background:#f8fafc;font-weight:700;}
+#nachweis-blatt .nw-txt{margin:5px 0 0;font-size:12px;}
+#nachweis-blatt .nw-txt b{letter-spacing:.02em;}
+#nachweis-blatt .nw-fuss{margin-top:24px;padding-top:9px;border-top:1px solid #b9c3cf;font-size:10.5px;color:#555;line-height:1.55;}
+#nachweis-blatt .nw-anlage{page-break-inside:avoid;break-inside:avoid;margin-bottom:6px;}
+@media print{
+  body>*:not(#nachweis-modal){display:none!important;}
+  #nachweis-modal{position:static!important;display:block!important;background:#fff!important;inset:auto!important;}
+  #nachweis-leiste{display:none!important;}
+  #nachweis-scroll{overflow:visible!important;padding:0!important;flex:none!important;}
+  #nachweis-blatt{box-shadow:none!important;max-width:none!important;margin:0!important;padding:0!important;font-size:11.5pt;}
+  @page{size:A4;margin:14mm 13mm;}
+}
 .sync-dot{cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
@@ -489,7 +522,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.36</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.38</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -924,6 +957,15 @@ textarea{resize:vertical;min-height:68px;}
 </div><!-- /ap -->
 
 <!-- Anlagen-Manager-Modal -->
+<div id="nachweis-modal">
+  <div id="nachweis-leiste">
+    <button class="nb" style="background:#0891b2;color:#fff" onclick="btbNachweisDrucken()">🖨 Drucken / PDF</button>
+    <button class="nb" style="background:#2b579a;color:#fff" onclick="btbNachweisWord()">📄 Word-Datei</button>
+    <span style="flex:1"></span>
+    <button class="nb" style="background:#94a3b8;color:#fff" onclick="btbNachweisSchliessen()">Schließen</button>
+  </div>
+  <div id="nachweis-scroll"><div id="nachweis-blatt"></div></div>
+</div>
 <div class="modal-overlay" id="anlagen-modal" style="display:none">
   <div class="modal-box" style="max-width:420px">
     <div class="modal-icon">⚙️</div>
@@ -989,7 +1031,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.36';
+const APP_VERSION = '2.38';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -2188,8 +2230,14 @@ function btbOeffneNamensEditor(tabelle, eid, aktuellerName){
 }
 // ── Anlagen-Manager: Anlagen umbenennen, hinzufügen, aus aktiver Liste entfernen ──
 let _anlagenManagerKunde=null;
+// 2.38: Arbeitsliste statt direkter Änderung an k.rkws. Vorher wurden Hinzufügen und
+// Entfernen sofort in die echten Kundendaten geschrieben (ein „Abbrechen" hat das nicht
+// zurückgenommen), und jedes Neu-Zeichnen der Liste verwarf bereits getippte Umbenennungen.
+// Jedes Element: {name, alt} — alt = ursprünglicher Name (null bei neu hinzugefügten).
+let _anlagenManagerListe=[];
 function btbOeffneAnlagenManager(k){
   _anlagenManagerKunde=k;
+  _anlagenManagerListe=(k.rkws||[]).map(r=>({name:r.name, alt:r.name}));
   G('anlagen-modal-titel').textContent='Anlagen – '+k.firma;
   G('anlagen-neu-input').value='';
   btbRendereAnlagenListe();
@@ -2198,12 +2246,21 @@ function btbOeffneAnlagenManager(k){
 function btbSchliesseAnlagenModal(){
   G('anlagen-modal').style.display='none';
   _anlagenManagerKunde=null;
+  _anlagenManagerListe=[];
+}
+// Getippte Namen in die Arbeitsliste übernehmen — vor jedem Neu-Zeichnen und vor dem Speichern
+function btbAnlagenUebernehmeEingaben(){
+  const liste=G('anlagen-modal-liste'); if(!liste) return;
+  liste.querySelectorAll('.anlagen-name-input').forEach(inp=>{
+    const idx=parseInt(inp.dataset.idx);
+    if(_anlagenManagerListe[idx]) _anlagenManagerListe[idx].name=(inp.value||'').trim();
+  });
 }
 function btbRendereAnlagenListe(){
   const k=_anlagenManagerKunde; if(!k) return;
   const liste=G('anlagen-modal-liste');
   liste.innerHTML='';
-  (k.rkws||[]).forEach((r,idx)=>{
+  _anlagenManagerListe.forEach((r,idx)=>{
     const zeile=document.createElement('div');
     zeile.style.cssText='display:flex;align-items:center;gap:6px';
     zeile.innerHTML=
@@ -2213,10 +2270,11 @@ function btbRendereAnlagenListe(){
   });
   liste.querySelectorAll('.anlagen-del-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      btbAnlagenUebernehmeEingaben();
       const idx=parseInt(btn.dataset.idx);
-      const name=_anlagenManagerKunde.rkws[idx]?.name||'';
+      const name=_anlagenManagerListe[idx]?.name||'';
       if(!confirm('Anlage „'+name+'" aus der aktiven Liste entfernen?\n\nHistorische BTB-Einträge bleiben erhalten.'))return;
-      _anlagenManagerKunde.rkws.splice(idx,1);
+      _anlagenManagerListe.splice(idx,1);
       btbRendereAnlagenListe();
     });
   });
@@ -2225,40 +2283,91 @@ function btbAnlagenNeuHinzufuegen(){
   const k=_anlagenManagerKunde; if(!k) return;
   const name=(G('anlagen-neu-input').value||'').trim();
   if(!name){ toast('⚠️ Bitte Anlagenname eingeben'); return; }
-  if(k.rkws.some(r=>r.name.toLowerCase()===name.toLowerCase())){
+  btbAnlagenUebernehmeEingaben();
+  if(_anlagenManagerListe.some(r=>r.name.toLowerCase()===name.toLowerCase())){
     toast('⚠️ „'+name+'" ist bereits vorhanden'); return;
   }
-  k.rkws.push({name});
+  _anlagenManagerListe.push({name, alt:null});
   G('anlagen-neu-input').value='';
   btbRendereAnlagenListe();
   toast('✓ Anlage hinzugefügt — noch nicht gespeichert');
 }
 async function btbSpeichereAnlagen(){
   const k=_anlagenManagerKunde; if(!k) return;
-  // Aktuelle Namen aus den Eingabefeldern lesen (können umbenannt worden sein)
-  const inputs=G('anlagen-modal-liste').querySelectorAll('.anlagen-name-input');
-  const neueRkws=[];
-  let fehler=false;
-  inputs.forEach(inp=>{
-    const name=(inp.value||'').trim();
-    if(!name){fehler=true;return;}
-    neueRkws.push({name});
-  });
-  // Neu hinzugefügte (nach dem Rendern) sind schon in k.rkws, aber noch nicht als Input da
-  // → bereits in neueRkws über Inputs abgedeckt, da btbRendereAnlagenListe() alle zeigt
-  if(fehler){toast('⚠️ Bitte alle Anlagennamen ausfüllen');return;}
-  if(isOnline()){
-    const {error}=await _sb.from('kbe_kunden').update({rkws:neueRkws}).eq('id',k.id);
-    if(error){toast('⚠️ Fehler: '+error.message);return;}
-  } else {
-    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{rkws:neueRkws}}});
+  btbAnlagenUebernehmeEingaben();
+  if(_anlagenManagerListe.some(r=>!r.name)){ toast('⚠️ Bitte alle Anlagennamen ausfüllen'); return; }
+  const neueRkws=_anlagenManagerListe.map(r=>({name:r.name}));
+  // 2.38-FIX: Umbenennungen erkennen und die anlagenbezogenen Daten MITNEHMEN.
+  // Bisher wurde nur rkws geschrieben — Produktbezeichnungen und Dosierdaten liegen aber
+  // unter einem aus dem Anlagennamen gebildeten Schlüssel, und geteilte Wasserzähler sowie
+  // offene Entwürfe speichern den Anlagennamen im Klartext. Nach einem Umbenennen waren
+  // deshalb Produktname (zurück auf BZ / KT/LB), Dosiereinstellung samt Soll-Berechnung,
+  // die Zählergruppen und ein offener Entwurf für diese Anlage nicht mehr zu finden.
+  const umbenannt=_anlagenManagerListe.filter(r=>r.alt && r.alt!==r.name).map(r=>({alt:r.alt, neu:r.name}));
+
+  const patch={rkws:neueRkws};
+  if(umbenannt.length){
+    const pna=Object.assign({}, k.produkt_namen_pro_anlage||{});
+    const di =Object.assign({}, k.dosier_info||{});
+    const wz =JSON.parse(JSON.stringify(k.wasserzaehler_gruppen||{}));
+    umbenannt.forEach(({alt,neu})=>{
+      const sAlt=btbSlug(alt), sNeu=btbSlug(neu);
+      if(sAlt!==sNeu){
+        if(pna[sAlt]!=null && pna[sNeu]==null){ pna[sNeu]=pna[sAlt]; delete pna[sAlt]; }
+        if(di[sAlt]!=null  && di[sNeu]==null ){ di[sNeu] =di[sAlt];  delete di[sAlt];  }
+      }
+      // Zählergruppen speichern Klarnamen
+      Object.keys(wz).forEach(typ=>{
+        (wz[typ]||[]).forEach(gruppe=>{
+          const i=gruppe.indexOf(alt);
+          if(i>=0) gruppe[i]=neu;
+        });
+      });
+    });
+    patch.produkt_namen_pro_anlage=pna;
+    patch.dosier_info=di;
+    patch.wasserzaehler_gruppen=wz;
   }
-  k.rkws=neueRkws;
-  const btbK=BTB_KUNDEN.find(x=>x.id===k.id);
-  if(btbK) btbK.rkws=neueRkws;
-  const kbeK=KBE.find(x=>x.id===k.id);
-  if(kbeK) kbeK.rkws=neueRkws;
-  toast(isOnline()?'✓ Anlagen gespeichert':'📥 Offline gespeichert — wird hochgeladen sobald online');
+
+  if(isOnline()){
+    const {error}=await _sb.from('kbe_kunden').update(patch).eq('id',k.id);
+    if(error){toast('⚠️ Fehler: '+error.message);return;}
+    // Offene Entwürfe umbenennen, damit sie der Anlage weiter zugeordnet bleiben
+    for(const {alt,neu} of umbenannt){
+      await _sb.from('btb_entwurf').update({anlage:neu}).eq('kunde_id',k.id).eq('anlage',alt);
+    }
+  } else {
+    addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch}});
+    umbenannt.forEach(({alt,neu})=>{
+      const e=(k.entwuerfe||[]).find(x=>x.anlage===alt);
+      if(e) addToQueue({type:'btb_entwurf_upsert', data:{id:e.id, kunde_id:k.id, anlage:neu, felder:e.felder, kuerzel:e.kuerzel}});
+    });
+  }
+
+  // Lokal auf allen Kopien des Kunden nachziehen
+  [k, BTB_KUNDEN.find(x=>x.id===k.id), KBE.find(x=>x.id===k.id)].forEach(obj=>{
+    if(!obj) return;
+    obj.rkws=neueRkws;
+    if(umbenannt.length){
+      if(patch.produkt_namen_pro_anlage) obj.produkt_namen_pro_anlage=patch.produkt_namen_pro_anlage;
+      if(patch.dosier_info)              obj.dosier_info=patch.dosier_info;
+      if(patch.wasserzaehler_gruppen)    obj.wasserzaehler_gruppen=patch.wasserzaehler_gruppen;
+    }
+    (obj.entwuerfe||[]).forEach(e=>{
+      const u=umbenannt.find(x=>x.alt===e.anlage);
+      if(u) e.anlage=u.neu;
+    });
+  });
+  BTB_ENTWURF.forEach(e=>{
+    if(e.kunde_id!==k.id) return;
+    const u=umbenannt.find(x=>x.alt===e.anlage);
+    if(u) e.anlage=u.neu;
+  });
+
+  btbSaveSnapshot();
+  toast(isOnline()
+    ? (umbenannt.length?'✓ Anlagen gespeichert — Produktnamen und Dosierdaten mit übernommen':'✓ Anlagen gespeichert')
+    : '📥 Offline gespeichert — wird hochgeladen sobald online');
   btbSchliesseAnlagenModal();
   renderBtbTab();renderInnendienstTab();renderKbeKunden();
 }
@@ -5353,8 +5462,17 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
           }
           html+='</div>';
         }
-        // Produkte (p1 / p2 / p3) — Namen + Dosierdaten aus Kundendaten
-        const pn=btbGetProduktNamen(k, e.anlage);
+        // Produkte (p1 / p2 / p3) — Namen + Dosierdaten
+        // 2.38-FIX: Die Historie nahm bisher NUR die aktuellen Kundendaten
+        // (btbGetProduktNamen) und ignorierte die im Eintrag mitgespeicherten Namen.
+        // Dadurch stand hier die Default-Bezeichnung, während Excel-Export und Nachweis
+        // (die beide btbNamenFuerEintrag nutzen) den richtigen Namen zeigten.
+        // Zwei Wege führten dazu, dass die aktuellen Kundendaten nicht passen:
+        //   · die Anlage wurde umbenannt → e.anlage ergibt einen anderen Slug als heute
+        //   · der Name wurde pro Anlage gesetzt, der Eintrag stammt aber aus einer Zeit
+        //     mit anderer Bezeichnung
+        // Richtig ist in beiden Fällen der Name, der ZUM ZEITPUNKT des Eintrags galt.
+        const pn=btbNamenFuerEintrag(e, btbGetProduktNamen(k, e.anlage));
         // Dosierdaten: Snapshot aus dem Eintrag (historisch korrekt), Fallback auf aktuelle Kundendaten dieser Anlage
         const di=e.dosier_snapshot||(k.dosier_info||{})[btbSlug(e.anlage)]||{};
         const hasProd=[1,2,3].some(pn2=>e['p'+pn2+'_vorgefunden']!=null||e['p'+pn2+'_neu']!=null||e['p'+pn2+'_lager']!=null);
@@ -5426,6 +5544,8 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         html+='<div style="display:flex;gap:4px;margin-top:4px">';
         html+='<button class="btb-edit-btn" data-kid="'+k.id+'" data-anlage="'+esc(r.name)+'" data-eid="'+e.id+'">✏️ Bearbeiten</button>';
         html+='<button class="btb-del-btn" data-eid="'+e.id+'" data-kid="'+k.id+'">🗑 Löschen</button>';
+        // 2.37: Nachweis für DIESEN Besuchstag — enthält alle Anlagen, die an dem Tag gemacht wurden
+        html+='<button class="btb-nw-btn" data-datum="'+esc(e.datum_btb)+'" data-kid="'+k.id+'" title="Nachweis für '+esc(e.datumFmt)+' — alle Anlagen dieses Tages">📄 Nachweis</button>';
         html+='</div>';
         eBox.innerHTML=html;
         // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
@@ -5433,6 +5553,8 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         if(berechnetBtn) berechnetBtn.addEventListener('click',()=>btbSetBerechnet(berechnetBtn));
         const editBtn=eBox.querySelector('.btb-edit-btn');
         if(editBtn) editBtn.addEventListener('click',()=>btbEditEintrag(editBtn.dataset.kid,editBtn.dataset.anlage,editBtn.dataset.eid));
+        const nwBtn=eBox.querySelector('.btb-nw-btn');
+        if(nwBtn) nwBtn.addEventListener('click',()=>btbNachweisOeffnen(nwBtn.dataset.kid, nwBtn.dataset.datum));
         const delBtn=eBox.querySelector('.btb-del-btn');
         if(delBtn) delBtn.addEventListener('click',()=>btbDelEintrag(delBtn.dataset.eid,delBtn.dataset.kid));
         panel.appendChild(eBox);
@@ -6577,6 +6699,183 @@ async function btbSetBerechnet(btn){
 
 
 
+
+// ══════════════════════════════════════════════════════════
+// BTB-NACHWEIS (2.37)
+// Ein Besuchstag als Dokument für den Kunden — ALLE Anlagen, die an diesem Tag
+// gemacht wurden, in einem Dokument. Zum Drucken/als PDF speichern oder als
+// Word-Datei zum Weiterbearbeiten. Interne Angaben (Soll s.l.BTB, Delta zu
+// Vorgefunden, Abrechnungsstatus, Rechnungsnummer) stehen bewusst NICHT drin.
+// ══════════════════════════════════════════════════════════
+// Absenderblock — hier Adresse/Zusätze anpassen, erscheint oben rechts auf dem Nachweis
+const NACHWEIS_ABSENDER = 'Wagurit GmbH\nWasseraufbereitung · Service';
+let _nachweisKunde=null, _nachweisDatum=null;
+
+function btbNachweisOeffnen(kid, datum){
+  const k=BTB_KUNDEN.find(x=>x.id===kid);
+  if(!k){ toast('⚠️ Kunde nicht gefunden'); return; }
+  const tagesEintraege=k.eintraege.filter(e=>e.datum_btb===datum);
+  if(!tagesEintraege.length){ toast('⚠️ Keine Einträge für dieses Datum'); return; }
+  _nachweisKunde=k; _nachweisDatum=datum;
+  G('nachweis-blatt').innerHTML=btbNachweisBlattHtml(k, datum, tagesEintraege);
+  G('nachweis-modal').style.display='flex';
+  G('nachweis-scroll').scrollTop=0;
+}
+function btbNachweisSchliessen(){
+  G('nachweis-modal').style.display='none';
+  _nachweisKunde=null; _nachweisDatum=null;
+}
+function btbNachweisDrucken(){ window.print(); }
+
+// Word öffnet eine HTML-Datei mit dieser Kennung und behält die Formatierung.
+// Braucht keine zusätzliche Bibliothek und funktioniert auch offline.
+function btbNachweisWord(){
+  const k=_nachweisKunde, datum=_nachweisDatum;
+  if(!k){ toast('⚠️ Kein Nachweis geöffnet'); return; }
+  const inhalt=G('nachweis-blatt').innerHTML;
+  const stil='body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#111}'
+    +'h1{font-size:16pt;margin:0 0 2pt}h2{font-size:12pt;margin:14pt 0 4pt;color:#0e7490;border-bottom:1.5pt solid #0891b2;padding-bottom:2pt}'
+    +'table{width:100%;border-collapse:collapse;margin:4pt 0;font-size:9.5pt}'
+    +'th,td{border:0.75pt solid #b9c3cf;padding:3pt 5pt;text-align:left;vertical-align:top}'
+    +'th{background:#f1f5f9;font-weight:bold}td.z{text-align:right}'
+    +'.nw-lbl{width:40%;background:#f8fafc;font-weight:bold}'
+    +'.nw-kopf{border-bottom:2pt solid #111;padding-bottom:5pt;margin-bottom:9pt}'
+    +'.nw-firma{font-size:8.5pt;color:#555}.nw-meta div{font-size:10pt}'
+    +'.nw-anlkopf small{font-size:8.5pt;color:#555}'
+    +'.nw-fuss{margin-top:16pt;padding-top:5pt;border-top:0.75pt solid #b9c3cf;font-size:8pt;color:#555}';
+  const doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">'
+    +'<head><meta charset="utf-8"><title>BTB-Nachweis '+esc(k.firma)+'</title>'
+    +'<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->'
+    +'<style>@page{size:A4;margin:1.5cm}'+stil+'</style></head><body>'+inhalt+'</body></html>';
+  const blob=new Blob(['﻿'+doc], {type:'application/msword'});
+  btbDateiDownload(blob, 'BTB_Nachweis_'+btbDateiName(k.firma)+'_'+datum+'.doc');
+  toast('📄 Word-Datei gespeichert');
+}
+function btbDateiName(t){ return String(t||'Kunde').replace(/[^A-Za-z0-9äöüÄÖÜß _-]/g,'').replace(/\s+/g,'_').slice(0,50); }
+function btbDateiDownload(blob, name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=name; a.style.display='none';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+}
+
+// Zahl mit deutschem Dezimalkomma
+function nwZ(v){ return v==null||v===''?null:String(v).replace('.',','); }
+function nwZeile(label, wert, einheit){
+  if(wert==null||wert==='') return '';
+  return '<tr><td class="nw-lbl">'+esc(label)+'</td><td class="z">'+esc(String(wert))+(einheit?' '+esc(einheit):'')+'</td></tr>';
+}
+
+function btbNachweisBlattHtml(k, datum, tagesEintraege){
+  const datumDE=btbFmtDatumDE(datum);
+  // Reihenfolge wie in der Anlagenliste des Kunden, Unbekannte hinten
+  const reihen=(k.rkws||[]).map(r=>r.name);
+  const sortiert=tagesEintraege.slice().sort((a,b)=>{
+    const ia=reihen.indexOf(a.anlage), ib=reihen.indexOf(b.anlage);
+    return (ia<0?999:ia)-(ib<0?999:ib);
+  });
+  const kuerzelAlle=[...new Set(sortiert.map(e=>e.kuerzel).filter(Boolean))].join(', ');
+
+  let h='<div class="nw-kopf"><div><h1>Betriebstagebuch – Nachweis</h1>'
+    + '<div style="font-size:12px;color:#555;letter-spacing:.04em">Wasseraufbereitung · Serviceeinsatz</div></div>'
+    + '<div class="nw-firma">'+esc(NACHWEIS_ABSENDER)+'</div></div>';
+
+  h+='<div class="nw-meta">'
+    + '<div><b>Kunde:</b> '+esc(k.firma)+'</div>'
+    + '<div><b>Datum:</b> '+esc(datumDE)+'</div>'
+    + '<div><b>Anlagen:</b> '+sortiert.length+'</div>'
+    + (kuerzelAlle?'<div><b>Servicetechniker:</b> '+esc(kuerzelAlle)+'</div>':'')
+    + '</div>';
+
+  sortiert.forEach(e=>{
+    const pnAktuell=btbGetProduktNamen(k, e.anlage);
+    const namen=btbNamenFuerEintrag(e, pnAktuell);
+    // Verbrauch seit dem letzten Besuch dieser Anlage (gleiche Berechnung wie in der Historie)
+    const allAnlage=k.eintraege.filter(x=>x.anlage===e.anlage);
+    const idxInAll=allAnlage.findIndex(x=>x.id===e.id);
+    const zPrev=btbFindPrevWasser(allAnlage,idxInAll,e.anlage,'zusatzwasser');
+    const aPrev=btbFindPrevWasser(allAnlage,idxInAll,e.anlage,'abwasser');
+    const dZ=btbDelta(e.zusatzwasser,zPrev), dA=btbDelta(e.abwasser,aPrev);
+    const eind=btbEindickung(dZ,dA);
+
+    h+='<div class="nw-anlage"><h2 class="nw-anlkopf"><span>'+esc(e.anlage)+'</span>'
+      + '<small>'+(e.besuch_uhrzeit?'Uhrzeit '+esc(e.besuch_uhrzeit):'')
+      + (e.besuch_uhrzeit&&e.kuerzel?' · ':'')+(e.kuerzel?'Techniker '+esc(e.kuerzel):'')+'</small></h2>';
+
+    // Messwerte
+    let mw='';
+    mw+=nwZeile('Leitfähigkeit gemessen', nwZ(e.lf_messung_ist), 'µS/cm');
+    if(e.lf_geraet_ist!=null||e.lf_geraet_soll!=null){
+      mw+='<tr><td class="nw-lbl">Leitfähigkeit Gerät (IST / SOLL)</td><td class="z">'
+        + esc((nwZ(e.lf_geraet_ist)||'–')+' / '+(nwZ(e.lf_geraet_soll)||'–'))+' µS/cm</td></tr>';
+    }
+    mw+=nwZeile('Gesamthärte', nwZ(e.dh), '°dH');
+    if(e.kbe_auswertung) mw+=nwZeile('Keimzahl (Dip-Slide)', e.kbe_auswertung, 'KBE/ml');
+    else if(e.dipslide_basis!=null) mw+=nwZeile('Dip-Slide', 'gezogen, Auswertung folgt', '');
+    if(e.zusatzwasser!=null){
+      mw+='<tr><td class="nw-lbl">Zusatzwasser (Zählerstand)</td><td class="z">'+esc(nwZ(e.zusatzwasser))+' m³'
+        + (dZ!=null&&dZ>=0?' <span style="color:#555">(+'+esc(nwZ(dZ))+' m³ seit letztem Besuch)</span>':'')+'</td></tr>';
+    }
+    if(e.abwasser!=null){
+      mw+='<tr><td class="nw-lbl">Abwasser (Zählerstand)</td><td class="z">'+esc(nwZ(e.abwasser))+' m³'
+        + (dA!=null&&dA>=0?' <span style="color:#555">(+'+esc(nwZ(dA))+' m³ seit letztem Besuch)</span>':'')+'</td></tr>';
+    }
+    if(eind!=null) mw+=nwZeile('Eindickung', nwZ(eind)+'-fach', '');
+    if(e.schwefelsa) mw+='<tr><td class="nw-lbl">Schwefelsäure</td><td class="z">nachgefüllt</td></tr>';
+    if(mw) h+='<table>'+mw+'</table>';
+
+    // Produkte — nur Produkte mit mindestens einem Wert
+    const pRows=[1,2,3].map(n=>{
+      const vg=e['p'+n+'_vorgefunden'], af=e['p'+n+'_aufgefuellt'], nu=e['p'+n+'_neu'], lg=e['p'+n+'_lager'];
+      if(vg==null&&af==null&&nu==null&&lg==null) return '';
+      const name=(namen['p'+n]||'').trim()||(n===3?'BZ 2':'Produkt '+n);
+      const z=v=>'<td class="z">'+(v==null?'–':esc(nwZ(v)))+'</td>';
+      return '<tr><td>'+esc(name)+'</td>'+z(vg)+z(af)+z(nu)+z(lg)+'</tr>';
+    }).filter(Boolean).join('');
+    if(pRows){
+      h+='<table><tr><th>Produkt</th><th style="text-align:right">Vorgefunden</th>'
+        + '<th style="text-align:right">Aufgefüllt</th><th style="text-align:right">Neu</th>'
+        + '<th style="text-align:right">Lager</th></tr>'+pRows+'</table>';
+    }
+
+    // Dosiereinstellung (ohne interne Soll-Werte)
+    const dos=btbNachweisDosierText(e, namen);
+    if(dos) h+='<div class="nw-txt"><b>Dosiereinstellung:</b> '+esc(dos)+'</div>';
+    if(e.bemerkung) h+='<div class="nw-txt"><b>Bemerkung:</b> '+esc(e.bemerkung)+'</div>';
+    h+='</div>';
+  });
+
+  h+='<div class="nw-fuss">Dieser Nachweis wurde am '
+    + new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})
+    + ' aus dem elektronischen Betriebstagebuch erzeugt'+(kz?' (Ausdruck: '+esc(kz)+')':'')+'.<br>'
+    + 'Die aufgeführten Werte wurden am '+esc(datumDE)+' vor Ort erfasst. „Vorgefunden" ist der Füllstand bei Ankunft, '
+    + '„Neu" der Füllstand nach dem Auffüllen.</div>';
+  return h;
+}
+
+// Dosiertext für den Kunden — wie btbDosierLogText, aber ohne die internen Soll-Liter
+function btbNachweisDosierText(e, pn){
+  const snap=e.dosier_snapshot;
+  if(!snap) return '';
+  const teile=[];
+  ['p1','p3'].forEach(pk=>{
+    const d=snap[pk];
+    if(!d||!d.tage||!d.tage.length) return;
+    const name=pk==='p1'?(pn.p1||'Produkt 1'):(pn.p3||'BZ 2');
+    const tage=d.tage.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+    let txt=name+': '+tage+(d.uhr?' '+d.uhr:'')+(d.menge?' · '+String(d.menge).replace('.',',')+' L/Dosierung':'')
+      +(d.dauer?' · '+d.dauer+' Min':'');
+    if(d.block2Aktiv&&d.tage2&&d.tage2.length){
+      const tage2=d.tage2.map(t=>t.charAt(0).toUpperCase()+t.slice(1)).join('/');
+      txt+=' + 2. Zeit '+tage2+(d.uhr2?' '+d.uhr2:'')+(d.menge2?' · '+String(d.menge2).replace('.',',')+' L/Dosierung':'')
+        +(d.dauer2?' · '+d.dauer2+' Min':'');
+    }
+    teile.push(txt);
+  });
+  return teile.join('   |   ');
+}
+
 // ── Eintrag löschen (2.32 überarbeitet) ──
 // Bisheriges Problem: der Eintrag war nur beim Löschenden weg. Gründe und Gegenmaßnahmen:
 //  1. Andere Geräte erfuhren nichts davon  → Löschung landet jetzt im „Gelöscht"-Log, das
@@ -6676,7 +6975,8 @@ function btbEditEintrag(kid, anlageName, eid){
   panel.className='btb-edit-panel btb-form';
   panel.style.cssText='border:2px solid var(--bl);margin-top:-4px;border-radius:0 0 9px 9px';
 
-  const pn=btbGetProduktNamen(k, e.anlage);
+  // 2.38: beim Bearbeiten eines historischen Eintrags die damals gültigen Namen zeigen
+  const pn=btbNamenFuerEintrag(e, btbGetProduktNamen(k, e.anlage));
   let prodEditHtml='';
   [1,2,3].forEach(pn2=>{
     const pname=pn['p'+pn2]||'';
