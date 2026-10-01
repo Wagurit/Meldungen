@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.48</title>
+<title>Meldungen &amp; Angebote 2.49</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -526,7 +526,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.48</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.49</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1045,7 +1045,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.48';
+const APP_VERSION = '2.49';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1790,38 +1790,43 @@ function btbSetzeChemBedarf(kid, pnr, an, notiz){
   if(!an) _chemBedarf[kid]['p'+pnr].erledigt=false;   // abgehakt → beim nächsten Setzen wieder melden
   btbSpeichereChemBedarf();
 }
-// 2.46: Meldung aus der BTB-Bemerkung erzeugen — gleicher Datenweg wie saveMeld(),
-// inklusive Offline-Warteschlange, damit im Feld nichts verloren geht.
-async function btbMeldungAusBemerkung(k, anlageName, text, zuwArr){
-  const voll=anlageName ? (anlageName+': '+text) : text;
+// 2.49: Eine Meldung anlegen — EIN gemeinsamer Weg für alle Stellen, die das brauchen.
+// Vorher gab es das verstreut: saveMeld() machte es vollständig, die Angebots-Bestellung
+// (setBeauftragt) schrieb nur in die Datenbank, ohne die Liste lokal zu ergänzen und ohne
+// renderM() — der Chip erschien dort nur über die Live-Verbindung. Lief die nicht (und sie
+// lief monatelang nicht), passierte scheinbar gar nichts. Genau der gemeldete Fehler.
+// Gibt true zurück, wenn die Meldung angelegt oder verlässlich eingereiht wurde.
+async function meldungAnlegen(firma, text, zuwArr, erfolgsText){
+  zuwArr=zuwArr||[];
   const gelesen_von={};
   if(zuwArr.includes(kz)) gelesen_von[kz]={ts:new Date().toISOString(),kommentar:null};
   const meldData={
-    firma:k.firma, text:voll, kuerzel:kz,
+    firma, text, kuerzel:kz,
     zugewiesen_an:zuwArr, gelesen_von, verlauf:[],
     bearbeitungs_status: zuwArr.length>0 && zuwArr.every(x=>x===kz) ? 'in_bearbeitung' : null
   };
-  if(!isOnline()){
+  const lokalEinreihen=(hinweis)=>{
     const tmpId='offline_'+btbUuid();
     addToQueue({type:'meldung',data:meldData,tmpId});
     MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
     renderM();updB();
-    toast('📥 Meldung offline gespeichert — wird hochgeladen sobald online', 4000);
+    toast(hinweis, 4000);
     return true;
-  }
+  };
+  if(!isOnline()) return lokalEinreihen('📥 Meldung offline gespeichert — wird hochgeladen sobald online');
   const {data:neu,error}=await _sb.from('meldungen').insert(meldData).select().single();
-  if(error){
-    const tmpId='offline_'+btbUuid();
-    addToQueue({type:'meldung',data:meldData,tmpId});
-    MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
-    renderM();updB();
-    toast('⚠️ Kein Netz — Meldung gespeichert, wird automatisch hochgeladen', 4000);
-    return true;
-  }
+  if(error) return lokalEinreihen('⚠️ Kein Netz — Meldung gespeichert, wird automatisch hochgeladen');
+  // WICHTIG: lokal ergänzen und neu zeichnen, damit der Chip sofort da ist — unabhängig
+  // davon, ob die Live-Verbindung steht.
   if(neu) MD.unshift(mapMeld(neu));
   renderM();updB();
-  toast('📣 Meldung angelegt'+(zuwArr.length?' · zugewiesen an '+zuwArr.join(', '):''), 4000);
+  toast(erfolgsText || ('📣 Meldung angelegt'+(zuwArr.length?' · zugewiesen an '+zuwArr.join(', '):'')), 4000);
   return true;
+}
+// 2.46: Meldung aus der BTB-Bemerkung erzeugen
+async function btbMeldungAusBemerkung(k, anlageName, text, zuwArr){
+  const voll=anlageName ? (anlageName+': '+text) : text;
+  return meldungAnlegen(k.firma, voll, zuwArr);
 }
 // Erzeugt aus den angehakten, noch nicht gemeldeten Produkten EINEN Chemie-Eintrag.
 // Wird vom Zwischenspeichern und von FERTIG aufgerufen; ohne neue Haken passiert nichts.
@@ -3084,27 +3089,44 @@ async function saveFreiEdit(eid, btn){
 // ══════════════════════════════════════════════════════════
 // BEAUFTRAGT
 // ══════════════════════════════════════════════════════════
+// 2.49-FIX: Hier lagen zwei Mängel, die zusammen so wirkten, als sei die Funktion weg:
+//  1. Die Meldung wurde in die Datenbank geschrieben, aber NICHT in die lokale Liste
+//     eingefügt und renderM() wurde nie aufgerufen. Der Chip erschien also nur, wenn die
+//     Live-Verbindung ihn nachlieferte — und die lief monatelang nicht (siehe 2.33).
+//     Jetzt über meldungAnlegen(), das lokal ergänzt und sofort neu zeichnet.
+//  2. Ohne Netz brach die Funktion beim ersten Fehler ab: die Bestellung wurde nicht
+//     markiert UND keine Meldung angelegt. Jetzt beides über die Warteschlange.
 async function setBeauftragt(id, taEl, pillsDiv){
   const e=FR.find(x=>x.id===id);if(!e)return;
   const kommentar=taEl?taEl.value.trim():'';
   const now=new Date().toISOString();
   const neuZuw=[];
   if(pillsDiv) pillsDiv.querySelectorAll('.kz-pill.sel').forEach(b=>neuZuw.push(b.dataset.kz));
-  const {error}=await _sb.from('freie_angebote').update({
-    beauftragt:true, beauftragt_kommentar:kommentar||null,
-    beauftragt_von:kz, beauftragt_ts:now
-  }).eq('id',id);
-  if(error){toast('⚠️ Fehler: '+error.message);return;}
+  const patch={beauftragt:true, beauftragt_kommentar:kommentar||null, beauftragt_von:kz, beauftragt_ts:now};
+
+  // Lokal sofort übernehmen, damit der Status unabhängig vom Netz steht
   const idx=FR.findIndex(x=>x.id===id);
-  if(idx>-1){FR[idx].beauftragt=true;FR[idx].beauftragt_kommentar=kommentar||null;FR[idx].beauftragt_von=kz;FR[idx].beauftragt_ts=now;}
-  if(neuZuw.length){
-    const meldText='🔵 Bestellt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
-    await _sb.from('meldungen').insert({firma:e.firma,text:meldText,kuerzel:kz,zugewiesen_an:neuZuw,gelesen_von:{},verlauf:[]});
-    toast('✅ Bestellt – Meldung an '+neuZuw.join(', ')+' erstellt');
-  } else {
-    toast('✅ Als bestellt markiert');
+  if(idx>-1) Object.assign(FR[idx], patch);
+
+  let fehler=null;
+  if(isOnline()){
+    const {error}=await _sb.from('freie_angebote').update(patch).eq('id',id);
+    if(error) fehler=error;
+  }
+  if(!isOnline()||fehler){
+    addToQueue({type:'frei_update', data:{id, patch}});
+    if(fehler) console.error('Bestellt-Markierung in Warteschlange gelegt:', fehler);
   }
   renderF();
+
+  if(neuZuw.length){
+    const meldText='🔵 Bestellt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
+    await meldungAnlegen(e.firma, meldText, neuZuw, '✅ Bestellt — Meldung an '+neuZuw.join(', ')+' erstellt');
+  } else {
+    // Ohne Zuweisung entsteht bewusst keine Meldung. Das war vorher stillschweigend so —
+    // jetzt steht es dran, damit niemand vergeblich auf einen Chip wartet.
+    toast('✅ Als bestellt markiert — keine Meldung erzeugt (niemand zugewiesen)', 5000);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
