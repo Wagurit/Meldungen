@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.45</title>
+<title>Meldungen &amp; Angebote 2.48</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -526,7 +526,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.45</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.48</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -699,6 +699,11 @@ textarea{resize:vertical;min-height:68px;}
           <button id="btb-filter-offen" onclick="btbToggleFilter()" style="padding:5px 11px;border:1.5px solid #0891b2;border-radius:8px;background:var(--bg);color:#0891b2;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
             ⏳ Zu berechnen
           </button>
+          <!-- 2.48: Tageskontrolle für den Servicetechniker — zeigt nur Kunden, bei denen noch
+               ein Entwurf offen ist (also der FERTIG-Knopf noch dasteht) -->
+          <button id="btb-filter-entwurf" onclick="btbToggleEntwurfFilter()" title="Kunden mit noch nicht abgeschickten Eingaben — der FERTIG-Knopf steht dort noch" style="padding:5px 11px;border:1.5px solid var(--or);border-radius:8px;background:var(--bg);color:var(--or);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
+            📝 Nicht abgeschickt <span id="btb-entwurf-cnt"></span>
+          </button>
         </div>
         <div style="width:100%">
           <div class="btb-rnr-toggle" onclick="btbToggleRnrSuche()" style="padding:5px 2px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.04em">🔍 Nach Rechnungsnummer suchen ⌄</div>
@@ -726,6 +731,11 @@ textarea{resize:vertical;min-height:68px;}
           </button>
           <button id="is-filter-export" onclick="isToggleExportFilter()" title="Kunden, deren letzter Excel-Export mehr als 29 Tage her ist (oder noch nie), und bei denen es Neues zu exportieren gibt" style="padding:5px 11px;border:1.5px solid #ca8a04;border-radius:8px;background:var(--bg);color:#ca8a04;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
             📊 Export fällig <span id="is-export-cnt"></span>
+          </button>
+          <!-- 2.48: gleicher Filter wie im BTB-Reiter — der Innendienst sieht damit, bei wem
+               ein Techniker noch nicht abgeschickt hat -->
+          <button id="is-filter-entwurf" onclick="isToggleEntwurfFilter()" title="Kunden mit noch nicht abgeschickten Eingaben eines Technikers" style="padding:5px 11px;border:1.5px solid var(--or);border-radius:8px;background:var(--bg);color:var(--or);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
+            📝 Nicht abgeschickt <span id="is-entwurf-cnt"></span>
           </button>
         </div>
         <div style="width:100%">
@@ -1035,7 +1045,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.45';
+const APP_VERSION = '2.48';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1431,6 +1441,7 @@ async function afterLogin(user, nurCache){
   G('ls').style.display='none';
   G('ap').style.display='flex';
 
+  btbLadeChemBedarf();   // 2.46: gemerkter Chemie-Bedarf (überlebt Neuladen und Offline)
   await loadAll();
   // 2.26: Warteschlange auch beim Start hochladen (z.B. Notfall-Sicherung vor Pull-down,
   // oder Einträge vom Vortag) — bisher passierte das nur, wenn das Netz während der Nutzung zurückkam
@@ -1754,6 +1765,99 @@ function rtWaechter(){
 setInterval(rtWaechter, 60*1000);
 // 2.44: Beginn der Schonzeit für offene Bearbeitungen (siehe btbEingabeLaeuft)
 let _schutzSeit=0;
+// ══════════════════════════════════════════════════════════
+// 2.46: CHEMIE-BEDARF AUS DEM BTB
+// Haken je Produkt direkt im Anlagen-Formular. Der Haken gilt PRO KUNDE, nicht pro Anlage —
+// sonst müsste der Techniker bei jeder Anlage neu ankreuzen und sähe nicht, dass er es schon
+// gemacht hat. Beim Speichern entsteht EIN Chemie-Chip mit allen neu angehakten Produkten;
+// danach bleibt der Haken stehen und es entsteht kein zweiter Chip.
+// Aufbau: _chemBedarf[kundeId] = {p1:{an:true, notiz:'2 Fässer', erledigt:false}, …}
+// ══════════════════════════════════════════════════════════
+const CHEM_BEDARF_KEY='rkw_chem_bedarf';
+let _chemBedarf={};
+function btbLadeChemBedarf(){
+  try{ const o=JSON.parse(localStorage.getItem(CHEM_BEDARF_KEY)||'{}'); _chemBedarf=(o&&typeof o==='object')?o:{}; }
+  catch(e){ _chemBedarf={}; }
+}
+function btbSpeichereChemBedarf(){
+  try{ localStorage.setItem(CHEM_BEDARF_KEY, JSON.stringify(_chemBedarf)); }catch(e){}
+}
+function btbChemBedarf(kid){ return _chemBedarf[kid]||{}; }
+function btbSetzeChemBedarf(kid, pnr, an, notiz){
+  if(!_chemBedarf[kid]) _chemBedarf[kid]={};
+  const alt=_chemBedarf[kid]['p'+pnr]||{};
+  _chemBedarf[kid]['p'+pnr]={an:!!an, notiz:(notiz!=null?notiz:(alt.notiz||'')), erledigt:!!alt.erledigt};
+  if(!an) _chemBedarf[kid]['p'+pnr].erledigt=false;   // abgehakt → beim nächsten Setzen wieder melden
+  btbSpeichereChemBedarf();
+}
+// 2.46: Meldung aus der BTB-Bemerkung erzeugen — gleicher Datenweg wie saveMeld(),
+// inklusive Offline-Warteschlange, damit im Feld nichts verloren geht.
+async function btbMeldungAusBemerkung(k, anlageName, text, zuwArr){
+  const voll=anlageName ? (anlageName+': '+text) : text;
+  const gelesen_von={};
+  if(zuwArr.includes(kz)) gelesen_von[kz]={ts:new Date().toISOString(),kommentar:null};
+  const meldData={
+    firma:k.firma, text:voll, kuerzel:kz,
+    zugewiesen_an:zuwArr, gelesen_von, verlauf:[],
+    bearbeitungs_status: zuwArr.length>0 && zuwArr.every(x=>x===kz) ? 'in_bearbeitung' : null
+  };
+  if(!isOnline()){
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'meldung',data:meldData,tmpId});
+    MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    renderM();updB();
+    toast('📥 Meldung offline gespeichert — wird hochgeladen sobald online', 4000);
+    return true;
+  }
+  const {data:neu,error}=await _sb.from('meldungen').insert(meldData).select().single();
+  if(error){
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'meldung',data:meldData,tmpId});
+    MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    renderM();updB();
+    toast('⚠️ Kein Netz — Meldung gespeichert, wird automatisch hochgeladen', 4000);
+    return true;
+  }
+  if(neu) MD.unshift(mapMeld(neu));
+  renderM();updB();
+  toast('📣 Meldung angelegt'+(zuwArr.length?' · zugewiesen an '+zuwArr.join(', '):''), 4000);
+  return true;
+}
+// Erzeugt aus den angehakten, noch nicht gemeldeten Produkten EINEN Chemie-Eintrag.
+// Wird vom Zwischenspeichern und von FERTIG aufgerufen; ohne neue Haken passiert nichts.
+async function btbErzeugeChemieBedarf(k, still){
+  const b=_chemBedarf[k.id];
+  if(!b) return false;
+  const offen=[1,2,3].filter(n=>b['p'+n] && b['p'+n].an && !b['p'+n].erledigt);
+  if(!offen.length) return false;
+  // Produktnamen: der zum Kunden gehörende Name je Produktnummer (erste Anlage mit eigenem Namen)
+  const namen=btbGetProduktNamen(k, (k.rkws&&k.rkws[0]?k.rkws[0].name:''));
+  const produkte=offen.map(n=>{
+    const nm=(namen['p'+n]||'').trim() || (n===1?'BZ':n===2?'KT/LB':'BZ 2');
+    const no=(b['p'+n].notiz||'').trim();
+    return no ? nm+' ('+no+')' : nm;
+  });
+  const notizTeile=offen.map(n=>(b['p'+n].notiz||'').trim()).filter(Boolean);
+  const chemData={ firma:k.firma, produkte, kuerzel:kz,
+    notiz:'Aus BTB-Besuch'+(notizTeile.length?': '+notizTeile.join(' · '):'') };
+  if(isOnline()){
+    const {data:neu,error}=await _sb.from('chemie').insert(chemData).select().single();
+    if(error){
+      const tmpId='offline_'+btbUuid();
+      addToQueue({type:'chemie',data:chemData,tmpId});
+      CH.unshift(mapChem({...chemData,id:tmpId,erstellt_am:new Date().toISOString()}));
+    } else if(neu){ CH.unshift(mapChem(neu)); }
+  } else {
+    const tmpId='offline_'+btbUuid();
+    addToQueue({type:'chemie',data:chemData,tmpId});
+    CH.unshift(mapChem({...chemData,id:tmpId,erstellt_am:new Date().toISOString()}));
+  }
+  offen.forEach(n=>{ _chemBedarf[k.id]['p'+n].erledigt=true; });
+  btbSpeichereChemBedarf();
+  renderC(); updB();
+  if(!still) toast('🧪 Chemie-Bedarf für „'+k.firma+'" angelegt: '+produkte.join(', '), 5000);
+  return true;
+}
 // 2.44: Meldet eine dauerhaft hängende Warteschlangen-Position, aber höchstens alle 10 Minuten
 // pro Art — sonst bliebe so etwas völlig unbemerkt oder würde die Anzeige zuspammen.
 const _stockungZuletzt={};
@@ -4066,6 +4170,22 @@ function updB(){
 }
 
 function renderAll(){renderM();renderC();renderF();renderKbeListe();renderKbeTab();renderWmTab();renderBtbTab();renderInnendienstTab();renderWasserzaehlerTab();updB();}
+// 2.48: Filter „noch nicht abgeschickt" — zeigt genau die Kunden, bei denen ein Entwurf
+// offen ist, also der FERTIG-Knopf noch dasteht. Für die Tageskontrolle des Technikers.
+let btbFilterEntwurf=false, isFilterEntwurf=false;
+function btbHatOffenenEntwurf(k){ return !!(k.entwuerfe && k.entwuerfe.length); }
+function btbToggleEntwurfFilter(){
+  btbFilterEntwurf=!btbFilterEntwurf;
+  const btn=G('btb-filter-entwurf');
+  if(btn){btn.style.background=btbFilterEntwurf?'var(--or)':'var(--bg)';btn.style.color=btbFilterEntwurf?'#fff':'var(--or)';}
+  renderBtbTab();
+}
+function isToggleEntwurfFilter(){
+  isFilterEntwurf=!isFilterEntwurf;
+  const btn=G('is-filter-entwurf');
+  if(btn){btn.style.background=isFilterEntwurf?'var(--or)':'var(--bg)';btn.style.color=isFilterEntwurf?'#fff':'var(--or)';}
+  renderInnendienstTab();
+}
 function btbToggleFilter(){
   btbFilterOffen=!btbFilterOffen;
   const btn=G('btb-filter-offen');
@@ -4264,10 +4384,11 @@ async function btbExportKundeExcel(k){
         'Datum': e.datumFmt,
         'Uhrzeit': e.besuch_uhrzeit?String(e.besuch_uhrzeit).slice(0,5):'',   // 2.39: fehlte bisher
         'Kürzel': e.kuerzel||'',
-        '°dH': e.dh!=null?e.dh:'',
-        'LF IST': e.lf_messung_ist!=null?e.lf_messung_ist:'',
-        'LF Gerät IST': e.lf_geraet_ist!=null?e.lf_geraet_ist:'',
-        'LF Gerät SOLL': e.lf_geraet_soll!=null?e.lf_geraet_soll:'',
+        // 2.47: Rohtext („< 2000") als Text, sonst die Zahl als Zahl (damit Excel rechnen kann)
+        '°dH': btbRohWerte(e).dh || (e.dh!=null?e.dh:''),
+        'LF IST': btbRohWerte(e).lf || (e.lf_messung_ist!=null?e.lf_messung_ist:''),
+        'LF Gerät IST': btbRohWerte(e).lfi || (e.lf_geraet_ist!=null?e.lf_geraet_ist:''),
+        'LF Gerät SOLL': btbRohWerte(e).lfs || (e.lf_geraet_soll!=null?e.lf_geraet_soll:''),
         'KBE-Auswertung': e.kbe_auswertung||'',
         'Zusatzwasser (m³)': e.zusatzwasser!=null?e.zusatzwasser:'',
         'Abwasser (m³)': e.abwasser!=null?e.abwasser:'',
@@ -4741,8 +4862,11 @@ function btbFormHatEingaben(form){
   if(!form)return false;
   // Dosier-Felder ausschließen (data-dosier) — die werden unabhängig vom Entwurf sofort
   // bei jeder Änderung separat gespeichert, zählen hier also nicht als "Besuchsdaten"
-  const zahlenFelder=form.querySelectorAll('input[type="number"]:not([readonly]):not([data-dosier])');
-  for(const el of zahlenFelder){ if(el.value!=='') return true; }
+  // 2.47: Die Messwertfelder (°dH, LF …) sind jetzt Textfelder — ohne .btb-mess hier hätte
+  // ein eingetragener Härtewert nicht mehr als Eingabe gezählt, und die Anlage wäre beim
+  // FERTIG als „nichts eingetragen" übersprungen worden.
+  const zahlenFelder=form.querySelectorAll('input[type="number"]:not([readonly]):not([data-dosier]), input.btb-mess:not([readonly])');
+  for(const el of zahlenFelder){ if(el.value.trim()!=='') return true; }
   const bem=form.querySelector('.btb-bem-input');
   if(bem && bem.value.trim()!=='') return true;
   const ds=form.querySelector('[id^="btb-ds-"]');
@@ -4750,6 +4874,50 @@ function btbFormHatEingaben(form){
   const mangel=form.querySelector('.btb-mangel-cb:checked');
   if(mangel) return true;
   return false;
+}
+// ══════════════════════════════════════════════════════════
+// 2.47: MESSWERTE MIT SONDERZEICHEN
+// Härte und Leitfähigkeit waren reine Zahlenfelder — „< 2000", „> 1500" oder ein Bereich
+// „10-20" ließen sich gar nicht eintragen. Die Datenbankspalten sind numerisch und werden
+// für Verlauf, Eindickung und Soll-Berechnung gebraucht, deshalb beides:
+//   · der Rohtext, wie der Techniker ihn getippt hat → wird überall angezeigt
+//   · eine Zahl daraus → für alle Berechnungen
+// Bereich „10-20" ergibt den Mittelwert (15); „< 2000" die 2000; „-" gar keine Zahl.
+// ══════════════════════════════════════════════════════════
+function btbMesswertLesen(roh){
+  const t=String(roh==null?'':roh).trim();
+  if(t==='') return {roh:null, zahl:null};
+  // Zuerst die GANZE Eingabe auf Maschinenschreibweise bringen:
+  //   1.234,5 → 1234.5   (Punkt ist Tausendertrennung, wenn er in Dreiergruppen steht)
+  //   17,2    → 17.2
+  //   17.2    bleibt 17.2
+  let tn=t.replace(/(\d{1,3})(?:\.(\d{3}))+(?=\D|$)/g, (treffer)=>treffer.replace(/\./g,''));
+  tn=tn.replace(/,/g,'.');
+  // Bereich zuerst prüfen („10-20"), sonst läse der Parser den Bindestrich als Minuszeichen
+  // und aus 10-20 würde ein Mittelwert von -5.
+  const bereich=tn.match(/^\s*(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*$/);
+  if(bereich){
+    const x=Number(bereich[1]), y=Number(bereich[2]);
+    if(!isNaN(x)&&!isNaN(y)) return {roh:t, zahl:+((x+y)/2).toFixed(2)};
+  }
+  // Sonst die erste Zahl im Text (Vorzeichen nur, wenn es direkt am Anfang steht)
+  const treffer=tn.match(/^-?\d+(?:\.\d+)?|\d+(?:\.\d+)?/);
+  if(!treffer) return {roh:t, zahl:null};            // z.B. nur „-" oder „n.b."
+  let zahl=Number(treffer[0]);
+  if(isNaN(zahl)) zahl=null;
+  // War die Eingabe eine schlichte Zahl? Dann keinen Rohtext mitschleppen.
+  const schlicht=/^-?\d+(?:\.\d+)?$/.test(tn.trim());
+  return {roh: schlicht?null:t, zahl};
+}
+// Anzeige: Rohtext bevorzugen, sonst die Zahl (mit deutschem Dezimalkomma)
+function btbMesswertText(zahl, roh){
+  if(roh) return roh;
+  if(zahl==null||zahl==='') return '';
+  return String(zahl).replace('.',',');
+}
+// Die Rohtexte eines Eintrags (liegen im vorhandenen jsonb, kein SQL nötig)
+function btbRohWerte(e){
+  return (e && e.dosier_snapshot && e.dosier_snapshot.roh) ? e.dosier_snapshot.roh : {};
 }
 function btbFmtDatumDE(iso){
   if(!iso)return'';
@@ -4901,7 +5069,15 @@ function renderBtbTab(){
   const rnrQ=(G('btb-rnr-suche')?.value||'').trim().toLowerCase();
   let d=BTB_KUNDEN.filter(k=>!q||k.firma.toLowerCase().includes(q));
   if(rnrQ) d=d.filter(k=>k.eintraege.some(e=>e.rechnung_nr&&e.rechnung_nr.toLowerCase().includes(rnrQ)));
-  if(btbFilterOffen) d=d.filter(k=>k.eintraege.some(e=>e.btb_status==='offen'));
+  // 2.48: Die beiden Filter werden mit ODER verknüpft, nicht mit UND. Nacheinander
+  // angewandt wäre das Ergebnis fast immer leer — ein Kunde hat entweder einen offenen
+  // Entwurf ODER etwas zu berechnen, selten beides. Mit ODER zeigen beide Knöpfe
+  // gemeinsam alles, was noch Aufmerksamkeit braucht.
+  if(btbFilterOffen||btbFilterEntwurf){
+    d=d.filter(k=> (btbFilterOffen && k.eintraege.some(e=>e.btb_status==='offen'))
+                || (btbFilterEntwurf && btbHatOffenenEntwurf(k)) );
+  }
+  btbAktualisiereEntwurfZaehler();
   G('ebtb0').style.display=d.length?'none':'';
   d.forEach(k=>{
     const karte=buildBtbKarte(k, aktiveAnlagen[k.id]);
@@ -4932,7 +5108,12 @@ function renderInnendienstTab(){
   const rnrQ=(G('is-rnr-suche')?.value||'').trim().toLowerCase();
   let d=BTB_KUNDEN.filter(k=>!q||k.firma.toLowerCase().includes(q));
   if(rnrQ) d=d.filter(k=>k.eintraege.some(e=>e.rechnung_nr&&e.rechnung_nr.toLowerCase().includes(rnrQ)));
-  if(isFilterOffen) d=d.filter(k=>k.eintraege.some(e=>e.btb_status==='offen'));
+  // 2.48: wie im BTB-Reiter — beide Filter zusammen zeigen die Summe, nicht die Schnittmenge
+  if(isFilterOffen||isFilterEntwurf){
+    d=d.filter(k=> (isFilterOffen && k.eintraege.some(e=>e.btb_status==='offen'))
+                || (isFilterEntwurf && btbHatOffenenEntwurf(k)) );
+  }
+  btbAktualisiereEntwurfZaehler();
   if(isFilterExport) d=d.filter(btbExportFaellig);
   isAktualisiereExportZaehler();
   G('eis0').style.display=d.length?'none':'';
@@ -4942,6 +5123,14 @@ function renderInnendienstTab(){
     if(offeneKarten.has(k.id)) karte.classList.add('open');
     c.appendChild(karte);
   });
+}
+// 2.48: Anzahl der Kunden mit noch nicht abgeschickten Eingaben an beiden Filter-Knöpfen.
+// Für den Techniker die Antwort auf „habe ich heute alles abgeschickt?" ohne Durchblättern.
+function btbAktualisiereEntwurfZaehler(){
+  const n=BTB_KUNDEN.filter(btbHatOffenenEntwurf).length;
+  const txt=n?('('+n+')'):'';
+  const a=G('btb-entwurf-cnt'); if(a) a.textContent=txt;
+  const b=G('is-entwurf-cnt');  if(b) b.textContent=txt;
 }
 // Anzahl fälliger Exporte (über alle Kunden) am Filter-Button anzeigen
 function isAktualisiereExportZaehler(){
@@ -5584,11 +5773,14 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         if(e.kuerzel) html+='<div class="btb-eintrag-kz">'+esc(e.kuerzel)+'</div>';
         html+='</div>';
         // Messwerte
+        // 2.47: Rohtext bevorzugen, damit „< 2000" auch so im Verlauf steht
+        const rw=btbRohWerte(e);
+        const mw=(key,zahl)=>btbMesswertText(zahl, rw[key]);
         html+='<div class="btb-row">';
-        if(e.dh!=null) html+='<span>°dH: <strong>'+e.dh+'</strong></span>';
-        if(e.lf_messung_ist!=null) html+='<span>LF: <strong>'+e.lf_messung_ist+' µS/cm</strong></span>';
-        if(e.lf_geraet_ist!=null) html+='<span>Gerät IST: <strong>'+e.lf_geraet_ist+'</strong></span>';
-        if(e.lf_geraet_soll!=null) html+='<span>SOLL: <strong>'+e.lf_geraet_soll+'</strong></span>';
+        if(e.dh!=null||rw.dh) html+='<span>°dH: <strong>'+esc(mw('dh',e.dh))+'</strong></span>';
+        if(e.lf_messung_ist!=null||rw.lf) html+='<span>LF: <strong>'+esc(mw('lf',e.lf_messung_ist))+' µS/cm</strong></span>';
+        if(e.lf_geraet_ist!=null||rw.lfi) html+='<span>Gerät IST: <strong>'+esc(mw('lfi',e.lf_geraet_ist))+'</strong></span>';
+        if(e.lf_geraet_soll!=null||rw.lfs) html+='<span>SOLL: <strong>'+esc(mw('lfs',e.lf_geraet_soll))+'</strong></span>';
         html+='</div>';
         // DipSlide + KBE in einer Zeile
         if(e.dipslide_basis!=null||e.kbe_auswertung){
@@ -5746,6 +5938,9 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     datum:rawDv.datum||'', uhr:rawDv.uhr||'',
     lf:dvNum(rawDv.lf), dh:dvNum(rawDv.dh),
     lfi:dvNum(rawDv.lfi), lfs:dvNum(rawDv.lfs),
+    // 2.47: getippter Rohtext der Messwerte (z.B. „<2000"), falls vorhanden
+    lfRoh:dvStr(rawDv.lfRoh||''), dhRoh:dvStr(rawDv.dhRoh||''),
+    lfiRoh:dvStr(rawDv.lfiRoh||''), lfsRoh:dvStr(rawDv.lfsRoh||''),
     ds:!!rawDv.ds,
     zw:dvNum(rawDv.zw), aw:dvNum(rawDv.aw),
     bem:dvStr(rawDv.bem||''),
@@ -5889,7 +6084,19 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       +'<input type="number" step="1" class="btb-neu" placeholder="–" value="'+(dvP.neu!=null?dvP.neu:'')+'" style="background:#dcfce7;color:#15803d;font-weight:700" tabindex="-1">'+hintNEU+'</div>'
       +'<div class="btb-feld"><div class="btb-feld-lbl">Lager</div>'
       +'<input type="number" step="1" class="btb-lg" placeholder="–" value="'+(dvP.lg!=null?dvP.lg:'')+'">'+hintLG+'</div>'
-      +'</div>'+dosierHtml+(istP3?'</div>':'')+'</div>';
+      +'</div>'
+      // 2.46: Chemie-Bedarf je Produkt. Der Haken gilt für den ganzen Kunden, deshalb ist er
+      // in jeder Anlage gesetzt, sobald er einmal gesetzt wurde.
+      +(()=>{
+        const bd=(btbChemBedarf(id)['p'+pn2])||{};
+        return '<label class="btb-chem-zeile" style="display:flex;align-items:center;gap:6px;margin-top:7px;padding-top:6px;border-top:1px dashed '+colorMap[pn2]+'33;cursor:pointer">'
+          +'<input type="checkbox" class="btb-chem-cb" data-pnr="'+pn2+'"'+(bd.an?' checked':'')+' style="width:16px;height:16px;accent-color:var(--or);flex-shrink:0">'
+          +'<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">🧪 Nachbestellen</span>'
+          +'<input type="text" class="btb-chem-notiz" data-pnr="'+pn2+'" placeholder="Menge / Hinweis (optional)" '+PNAME_ATTR+' value="'+esc(bd.notiz||'')+'" style="flex:1;min-width:80px;font-size:16px!important;padding:5px 8px!important;display:'+(bd.an?'block':'none')+'">'
+          +(bd.erledigt?'<span class="btb-chem-ok" style="font-size:10px;color:var(--gn);font-weight:800;white-space:nowrap">✓ gemeldet</span>':'')
+          +'</label>';
+      })()
+      +dosierHtml+(istP3?'</div>':'')+'</div>';
   });
 
   // Produktnamen-Editor
@@ -5929,10 +6136,13 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'</div>'
     // LF + dH
     +'<div class="btb-grid" style="margin-top:7px">'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="number" step="0.1" id="btb-dh-'+id+'-'+slug+'" placeholder="z.B. 17,2" value="'+(dv.dh||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="number" step="1" id="btb-lf-'+id+'-'+slug+'" placeholder="z.B. 999" value="'+(dv.lf||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="number" step="1" id="btb-lfi-'+id+'-'+slug+'" placeholder="z.B. 991" value="'+(dv.lfi||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="number" step="1" id="btb-lfs-'+id+'-'+slug+'" placeholder="z.B. 1000" value="'+(dv.lfs||'')+'"></div>'
+    // 2.47: Messwertfelder als Textfelder — „< 2000", „> 1500", „10-20" oder „-" sind jetzt
+    // möglich. Die Zahl wird beim Speichern herausgelesen, damit Verlauf und Berechnungen
+    // weiterlaufen. class="btb-mess" markiert sie für die Enter-Navigation und das Auslesen.
+    +'<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-dh-'+id+'-'+slug+'" placeholder="z.B. 17,2 oder &lt;20" value="'+esc(dv.dhRoh||dv.dh||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lf-'+id+'-'+slug+'" placeholder="z.B. 999 oder &lt;2000" value="'+esc(dv.lfRoh||dv.lf||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfi-'+id+'-'+slug+'" placeholder="z.B. 991" value="'+esc(dv.lfiRoh||dv.lfi||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfs-'+id+'-'+slug+'" placeholder="z.B. 1000" value="'+esc(dv.lfsRoh||dv.lfs||'')+'"></div>'
     +'</div>'
     // DipSlide
     +'<div class="btb-dipslide-box" style="margin-top:7px">'
@@ -6011,7 +6221,18 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'</div>'
     +'</div>'
     +'<div class="btb-feld-lbl">Bemerkung / Mängel</div>'
-    +'<textarea id="btb-bem-'+id+'-'+slug+'" class="btb-bem-input" placeholder="z.B. LF-Untergrenze erreicht…" style="min-height:46px;font-size:16px!important">'+(dv.bem||'')+'</textarea>'
+    +'<textarea id="btb-bem-'+id+'-'+slug+'" class="btb-bem-input" placeholder="z.B. LF-Untergrenze erreicht…" autocorrect="off" spellcheck="false" style="min-height:46px;font-size:16px!important">'+(dv.bem||'')+'</textarea>'
+    // 2.46: Bemerkung/Mängel direkt als Meldung an die Kollegen weitergeben — mit derselben
+    // Zuweisungs-Leiste wie im Meldungs-Reiter. Bewusst ein eigener Knopf: nicht jede Bemerkung
+    // soll eine Meldung auslösen, und der Techniker will vorher zuweisen können.
+    +'<div style="margin-top:7px;border:1px dashed var(--bo);border-radius:8px;overflow:hidden">'
+    +'<div class="btb-meld-toggle" style="padding:7px 10px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.05em">📣 Als Meldung weitergeben ⌄</div>'
+    +'<div class="btb-meld-body" style="display:none;padding:9px;background:var(--bg)">'
+    +'<div style="font-size:11px;color:var(--mu);margin-bottom:5px">Zuweisen an (optional):</div>'
+    +'<div class="btb-meld-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>'
+    +'<button type="button" class="btb-meld-btn" style="width:100%;padding:9px;border:none;border-radius:8px;background:var(--bd);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;cursor:pointer">📣 Meldung erzeugen</button>'
+    +'<div style="font-size:10px;color:#94a3b8;margin-top:5px;line-height:1.4">Erzeugt einen Chip im Reiter „Meldungen" mit Kundenname, Anlage und dem Text von oben.</div>'
+    +'</div></div>'
     +'</div>'
     +pEditHtml;
 
@@ -6049,6 +6270,71 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     });
   }
 
+  // 2.46: Meldungs-Leiste — Ausklappen, Zuweisungs-Pillen, Erzeugen
+  (function(){
+    const mToggle=form.querySelector('.btb-meld-toggle');
+    const mBody=form.querySelector('.btb-meld-body');
+    const mPills=form.querySelector('.btb-meld-pills');
+    const mBtn=form.querySelector('.btb-meld-btn');
+    if(!mToggle||!mBody||!mPills||!mBtn) return;
+    const gewaehlt=new Set();
+    mToggle.addEventListener('click',()=>{
+      const auf=mBody.style.display!=='none';
+      mBody.style.display=auf?'none':'block';
+      mToggle.innerHTML='📣 Als Meldung weitergeben '+(auf?'⌄':'⌃');
+    });
+    // Pillen wie im Meldungs-Reiter: ich zuerst, dann die übrigen in fester Reihenfolge
+    const bauePille=(kuerzel, ich)=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='kz-pill'; b.textContent=kuerzel+(ich?' (ich)':'');
+      if(ich) b.style.cssText='border-style:dashed;opacity:.8';
+      b.addEventListener('click',()=>{
+        if(gewaehlt.has(kuerzel)){ gewaehlt.delete(kuerzel); b.classList.remove('sel'); }
+        else { gewaehlt.add(kuerzel); b.classList.add('sel'); }
+      });
+      mPills.appendChild(b);
+    };
+    bauePille(kz, true);
+    [...allNutzer].filter(n=>n.kuerzel!==kz)
+      .sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel))
+      .forEach(n=>bauePille(n.kuerzel, false));
+
+    mBtn.addEventListener('click', async()=>{
+      const bemEl=form.querySelector('.btb-bem-input');
+      const text=((bemEl&&bemEl.value)||'').trim();
+      if(!text){ toast('⚠️ Bitte zuerst etwas in Bemerkung / Mängel eintragen'); return; }
+      mBtn.disabled=true;
+      const ok=await btbMeldungAusBemerkung(k, anlageName, text, [...gewaehlt]);
+      mBtn.disabled=false;
+      if(ok){
+        gewaehlt.clear();
+        mPills.querySelectorAll('.kz-pill').forEach(b=>b.classList.remove('sel'));
+        mBody.style.display='none';
+        mToggle.innerHTML='📣 Als Meldung weitergeben ⌄';
+      }
+    });
+  })();
+  // 2.46: Chemie-Bedarf — Haken und Notiz, beides sofort gemerkt (gilt für alle Anlagen)
+  form.querySelectorAll('.btb-chem-cb').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const pnr=cb.dataset.pnr;
+      const notizEl=form.querySelector('.btb-chem-notiz[data-pnr="'+pnr+'"]');
+      if(notizEl) notizEl.style.display=cb.checked?'block':'none';
+      btbSetzeChemBedarf(id, pnr, cb.checked, notizEl?notizEl.value:'');
+      // andere offene Anlagen desselben Kunden mitziehen, damit der Haken überall gleich steht
+      document.querySelectorAll('.btb-karte[data-btb-id="'+id+'"] .btb-chem-cb[data-pnr="'+pnr+'"]').forEach(x=>{
+        if(x!==cb) x.checked=cb.checked;
+      });
+      toast(cb.checked?'🧪 Wird beim Speichern als Chemie-Bedarf gemeldet':'🧪 Chemie-Bedarf entfernt');
+    });
+  });
+  form.querySelectorAll('.btb-chem-notiz').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const pnr=inp.dataset.pnr;
+      const cb=form.querySelector('.btb-chem-cb[data-pnr="'+pnr+'"]');
+      btbSetzeChemBedarf(id, pnr, cb?cb.checked:false, inp.value);
+    });
+  });
   // Zähler teilen: Ausklapp-Bereich auf-/zuklappen
   form.querySelectorAll('.btb-share-toggle').forEach(t=>{
     t.addEventListener('click', ()=>{
@@ -6433,8 +6719,15 @@ function btbLeseFormFelder(k, anlageName, formEl){
   };
   return {
     datum:toS('btb-datum-'+id+'-'+slug), uhr:toS('btb-uhr-'+id+'-'+slug),
-    lf:toN('btb-lf-'+id+'-'+slug), dh:toN('btb-dh-'+id+'-'+slug),
-    lfi:toN('btb-lfi-'+id+'-'+slug), lfs:toN('btb-lfs-'+id+'-'+slug),
+    // 2.47: Messwerte über den Parser (Zahl für Berechnungen, Rohtext für die Anzeige)
+    ...(()=>{
+      const m={};
+      [['lf','btb-lf-'],['dh','btb-dh-'],['lfi','btb-lfi-'],['lfs','btb-lfs-']].forEach(([key,pre])=>{
+        const w=btbMesswertLesen(toS(pre+id+'-'+slug));
+        m[key]=w.zahl; m[key+'Roh']=w.roh;
+      });
+      return m;
+    })(),
     ds:el('btb-ds-'+id+'-'+slug)?.checked||false,
     zw:toN('btb-zw-'+id+'-'+slug), aw:toN('btb-aw-'+id+'-'+slug),
     bem:((toS('btb-bem-'+id+'-'+slug)||'').trim()),
@@ -6552,8 +6845,10 @@ async function btbVerwerfeAnlage(k, anlageName, form){
     k.entwuerfe=k.entwuerfe.filter(e=>e.id!==entwurf.id);
     BTB_ENTWURF=BTB_ENTWURF.filter(e=>e.id!==entwurf.id);
   }
-  // Formularfelder leeren, damit nichts durch die Eingaben-Rettung zurückkommt
-  form.querySelectorAll('input:not([readonly]):not([data-dosier]), textarea').forEach(el=>{
+  // Formularfelder leeren, damit nichts durch die Eingaben-Rettung zurückkommt.
+  // 2.46: Der Chemie-Bedarf bleibt — er gehört zum Kunden, nicht zu dieser Anlage, und wäre
+  // sonst schon weg, bevor er gemeldet wurde.
+  form.querySelectorAll('input:not([readonly]):not([data-dosier]):not(.btb-chem-cb):not(.btb-chem-notiz), textarea').forEach(el=>{
     if(el.type==='checkbox') el.checked=false;
     else if(el.type!=='date') el.value='';
   });
@@ -6575,6 +6870,10 @@ async function btbSichereFormular(k, anlageName, form, scroll){
 async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   const slug=btbSlug(anlageName);
   const id=k.id;
+  // 2.46: angehakten Chemie-Bedarf beim Speichern melden (erzeugt höchstens EINEN Chip;
+  // schon gemeldete Produkte werden übersprungen). Ohne eigene Meldung, damit der Hinweis
+  // nicht mit „gespeichert" kollidiert — am Produkt steht danach „✓ gemeldet".
+  btbErzeugeChemieBedarf(k, true);
   // 2.26: geänderte Produktbezeichnungen mitspeichern (Werte sofort synchron lesen, bevor
   // ein späteres Neuladen das Formular ersetzt)
   const namenSpeichern=btbProduktnamenGeaendert(k, anlageName, formEl)?btbSpeichereProduktnamen(k, anlageName, formEl, true):null;
@@ -6595,8 +6894,15 @@ async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
 
   const felder={
     datum:toS('btb-datum-'+id+'-'+slug), uhr:toS('btb-uhr-'+id+'-'+slug),
-    lf:toN('btb-lf-'+id+'-'+slug), dh:toN('btb-dh-'+id+'-'+slug),
-    lfi:toN('btb-lfi-'+id+'-'+slug), lfs:toN('btb-lfs-'+id+'-'+slug),
+    // 2.47: Messwerte über den Parser (Zahl für Berechnungen, Rohtext für die Anzeige)
+    ...(()=>{
+      const m={};
+      [['lf','btb-lf-'],['dh','btb-dh-'],['lfi','btb-lfi-'],['lfs','btb-lfs-']].forEach(([key,pre])=>{
+        const w=btbMesswertLesen(toS(pre+id+'-'+slug));
+        m[key]=w.zahl; m[key+'Roh']=w.roh;
+      });
+      return m;
+    })(),
     ds:G('btb-ds-'+id+'-'+slug)?.checked||false,
     zw:toN('btb-zw-'+id+'-'+slug), aw:toN('btb-aw-'+id+'-'+slug),
     bem:bemGesamt,
@@ -6759,6 +7065,12 @@ async function btbFertigZumBerechnen(kid){
     // Der Excel-Export nutzt sie, damit spätere Namensänderungen alte Einträge nicht rückwirkend verfälschen.
     const pnZumZeitpunkt=btbGetProduktNamen(k, e.anlage);
     dosierSnapMitSoll.namen={p1:pnZumZeitpunkt.p1||'', p2:pnZumZeitpunkt.p2||'', p3:pnZumZeitpunkt.p3||''};
+    // 2.47: Rohtexte der Messwerte mitloggen (z.B. „<2000"), damit Verlauf, Nachweis und
+    // Excel genau das zeigen, was der Techniker eingetragen hat. Nur speichern, wenn es
+    // überhaupt welche gibt — sonst bleibt der Snapshot so schlank wie bisher.
+    const rohWerte={};
+    ['lf','dh','lfi','lfs'].forEach(key=>{ if(dv[key+'Roh']) rohWerte[key]=dv[key+'Roh']; });
+    if(Object.keys(rohWerte).length) dosierSnapMitSoll.roh=rohWerte;
     return {
       id:btbUuid(), // clientseitig erzeugt — funktioniert auch offline, Supabase übernimmt die id 1:1
       kunde_id:kid, anlage:e.anlage, datum_btb:datumFuerRow,
@@ -6842,6 +7154,9 @@ async function btbFertigZumBerechnen(kid){
   } else {
     toast('✅ BTB übergeben – Innendienst kann jetzt berechnen');
   }
+
+  // 2.46: falls beim Zwischenspeichern noch nichts gemeldet wurde, spätestens jetzt
+  await btbErzeugeChemieBedarf(k, false);
 
   // Chip schließen, bevor neu gerendert wird — sonst bleibt er (wie zwischengespeicherte Karten) offen
   const karteEl=document.querySelector('.btb-karte[data-btb-id="'+kid+'"]');
@@ -7004,12 +7319,15 @@ function btbNachweisBlattHtml(k, datum, tagesEintraege){
 
     // Messwerte
     let mw='';
-    mw+=nwZeile('Leitfähigkeit gemessen', nwZ(e.lf_messung_ist), 'µS/cm');
-    if(e.lf_geraet_ist!=null||e.lf_geraet_soll!=null){
+    // 2.47: Rohtext bevorzugen („< 2000" statt 2000)
+    const rwN=btbRohWerte(e);
+    const mwN=(key,zahl)=>rwN[key] || nwZ(zahl);
+    mw+=nwZeile('Leitfähigkeit gemessen', mwN('lf',e.lf_messung_ist), 'µS/cm');
+    if(e.lf_geraet_ist!=null||e.lf_geraet_soll!=null||rwN.lfi||rwN.lfs){
       mw+='<tr><td class="nw-lbl">Leitfähigkeit Gerät (IST / SOLL)</td><td class="z">'
-        + esc((nwZ(e.lf_geraet_ist)||'–')+' / '+(nwZ(e.lf_geraet_soll)||'–'))+' µS/cm</td></tr>';
+        + esc((mwN('lfi',e.lf_geraet_ist)||'–')+' / '+(mwN('lfs',e.lf_geraet_soll)||'–'))+' µS/cm</td></tr>';
     }
-    mw+=nwZeile('Gesamthärte', nwZ(e.dh), '°dH');
+    mw+=nwZeile('Gesamthärte', mwN('dh',e.dh), '°dH');
     if(e.kbe_auswertung) mw+=nwZeile('Keimzahl (Dip-Slide)', e.kbe_auswertung, 'KBE/ml');
     else if(e.dipslide_basis!=null) mw+=nwZeile('Dip-Slide', 'gezogen, Auswertung folgt', '');
     if(e.zusatzwasser!=null){
@@ -7282,10 +7600,11 @@ function btbEditEintrag(kid, anlageName, eid){
     '<div class="btb-feld"><div class="btb-feld-lbl">Produkt 3</div><input type="text" id="edit-pn3" data-pname="3" name="edit-pn3-'+eid+'" '+PNAME_ATTR+' value="'+esc(pnFeld(3))+'" placeholder="'+esc(pnPlatz(3))+'"></div>'+
     '</div>'+
     '<div class="btb-grid" style="margin-top:6px">'+
-    '<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="number" step="0.1" id="edit-dh" value="'+(e.dh!=null?e.dh:'')+'"></div>'+
-    '<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="number" id="edit-lf" value="'+(e.lf_messung_ist!=null?e.lf_messung_ist:'')+'"></div>'+
-    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="number" id="edit-lfi" value="'+(e.lf_geraet_ist!=null?e.lf_geraet_ist:'')+'"></div>'+
-    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="number" id="edit-lfs" value="'+(e.lf_geraet_soll!=null?e.lf_geraet_soll:'')+'"></div>'+
+    // 2.47: auch hier Text statt Zahl, vorbelegt mit dem Rohtext falls vorhanden
+    '<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="edit-dh" value="'+esc(btbMesswertText(e.dh, btbRohWerte(e).dh))+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="edit-lf" value="'+esc(btbMesswertText(e.lf_messung_ist, btbRohWerte(e).lf))+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="edit-lfi" value="'+esc(btbMesswertText(e.lf_geraet_ist, btbRohWerte(e).lfi))+'"></div>'+
+    '<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="edit-lfs" value="'+esc(btbMesswertText(e.lf_geraet_soll, btbRohWerte(e).lfs))+'"></div>'+
     '</div>'+
     '<div class="btb-dipslide-box" style="margin-top:7px">'+
     '<div class="btb-dipslide-title">🧫 DipSlide</div>'+
@@ -7362,10 +7681,12 @@ async function btbSaveEdit(eid, kid){
 
   // 2.40: Bezeichnungen im Eintrags-Snapshot mitschreiben (bestimmen Historie/Nachweis/Excel)
   let snapNeu=null;
-  if(G('edit-pn1')||G('edit-pn2')||G('edit-pn3')){
+  if(G('edit-pn1')||G('edit-pn2')||G('edit-pn3')||G('edit-lf')||G('edit-dh')){
     const n1=(G('edit-pn1')?.value||'').trim(), n2=(G('edit-pn2')?.value||'').trim(), n3=(G('edit-pn3')?.value||'').trim();
     const basis=(eAlt&&eAlt.dosier_snapshot&&typeof eAlt.dosier_snapshot==='object')?eAlt.dosier_snapshot:{};
     snapNeu=Object.assign({}, basis);
+    // 2.47: Rohtexte der Messwerte mitschreiben bzw. entfernen
+    if(Object.keys(rohEdit).length) snapNeu.roh=rohEdit; else delete snapNeu.roh;
     if(n1||n2||n3){
       // 2.44-FIX: Vorher wurden die drei Felder wörtlich übernommen. Füllte jemand nur EIN Feld
       // (z.B. Produkt 3 richtigstellen), standen Produkt 1 und 2 danach leer — in Historie,
@@ -7381,13 +7702,20 @@ async function btbSaveEdit(eid, kid){
     else delete snapNeu.namen;   // alle leer → wieder die aktuelle Kundenangabe verwenden
   }
 
+  // 2.47: Messwerte über den Parser — „< 2000" bleibt als Rohtext erhalten
+  const mLF=btbMesswertLesen(toStr('edit-lf')), mDH=btbMesswertLesen(toStr('edit-dh'));
+  const mLFI=btbMesswertLesen(toStr('edit-lfi')), mLFS=btbMesswertLesen(toStr('edit-lfs'));
+  const rohEdit={};
+  if(mLF.roh) rohEdit.lf=mLF.roh;  if(mDH.roh) rohEdit.dh=mDH.roh;
+  if(mLFI.roh) rohEdit.lfi=mLFI.roh;  if(mLFS.roh) rohEdit.lfs=mLFS.roh;
+
   const payload={
     datum_btb: neuesDatum,
     besuch_uhrzeit: toStr('edit-uhr'),
-    lf_messung_ist: toN('edit-lf'),
-    dh: toN('edit-dh'),
-    lf_geraet_ist: toN('edit-lfi'),
-    lf_geraet_soll: toN('edit-lfs'),
+    lf_messung_ist: mLF.zahl,
+    dh: mDH.zahl,
+    lf_geraet_ist: mLFI.zahl,
+    lf_geraet_soll: mLFS.zahl,
     dipslide_basis: dsChecked ? 10 : null,
     dipslide_exponent: dsChecked ? 0 : null,
     kbe_auswertung: kbeVal||null,
