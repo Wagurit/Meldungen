@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.49</title>
+<title>Meldungen &amp; Angebote 2.50</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -526,7 +526,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.49</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.50</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1045,7 +1045,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.49';
+const APP_VERSION = '2.50';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1771,7 +1771,12 @@ let _schutzSeit=0;
 // sonst müsste der Techniker bei jeder Anlage neu ankreuzen und sähe nicht, dass er es schon
 // gemacht hat. Beim Speichern entsteht EIN Chemie-Chip mit allen neu angehakten Produkten;
 // danach bleibt der Haken stehen und es entsteht kein zweiter Chip.
-// Aufbau: _chemBedarf[kundeId] = {p1:{an:true, notiz:'2 Fässer', erledigt:false}, …}
+// 2.50: Der Chip entsteht ERST bei FERTIG, nicht beim Zwischenspeichern. Sonst entstanden
+// mehrere Chips für denselben Kunden: Techniker merkt „P1 fehlt", kreuzt an, speichert
+// zwischen, merkt später „P2 auch", kreuzt an, speichert wieder → zwei Chips. Mit FERTIG
+// als Auslöser wird genau einmal gemeldet, mit allem, was bis dahin angekreuzt wurde.
+// Danach wird der Bedarf geleert, damit der nächste Besuch mit leeren Haken beginnt.
+// Aufbau: _chemBedarf[kundeId] = {p1:{an:true, notiz:'2 Fässer'}, …}
 // ══════════════════════════════════════════════════════════
 const CHEM_BEDARF_KEY='rkw_chem_bedarf';
 let _chemBedarf={};
@@ -1786,9 +1791,24 @@ function btbChemBedarf(kid){ return _chemBedarf[kid]||{}; }
 function btbSetzeChemBedarf(kid, pnr, an, notiz){
   if(!_chemBedarf[kid]) _chemBedarf[kid]={};
   const alt=_chemBedarf[kid]['p'+pnr]||{};
-  _chemBedarf[kid]['p'+pnr]={an:!!an, notiz:(notiz!=null?notiz:(alt.notiz||'')), erledigt:!!alt.erledigt};
-  if(!an) _chemBedarf[kid]['p'+pnr].erledigt=false;   // abgehakt → beim nächsten Setzen wieder melden
+  _chemBedarf[kid]['p'+pnr]={an:!!an, notiz:(notiz!=null?notiz:(alt.notiz||''))};
   btbSpeichereChemBedarf();
+}
+// 2.50: Nach dem Melden den Bedarf des Kunden leeren — der nächste Besuch beginnt mit
+// leeren Haken. (Die Dosiertage sind Stammdaten und bleiben bewusst stehen; der
+// Nachbestell-Haken gehört dagegen zum einzelnen Besuch.)
+function btbLeereChemBedarf(kid){
+  if(_chemBedarf[kid]){ delete _chemBedarf[kid]; btbSpeichereChemBedarf(); }
+}
+// Kurzfassung des offenen Bedarfs für die FERTIG-Rückfrage
+function btbChemBedarfText(k){
+  const b=_chemBedarf[k.id]; if(!b) return '';
+  const namen=btbGetProduktNamen(k, (k.rkws&&k.rkws[0]?k.rkws[0].name:''));
+  return [1,2,3].filter(n=>b['p'+n]&&b['p'+n].an).map(n=>{
+    const nm=(namen['p'+n]||'').trim()||(n===1?'BZ':n===2?'KT/LB':'BZ 2');
+    const no=(b['p'+n].notiz||'').trim();
+    return no?nm+' ('+no+')':nm;
+  }).join(', ');
 }
 // 2.49: Eine Meldung anlegen — EIN gemeinsamer Weg für alle Stellen, die das brauchen.
 // Vorher gab es das verstreut: saveMeld() machte es vollständig, die Angebots-Bestellung
@@ -1833,7 +1853,7 @@ async function btbMeldungAusBemerkung(k, anlageName, text, zuwArr){
 async function btbErzeugeChemieBedarf(k, still){
   const b=_chemBedarf[k.id];
   if(!b) return false;
-  const offen=[1,2,3].filter(n=>b['p'+n] && b['p'+n].an && !b['p'+n].erledigt);
+  const offen=[1,2,3].filter(n=>b['p'+n] && b['p'+n].an);
   if(!offen.length) return false;
   // Produktnamen: der zum Kunden gehörende Name je Produktnummer (erste Anlage mit eigenem Namen)
   const namen=btbGetProduktNamen(k, (k.rkws&&k.rkws[0]?k.rkws[0].name:''));
@@ -1857,8 +1877,8 @@ async function btbErzeugeChemieBedarf(k, still){
     addToQueue({type:'chemie',data:chemData,tmpId});
     CH.unshift(mapChem({...chemData,id:tmpId,erstellt_am:new Date().toISOString()}));
   }
-  offen.forEach(n=>{ _chemBedarf[k.id]['p'+n].erledigt=true; });
-  btbSpeichereChemBedarf();
+  // 2.50: Bedarf dieses Kunden geleert — nächster Besuch startet mit leeren Haken
+  btbLeereChemBedarf(k.id);
   renderC(); updB();
   if(!still) toast('🧪 Chemie-Bedarf für „'+k.firma+'" angelegt: '+produkte.join(', '), 5000);
   return true;
@@ -6115,7 +6135,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
           +'<input type="checkbox" class="btb-chem-cb" data-pnr="'+pn2+'"'+(bd.an?' checked':'')+' style="width:16px;height:16px;accent-color:var(--or);flex-shrink:0">'
           +'<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">🧪 Nachbestellen</span>'
           +'<input type="text" class="btb-chem-notiz" data-pnr="'+pn2+'" placeholder="Menge / Hinweis (optional)" '+PNAME_ATTR+' value="'+esc(bd.notiz||'')+'" style="flex:1;min-width:80px;font-size:16px!important;padding:5px 8px!important;display:'+(bd.an?'block':'none')+'">'
-          +(bd.erledigt?'<span class="btb-chem-ok" style="font-size:10px;color:var(--gn);font-weight:800;white-space:nowrap">✓ gemeldet</span>':'')
+          +(bd.an?'<span style="font-size:10px;color:var(--mu);font-weight:700;white-space:nowrap">bei FERTIG</span>':'')
           +'</label>';
       })()
       +dosierHtml+(istP3?'</div>':'')+'</div>';
@@ -6347,7 +6367,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       document.querySelectorAll('.btb-karte[data-btb-id="'+id+'"] .btb-chem-cb[data-pnr="'+pnr+'"]').forEach(x=>{
         if(x!==cb) x.checked=cb.checked;
       });
-      toast(cb.checked?'🧪 Wird beim Speichern als Chemie-Bedarf gemeldet':'🧪 Chemie-Bedarf entfernt');
+      toast(cb.checked?'🧪 Wird bei FERTIG als Chemie-Bedarf gemeldet':'🧪 Chemie-Bedarf entfernt');
     });
   });
   form.querySelectorAll('.btb-chem-notiz').forEach(inp=>{
@@ -6892,10 +6912,6 @@ async function btbSichereFormular(k, anlageName, form, scroll){
 async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   const slug=btbSlug(anlageName);
   const id=k.id;
-  // 2.46: angehakten Chemie-Bedarf beim Speichern melden (erzeugt höchstens EINEN Chip;
-  // schon gemeldete Produkte werden übersprungen). Ohne eigene Meldung, damit der Hinweis
-  // nicht mit „gespeichert" kollidiert — am Produkt steht danach „✓ gemeldet".
-  btbErzeugeChemieBedarf(k, true);
   // 2.26: geänderte Produktbezeichnungen mitspeichern (Werte sofort synchron lesen, bevor
   // ein späteres Neuladen das Formular ersetzt)
   const namenSpeichern=btbProduktnamenGeaendert(k, anlageName, formEl)?btbSpeichereProduktnamen(k, anlageName, formEl, true):null;
@@ -7038,8 +7054,12 @@ async function btbFertigZumBerechnen(kid){
     + (x.alt?'  ⚠️ NICHT heute':'')
     + (x.fremd?'  ⚠️ von einem Kollegen':'')
     + (x.doppelt?'  ⚠️ steht schon drin'+(x.doppelt.status==='berechnet'?' (berechnet!)':''):'');
+  // 2.50: Der angekreuzte Chemie-Bedarf wird mit übertragen — das gehört in die Rückfrage,
+  // damit der Techniker sieht, was gleich im Chemie-Reiter landet.
+  const chemText=btbChemBedarfText(k);
   if(!confirm('Es werden '+uebersicht.length+' Anlage(n) als „FERTIG" übertragen:\n\n'
     + uebersicht.map(zeile).join('\n')
+    + (chemText?'\n\n🧪 Chemie-Bedarf wird gemeldet: '+chemText:'')
     + '\n\nDer Innendienst kann danach die Rechnung eintragen.\n\nÜbertragen?')) return;
 
   // Schritt 2: bei Auffälligkeiten noch einmal ausdrücklich nachfragen
@@ -7177,7 +7197,8 @@ async function btbFertigZumBerechnen(kid){
     toast('✅ BTB übergeben – Innendienst kann jetzt berechnen');
   }
 
-  // 2.46: falls beim Zwischenspeichern noch nichts gemeldet wurde, spätestens jetzt
+  // 2.50: Der Chemie-Bedarf wird AUSSCHLIESSLICH hier gemeldet — ein Chip pro Besuch,
+  // mit allem, was während des Besuchs angekreuzt wurde. Danach sind die Haken wieder leer.
   await btbErzeugeChemieBedarf(k, false);
 
   // Chip schließen, bevor neu gerendert wird — sonst bleibt er (wie zwischengespeicherte Karten) offen
