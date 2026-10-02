@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.53</title>
+<title>Meldungen &amp; Angebote 2.57</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -533,7 +533,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.53</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.57</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -554,7 +554,7 @@ textarea{resize:vertical;min-height:68px;}
     <button class="tab" data-tab="b">🔬 KBE</button>
     <button class="tab" data-tab="btb">📋 BTB <span class="tab-badges"><span class="tbg wb" id="tbb-offen"></span></span></button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
-    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span><span class="tbg" id="tbf-auf"></span></span></button>
+    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-auf"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Auswerten</button>
     <button class="tab" data-tab="is">🏢 BTB Innen <span class="tab-badges"><span class="tbg wb" id="tbis-offen"></span></span></button>
     <button class="tab" data-tab="wz">💧 Wasserzähler</button>
@@ -797,14 +797,16 @@ textarea{resize:vertical;min-height:68px;}
           <div class="acl" id="acl-sff"></div>
         </div>
         <div class="fts">
-          <button class="ft active" onclick="setF('f','alle',this)">Alle</button>
-          <button class="ft" onclick="setF('f','offen',this)">Offen</button>
-          <button class="ft" onclick="setF('f','erledigt',this)">Erledigt</button>
-          <button class="ft" onclick="setF('f','rq-offen',this)">Offene Rückfragen <span class="ftbg rd" id="ft-rq-cnt"></span></button>
-          <button class="ft" onclick="setF('f','rq-antwort',this)">Antworten <span class="ftbg" id="ft-ant-cnt"></span></button>
-          <!-- 2.51: Auftragsdurchlauf -->
-          <button class="ft" onclick="setF('f','auftrag-ich',this)">📋 Für mich zu bearbeiten <span class="ftbg rd" id="ft-auf-ich-cnt"></span></button>
-          <button class="ft" onclick="setF('f','auftrag-offen',this)">📋 Aufträge laufend <span class="ftbg" id="ft-auf-cnt"></span></button>
+          <!-- 2.54: Die Filter folgen jetzt genau EINER Phase je Angebot — überschneidungsfrei.
+               Ein Auftrag, der zu berechnen ist, erscheint nicht mehr zusätzlich unter
+               „Teile bestellt", auch wenn er dort einmal war. -->
+          <button class="ft active" onclick="setF('f','alle',this)">Alle <span class="ftbg rd" id="ft-f-alle"></span></button>
+          <button class="ft" onclick="setF('f','offen',this)">Offen <span class="ftbg rd" id="ft-f-offen"></span></button>
+          <button class="ft" onclick="setF('f','angeboten',this)">Angeboten <span class="ftbg rd" id="ft-f-angeboten"></span></button>
+          <button class="ft" onclick="setF('f','laufend',this)">Aufträge laufend <span class="ftbg rd" id="ft-f-laufend"></span></button>
+          <button class="ft" onclick="setF('f','teile',this)">Teile bestellt <span class="ftbg rd" id="ft-f-teile"></span></button>
+          <button class="ft" onclick="setF('f','berechnen',this)">Zu berechnen <span class="ftbg rd" id="ft-f-berechnen"></span></button>
+          <button class="ft" onclick="setF('f','erledigt',this)">Erledigt <span class="ftbg rd" id="ft-f-erledigt"></span></button>
         </div>
       </div>
       <div id="ef"><div class="empty" id="ef0">Keine freien Angebote</div></div>
@@ -1060,7 +1062,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.53';
+const APP_VERSION = '2.57';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1933,7 +1935,9 @@ async function auftragStarten(id, montage, aufLager, zuwMontage, kommentar, abNr
   }
   if(idx>-1) FR[idx].auftrag=a;
   renderF(); updB();
-  await auftragMeldung(e, a, kommentar);
+  // 2.55: Geht es direkt in die Montage, wird die Meldungs-id im Auftrag vermerkt.
+  const mid=await auftragMeldung(e, a, kommentar);
+  if(mid){ a.meld_id=mid; await auftragSpeichern(id, a); }
   toast('✅ Kunde hat bestellt — '+ST_LABEL[a.station]+' an '+a.zuw.join(', '), 5000);
 }
 
@@ -1959,7 +1963,12 @@ async function auftragWeiter(id, kommentar, rechnungNr, zuwNaechste){
   if(naechste==='fertig'){
     toast('✅ Auftrag abgeschlossen'+(a.rechnung_nr?' · RE '+a.rechnung_nr:''), 5000);
   } else {
-    await auftragMeldung(e, a, kommentar);
+    // 2.55: Die Meldung entsteht erst nach dem Speichern (scheitert das Speichern,
+    // soll auch keine Meldung herumliegen). Kommt eine id zurück, wird sie nachgetragen —
+    // auftragSpeichern räumt eine überholte Warteschlangen-Zeile selbst weg, offline
+    // bleibt es also bei einem Eintrag.
+    const mid=await auftragMeldung(e, a, kommentar);
+    if(mid){ a.meld_id=mid; await auftragSpeichern(id, a); }
     toast('✓ Weitergegeben: '+ST_LABEL[naechste]+' an '+a.zuw.join(', '), 5000);
   }
 }
@@ -1977,6 +1986,29 @@ async function auftragWegAendern(id, montage, aufLager){
   }
   if(!await auftragSpeichern(id, a)) return;
   toast('🔀 Weg geändert — jetzt '+ST_LABEL[a.station]+(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5000);
+}
+
+// 2.54: Genau EINE Phase je Angebot. Daraus werden die Filter-Chips UND ihre Zähler
+// gebildet — damit ist ausgeschlossen, dass ein Angebot unter zwei Filtern auftaucht.
+// Ein Auftrag bei der Rechnung ist „zu berechnen", auch wenn vorher Teile bestellt wurden.
+//   offen      = Anfrage da, noch kein Angebot erstellt
+//   angeboten  = Angebot erstellt, Kunde hat noch nicht bestellt
+//   teile      = Teile bestellt, Lieferung abwarten (Station Beschaffung)
+//   laufend    = wird ausgeführt (Montage oder Versand)
+//   berechnen  = Ausführung fertig, Rechnung fehlt
+//   erledigt   = abgeschlossen
+const ANG_PHASEN=['offen','angeboten','laufend','teile','berechnen','erledigt'];
+function angPhase(e){
+  const a=e.auftrag;
+  if(a){
+    if(a.station==='fertig')      return 'erledigt';
+    if(a.station==='beschaffung') return 'teile';
+    if(a.station==='rechnung')    return 'berechnen';
+    return 'laufend';                  // montage oder versand
+  }
+  if(e.beauftragt) return 'laufend';   // bestellt, aber ohne Durchlauf (vor der Umstellung)
+  if(e.erledigt)   return 'angeboten';
+  return 'offen';
 }
 
 // 2.52: Der Bearbeitungszustand als prominenter, farbiger Chip im Kopf des Angebots.
@@ -2110,9 +2142,13 @@ function baueAuftragsBox(e){
   // Aktionsbereich: Kommentar, ggf. Rechnungsnummer, Technikerauswahl für die nächste Station
   const akt=document.createElement('div');
   akt.style.cssText='padding:8px 10px;border-top:1px solid #e0e7ff;display:flex;flex-direction:column;gap:6px';
+  // 2.55: In der Montage ist hier niemand am Zug — die Station schließt der Techniker
+  // über seine Meldung ab. Darum steht statt „Zu tun" der Wartezustand.
+  const inMontage=a.station==='montage';
   const was=document.createElement('div');
   was.style.cssText='font-size:11px;color:var(--mu)';
-  was.textContent='Zu tun: '+ST_WAS[a.station];
+  was.textContent=inMontage ? 'Beim Techniker: '+ST_WAS[a.station]
+                            : 'Zu tun: '+ST_WAS[a.station];
   akt.appendChild(was);
 
   // 2.53: AB-Nummer nachtragen, falls beim Start vergessen
@@ -2139,10 +2175,15 @@ function baueAuftragsBox(e){
     reInp.placeholder='Rechnungsnummer';reInp.setAttribute('autocomplete','off');
     akt.appendChild(reInp);
   }
-  const ta=document.createElement('textarea');ta.className='gta';
-  ta.placeholder=a.station==='beschaffung'?'z.B. Pumpe bestellt, Lieferung KW 40':'Kommentar (optional)…';
-  ta.style.cssText='font-size:16px;min-height:42px';ta.setAttribute('autocorrect','off');
-  akt.appendChild(ta);
+  // 2.55: In der Montage gibt der Innendienst hier nichts ein — der Kommentar entsteht
+  // beim Techniker, wenn er seine Meldung als bearbeitet markiert.
+  let ta=null;
+  if(!inMontage){
+    ta=document.createElement('textarea');ta.className='gta';
+    ta.placeholder=a.station==='beschaffung'?'z.B. Pumpe bestellt, Lieferung KW 40':'Kommentar (optional)…';
+    ta.style.cssText='font-size:16px;min-height:42px';ta.setAttribute('autocorrect','off');
+    akt.appendChild(ta);
+  }
 
   // Geht es als Nächstes zur Montage, sind die Techniker auswählbar
   const naechste=auftragNaechsteStation(a);
@@ -2161,12 +2202,24 @@ function baueAuftragsBox(e){
     akt.append(lbl,pills);
   }
 
-  const btn=document.createElement('button');
-  btn.className='bbeau aktiv';btn.style.cssText='background:#4338ca';
-  btn.textContent=a.station==='rechnung'?'✓ Rechnung eingetragen — Auftrag abschließen'
-    :(a.station==='versand'?'✓ Versendet — weiter zur Rechnung':'✓ Bearbeitet — weitergeben');
-  btn.onclick=async()=>{ btn.disabled=true; await auftragWeiter(e.id, ta.value, reInp?reInp.value:null, [...gewTech]); };
-  akt.appendChild(btn);
+  if(inMontage){
+    // Kein drückbarer Knopf: ein fester Hinweis, wer dran ist. Der Auftrag läuft erst
+    // weiter, wenn der Techniker seine Meldung auf „Bearbeitet" setzt.
+    const wart=document.createElement('div');
+    wart.id='auf-wartet-'+e.id;
+    wart.style.cssText='background:#eef2ff;border:1.5px dashed #818cf8;border-radius:8px;'
+      +'padding:9px 11px;color:#3730a3;font-size:13px;font-weight:700;line-height:1.45;cursor:default';
+    wart.textContent='🔧 In Montage bei '+((a.zuw||[]).join(', ')||'allen Technikern')
+      +' — läuft weiter, sobald dort »Bearbeitet« gedrückt wird';
+    akt.appendChild(wart);
+  } else {
+    const btn=document.createElement('button');
+    btn.className='bbeau aktiv';btn.style.cssText='background:#4338ca';
+    btn.textContent=a.station==='rechnung'?'✓ Rechnung eingetragen — Auftrag abschließen'
+      :(a.station==='versand'?'✓ Versendet — weiter zur Rechnung':'✓ Bearbeitet — weitergeben');
+    btn.onclick=async()=>{ btn.disabled=true; await auftragWeiter(e.id, ta?ta.value:'', reInp?reInp.value:null, [...gewTech]); };
+    akt.appendChild(btn);
+  }
 
   // Weg nachträglich korrigieren
   const korr=document.createElement('div');
@@ -2181,6 +2234,21 @@ function baueAuftragsBox(e){
     b.onclick=()=>{ if(confirm('Weg ändern auf:\n\n'+auftragKette({montage:mont,auf_lager:lag}).map(st=>ST_LABEL[st]).join(' → ')+'\n\nOK?')) auftragWegAendern(e.id, mont, lag); };
     korr.appendChild(b);
   };
+  // 2.55: Notausgang. Wird die Montage-Meldung gelöscht oder drückt der Techniker aus
+  // irgendeinem Grund nie auf „Bearbeitet", stünde der Auftrag sonst für immer still.
+  // Bewusst klein und als Notfall beschriftet — der normale Weg ist der Techniker.
+  if(inMontage){
+    const notB=document.createElement('button');notB.type='button';notB.className='kz-pill';
+    notB.style.cssText='font-size:10.5px;padding:4px 8px;color:#b45309;border-color:#fcd34d';
+    notB.textContent='⚠️ Montage von Hand abschließen';
+    notB.onclick=async()=>{
+      if(!confirm('Montage ohne den Techniker abschließen?\n\nNormalerweise macht das der Techniker '
+        +'über seine Meldung. Nutze das nur, wenn die Meldung verloren ist.\n\nWirklich abschließen?')) return;
+      notB.disabled=true;
+      await auftragWeiter(e.id, 'Von Hand abgeschlossen ('+kz+')', null, []);
+    };
+    korr.appendChild(notB);
+  }
   kBtn('🔧 Montage, auf Lager', true, true);
   kBtn('📦🔧 Montage, beschaffen', true, false);
   kBtn('📮 Versand, auf Lager', false, true);
@@ -2214,7 +2282,63 @@ async function auftragMeldung(e, a, kommentar){
     +(a.ab_nr?' | AB '+a.ab_nr:'')
     +((kommentar||'').trim()?' | '+kommentar.trim():'')
     +' | '+ST_WAS[a.station];
-  await meldungAnlegen(e.firma, txt, a.zuw, null);
+  // 2.55: Die id der erzeugten Meldung wandert in den Auftrag (a.meld_id). Nur so kann
+  // das „Bearbeitet" des Technikers später diesem Angebot zugeordnet werden.
+  const mid=await meldungAnlegen(e.firma, txt, a.zuw, null);
+  return (typeof mid==='string')?mid:null;
+}
+
+// ══════════════════════════════════════════════════════════
+// 2.55: MONTAGE — RÜCKWEG VOM TECHNIKER ZUM ANGEBOT
+// ══════════════════════════════════════════════════════════
+// Vorher war die Montage eine Sackgasse: im Angebote-Reiter stand weiter der Knopf
+// „✓ Bearbeitet — weitergeben", den eigentlich der Techniker drücken müsste, und drückte
+// der Techniker in seiner Meldung auf „Bearbeitet", passierte am Auftrag nichts — kein
+// Eintrag im Verlauf, keine Weitergabe an die Rechnung.
+// Jetzt gilt: Montage schließt AUSSCHLIESSLICH der Techniker über seine Meldung ab.
+
+// Erkennt eine Montage-Übergabe-Meldung am festen Textanfang, den auftragMeldung() setzt.
+// Ohne diese Prüfung könnte eine beliebige andere Meldung derselben Firma den Auftrag
+// weiterschieben.
+function istMontageMeldung(meld){
+  return !!meld && typeof meld.text==='string'
+      && meld.text.indexOf('📋 '+ST_LABEL.montage+':')===0;
+}
+
+// Findet das Angebot, zu dem eine Montage-Meldung gehört.
+function auftragZuMontageMeldung(meld){
+  if(!istMontageMeldung(meld)) return null;
+  const inMontage=(FR||[]).filter(e=>e.auftrag && e.auftrag.station==='montage');
+  if(!inMontage.length) return null;
+  const perId=inMontage.filter(e=>e.auftrag.meld_id && e.auftrag.meld_id===meld.id);
+  if(perId.length===1) return perId[0];
+  // Rückfallweg über die Firma: eine offline angelegte Meldung trägt lokal eine
+  // vorläufige id ("offline_…") und bekommt beim Hochladen eine andere — die im Auftrag
+  // gespeicherte meld_id passt dann nicht mehr. Nur bei genau einem Treffer, damit zwei
+  // gleichzeitige Montage-Aufträge derselben Firma nichts Falsches auslösen.
+  const perFirma=inMontage.filter(e=>e.firma===meld.firma);
+  if(perFirma.length===1) return perFirma[0];
+  return null;
+}
+
+// Schließt die Montage ab und schiebt den Auftrag zur nächsten Station (Rechnung).
+// Gibt zurück, ob ein Auftrag weitergeschoben wurde.
+async function auftragMontageFertig(meld, kommentar){
+  const e=auftragZuMontageMeldung(meld);
+  if(!e) return false;
+  const a=JSON.parse(JSON.stringify(e.auftrag));
+  a.log=a.log||[];
+  a.log.push({st:'montage', kz, ts:new Date().toISOString(),
+              kommentar:(kommentar||'').trim()||null, zuw:a.zuw||[]});
+  const naechste=auftragNaechsteStation(a);
+  a.station=naechste;
+  a.meld_id=null;                       // die Montage-Meldung ist abgearbeitet
+  if(naechste==='fertig'){ a.zuw=[]; a.fertig_am=new Date().toISOString(); }
+  else a.zuw=auftragStandardZuweisung(naechste)||alleInnendienst();
+  if(!await auftragSpeichern(e.id, a)) return false;
+  toast('✅ Montage erledigt · '+e.firma+' → '+ST_LABEL[a.station]
+        +(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5500, true);
+  return true;
 }
 
 // 2.49: Eine Meldung anlegen — EIN gemeinsamer Weg für alle Stellen, die das brauchen.
@@ -2232,13 +2356,17 @@ async function meldungAnlegen(firma, text, zuwArr, erfolgsText){
     zugewiesen_an:zuwArr, gelesen_von, verlauf:[],
     bearbeitungs_status: zuwArr.length>0 && zuwArr.every(x=>x===kz) ? 'in_bearbeitung' : null
   };
+  // 2.55: Gibt die id der Meldung zurück (vorher nur true/false). Der Auftragsdurchlauf
+  // merkt sich diese id, um das „Bearbeitet" des Technikers wieder dem richtigen Angebot
+  // zuordnen zu können. Für alle anderen Aufrufer bleibt es wie bisher: eine id ist
+  // wahr, null ist falsch — keine Stelle verglich den Rückgabewert mit true.
   const lokalEinreihen=(hinweis)=>{
     const tmpId='offline_'+btbUuid();
     addToQueue({type:'meldung',data:meldData,tmpId});
     MD.unshift(mapMeld({...meldData,id:tmpId,erstellt_am:new Date().toISOString()}));
     renderM();updB();
     toast(hinweis, 4000);
-    return true;
+    return tmpId;
   };
   if(!isOnline()) return lokalEinreihen('📥 Meldung offline gespeichert — wird hochgeladen sobald online');
   const {data:neu,error}=await _sb.from('meldungen').insert(meldData).select().single();
@@ -2248,7 +2376,7 @@ async function meldungAnlegen(firma, text, zuwArr, erfolgsText){
   if(neu) MD.unshift(mapMeld(neu));
   renderM();updB();
   toast(erfolgsText || ('📣 Meldung angelegt'+(zuwArr.length?' · zugewiesen an '+zuwArr.join(', '):'')), 4000);
-  return true;
+  return (neu&&neu.id)||true;
 }
 // 2.46: Meldung aus der BTB-Bemerkung erzeugen
 async function btbMeldungAusBemerkung(k, anlageName, text, zuwArr){
@@ -2696,9 +2824,9 @@ function istExplizitFuerMich(e){
   return false;
 }
 function freiHatOffeneRQ(e){return(e.rueckfragen||[]).some(r=>r.offen);}
-function freiHatAntwort(e){return(e.rueckfragen||[]).some(r=>!r.offen&&!r.bestaetigt&&r.antworten&&r.antworten.length>0);}
+// Offene Rückfragen zählen weiter in das Abzeichen „für mich“ am Reiter Meldungen —
+// das ist ein eigener, funktionierender Weg und bleibt unberührt.
 function rqIstFuerMich(e){return freiHatOffeneRQ(e)&&(e.kuerzel===kz||kz===IS_KZ);}
-function rqAntwortFuerMich(e){return freiHatAntwort(e)&&(e.kuerzel===kz||kz===IS_KZ);}
 
 // ══════════════════════════════════════════════════════════
 // AUTOCOMPLETE
@@ -3259,9 +3387,27 @@ async function undoErledigtF(id, btn){
     return;
   }
   const e=FR.find(x=>x.id===id);if(!e)return;
+  // 2.55: Auch der Auftragsdurchlauf muss weg. Vorher blieb e.auftrag stehen, während
+  // erledigt und beauftragt zurückgesetzt wurden — der Auftrag zählte dann weiter in den
+  // Filtern und im Reiter-Abzeichen mit, war im Chip aber überhaupt nicht mehr zu sehen
+  // (die Auftragsbox hängt an erledigt). Also ein laufender Auftrag ohne jede Bedienung.
+  if(e.auftrag){
+    const a=e.auftrag;
+    const stand=a.station==='fertig'
+      ? 'Der Auftrag ist abgeschlossen'+(a.rechnung_nr?' (RE '+a.rechnung_nr+')':'')+'.'
+      : 'Der Auftrag läuft gerade: '+(ST_LABEL[a.station]||a.station)
+        +((a.zuw||[]).length?' bei '+a.zuw.join(', '):'')+'.';
+    if(!confirm('⚠️ '+stand+'\n\nMit „Erledigt rückgängig" wird der ganze Auftragsdurchlauf '
+      +'gelöscht — auch die '+((a.log||[]).length)+' Schritte im Verlauf'
+      +(a.ab_nr?' und die AB-Nummer '+a.ab_nr:'')+'.\n\nWirklich zurücksetzen?')){
+      btn.textContent='↩ Erledigt rückgängig machen'; btn.dataset.confirm='';
+      return;
+    }
+  }
   const updateObj={
     erledigt:false, angebotsnr:null, erledigt_von:null, erledigt_ts:null,
-    beauftragt:false, beauftragt_kommentar:null, beauftragt_von:null, beauftragt_ts:null
+    beauftragt:false, beauftragt_kommentar:null, beauftragt_von:null, beauftragt_ts:null,
+    auftrag:null
   };
   const {error}=await _sb.from('freie_angebote').update(updateObj).eq('id',id);
   if(error){toast('⚠️ Fehler: '+error.message);return;}
@@ -3319,6 +3465,19 @@ async function saveRqAntwort(freiId,rqId){
   if(!(await btbSpeichereRueckfragen(freiId, newRQ))) return;
   if(ta)ta.value='';
   toast(text?'✓ Antwort gespeichert':'✓ Erledigt');
+}
+
+// 2.56: Eine beantwortete Rückfrage als gelesen abhaken.
+// Vorher gab es dafür keinen Weg: der Rückfragen-Zähler erfasste jede Rückfrage mit
+// !offen && !bestaetigt && antworten.length>0, aber bestaetigt wurde nur gesetzt, wenn
+// jemand auf DASSELBE Angebot eine NEUE Rückfrage stellte. Das Bestätigungsfeld hing an
+// rq.offen und war nach der Antwort gar nicht mehr da. Eine beantwortete Rückfrage zählte
+// also für immer weiter — genau der rote Zähler, der sich nicht mehr wegbekommen ließ.
+async function rqAntwortBestaetigen(freiId, rqId){
+  const e=FR.find(x=>x.id===freiId); if(!e) return;
+  const newRQ=(e.rueckfragen||[]).map(r=>r.id===rqId?{...r, bestaetigt:true}:r);
+  if(!(await btbSpeichereRueckfragen(freiId, newRQ))) return;
+  toast('✓ Antwort als gelesen abgehakt');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3585,11 +3744,24 @@ async function setBearbeitet(id, taEl){
   const newGV={...e.gelesen_von};
   newGV[kz]={ts:now, kommentar:kommentar||null};
   if(newGV[e.kuerzel]) delete newGV[e.kuerzel];
-  await _sb.from('meldungen').update({bearbeitungs_status:'bearbeitet',verlauf:newVerlauf,gelesen_von:newGV}).eq('id',id);
+  // 2.55: Der Fehler wird jetzt ausgewertet. Vorher meldete die App „✅ Als bearbeitet
+  // markiert", auch wenn gar nichts gespeichert wurde — ohne Netz also eine Erfolgsmeldung
+  // für einen Vorgang, der niemand erreichte. Und der Auftrag darf nur weiterlaufen, wenn
+  // die Meldung wirklich auf „bearbeitet" steht.
+  const {error}=await _sb.from('meldungen').update({bearbeitungs_status:'bearbeitet',verlauf:newVerlauf,gelesen_von:newGV}).eq('id',id);
+  if(error){
+    toast('⚠️ Konnte nicht gespeichert werden ('+(error.message||'kein Netz')
+          +') — bitte mit Netz noch einmal auf Bearbeitet drücken', 7000, true);
+    return;
+  }
   const idx=MD.findIndex(x=>x.id===id);
   if(idx>-1){MD[idx].bearbeitungs_status='bearbeitet';MD[idx].verlauf=newVerlauf;MD[idx].gelesen_von=newGV;}
-  toast('✅ Als bearbeitet markiert – Ersteller wird informiert');
   renderM();updB();
+  // 2.55: Ist das eine Montage-Übergabe, läuft der Auftrag im Angebote-Reiter weiter.
+  // auftragMontageFertig() meldet das selbst; nur wenn es keine Montage-Meldung war,
+  // bleibt es bei der gewohnten Rückmeldung.
+  const weiter=await auftragMontageFertig(e, kommentar);
+  if(!weiter) toast('✅ Als bearbeitet markiert – Ersteller wird informiert');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3959,13 +4131,8 @@ function renderF(){
   const c=G('ef');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
   const q=V('sff').toLowerCase();
   let d=FR.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
-  if(fil.f==='offen')      d=d.filter(e=>!e.erledigt);
-  if(fil.f==='erledigt')   d=d.filter(e=>e.erledigt);
-  if(fil.f==='rq-offen')   d=d.filter(e=>rqIstFuerMich(e));
-  if(fil.f==='rq-antwort') d=d.filter(e=>rqAntwortFuerMich(e));
-  // 2.51: Aufträge im Durchlauf
-  if(fil.f==='auftrag-ich')   d=d.filter(auftragFuerMich);
-  if(fil.f==='auftrag-offen') d=d.filter(e=>e.auftrag && e.auftrag.station!=='fertig');
+  // 2.54: ein Filter = eine Phase
+  if(fil.f!=='alle') d=d.filter(e=>angPhase(e)===fil.f);
   G('ef0').style.display=d.length?'none':'';
   d.forEach(e=>{
     const hatRQ=freiHatOffeneRQ(e);
@@ -3983,7 +4150,11 @@ function renderF(){
         const antHtml=(rq.antworten||[]).map(a=>'<div class="rq-answer"><strong>'+esc(a.kuerzel)+':</strong> '+esc(a.text)+'</div>').join('');
         const kannAntw=rq.offen&&(e.kuerzel===kz||kz===IS_KZ)&&rq.kuerzel!==kz;
         const antwBox=kannAntw?'<div class="rq-input-box"><div class="rq-input-title">Antwort'+(kz===IS_KZ?' / Bestätigung':'')+'</div><textarea class="gta" id="rqa-ta-'+rq.id+'" placeholder="'+(kz===IS_KZ?'Kommentar (optional)…':'Deine Antwort…')+'"></textarea><button class="brq-send" onclick="saveRqAntwort(\''+e.id+'\',\''+rq.id+'\')">Senden</button></div>':'';
-        rqHtml+='<div class="rq-item"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="rq-kz">'+esc(rq.kuerzel)+'</span>'+(rq.offen?'<span style="font-size:10px;color:var(--rd);font-weight:700">Offen</span>':'<span style="font-size:10px;color:var(--gn);font-weight:700">✓ Beantwortet</span>')+'<span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div><div class="rq-text">'+esc(rq.kommentar)+'</div>'+antHtml+antwBox+'</div>';
+        // 2.56: Beantwortet und noch nicht abgehakt → Knopf zum Abhaken für den, den es
+        // angeht (Ersteller des Angebots oder IS). Erst damit lässt sich der Zähler leeren.
+        const offeneAntw=!rq.offen&&!rq.bestaetigt&&(rq.antworten||[]).length>0&&(e.kuerzel===kz||kz===IS_KZ);
+        const abhakBox=offeneAntw?'<button class="brq-send" style="background:var(--gn);margin-top:5px" onclick="rqAntwortBestaetigen(\''+e.id+'\',\''+rq.id+'\')">✓ Antwort gelesen</button>':'';
+        rqHtml+='<div class="rq-item"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="rq-kz">'+esc(rq.kuerzel)+'</span>'+(rq.offen?'<span style="font-size:10px;color:var(--rd);font-weight:700">Offen</span>':(offeneAntw?'<span style="font-size:10px;color:var(--or);font-weight:700">Antwort ungelesen</span>':'<span style="font-size:10px;color:var(--gn);font-weight:700">✓ Beantwortet</span>'))+'<span style="font-size:10px;color:#94a3b8">'+fd(rq.ts)+'</span></div><div class="rq-text">'+esc(rq.kommentar)+'</div>'+antHtml+antwBox+abhakBox+'</div>';
       });
       rqHtml+='</div>';
     }
@@ -4648,23 +4819,37 @@ function updB(){
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
   const of2=FR.filter(e=>!e.erledigt).length;
-  const rqOf=FR.filter(e=>rqIstFuerMich(e)).length;
-  const rqAnt=FR.filter(e=>rqAntwortFuerMich(e)).length;
-  const bOf=G('tbf-of'),bRq=G('tbf-rq');
-  if(of2>0){bOf.textContent=of2;bOf.className='tbg v of';}else bOf.className='tbg';
-  if(rqOf>0){bRq.textContent=rqOf;bRq.className='tbg v rq';}else bRq.className='tbg';
-  const ftRq=G('ft-rq-cnt');if(ftRq)ftRq.textContent=rqOf||'';
-  const ftAnt=G('ft-ant-cnt');if(ftAnt)ftAnt.textContent=rqAnt||'';
-  // 2.51: Aufträge — „für mich zu bearbeiten" ist die wichtige Zahl, sie geht auch in den
-  // Reiter-Zähler ein, damit man es nicht übersieht
+  const bOf=G('tbf-of');
+  // 2.56: Der orange Zähler sagt selbst, wofür er steht. Es ist dieselbe Zahl wie der
+  // Chip „Offen", aber von jedem Reiter aus sichtbar — darum bleibt er.
+  if(of2>0){
+    bOf.textContent=of2; bOf.className='tbg v of';
+    bOf.title=of2+' Posten noch ohne Angebot (= Chip „Offen")';
+  } else { bOf.className='tbg'; bOf.title=''; }
+  // 2.57: Der rote Rückfragen-Zähler ist weg. Seit die Filter „Offene Rückfragen" und
+  // „Antworten" entfernt wurden, führte die Zahl nirgendwo hin. Offene Rückfragen bleiben
+  // am rot umrandeten Chip erkennbar (CSS-Klasse „rueckfrage"), beantwortete tragen bis
+  // zum Abhaken den Hinweis „Antwort ungelesen".
+  // 2.54: Zähler je Phase. Aus derselben Funktion wie der Filter, deshalb stimmen
+  // Zahl und gefilterte Liste immer überein.
+  const phZahl={};
+  ANG_PHASEN.forEach(ph=>phZahl[ph]=0);
+  FR.forEach(e=>{ const ph=angPhase(e); if(phZahl[ph]!=null) phZahl[ph]++; });
+  const setZ=(id,n)=>{ const el=G(id); if(el) el.textContent=n||''; };
+  setZ('ft-f-alle', FR.length);
+  ANG_PHASEN.forEach(ph=>setZ('ft-f-'+ph, phZahl[ph]));
+  // Aufträge, die bei mir liegen — am Reiter sichtbar, weil der Innendienst für seine
+  // Stationen bewusst keine Meldung bekommt
   const aufIch=FR.filter(auftragFuerMich).length;
-  const aufOffen=FR.filter(e=>e.auftrag&&e.auftrag.station!=='fertig').length;
-  const ftAufIch=G('ft-auf-ich-cnt');if(ftAufIch)ftAufIch.textContent=aufIch||'';
-  const ftAuf=G('ft-auf-cnt');if(ftAuf)ftAuf.textContent=aufOffen||'';
   // 2.52: Der Innendienst bekommt für seine Stationen bewusst KEINE Meldung mehr. Damit er
   // seine Aufgaben trotzdem von jedem Reiter aus sieht, steht die Zahl am Reiter „Angebot".
   const tbfAuf=G('tbf-auf');
-  if(tbfAuf){ if(aufIch>0){tbfAuf.textContent=aufIch;tbfAuf.className='tbg v zb';}else tbfAuf.className='tbg'; }
+  if(tbfAuf){
+    if(aufIch>0){
+      tbfAuf.textContent=aufIch; tbfAuf.className='tbg v zb';
+      tbfAuf.title=aufIch+' Auftrag/Aufträge warten auf dich (Beschaffung, Versand, Rechnung oder Montage)';
+    } else { tbfAuf.className='tbg'; tbfAuf.title=''; }
+  }
   const zbCount=MD.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&e.kuerzel!==kz&&ichHabGelesen(e)&&e.bearbeitungs_status==='in_bearbeitung').length;
   const ftZb=document.getElementById('ft-zb-cnt');if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
   const tbmZb=document.getElementById('tbm-zb');if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
