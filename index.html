@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.50</title>
+<title>Meldungen &amp; Angebote 2.53</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -157,6 +157,13 @@ textarea{resize:vertical;min-height:68px;}
 .v2-chip.ung .v2-stripe{background:var(--or);}
 .v2-chip.fm .v2-stripe{background:var(--vi);}
 .v2-chip.erl .v2-stripe{background:var(--gn);}
+/* 2.52: wie .erl, aber OHNE den Schleier über dem ganzen Chip */
+.v2-chip.ang-fertig .v2-stripe{background:var(--gn);}
+/* 2.52: prominenter Zustands-Chip im Kopf des Angebots */
+.ang-status{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.04em;
+  padding:4px 11px;border-radius:7px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;
+  box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.ang-status small{font-weight:700;font-size:10.5px;opacity:.85;letter-spacing:.02em;}
 .v2-chip.rueckfrage .v2-stripe{background:var(--rd);}
 .v2-header-inner{flex:1;padding:10px 12px 10px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border-bottom:1px solid var(--bo);}
 .v2-firma{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:var(--tx);line-height:1.1;letter-spacing:.01em;}
@@ -526,7 +533,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.50</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.53</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -547,7 +554,7 @@ textarea{resize:vertical;min-height:68px;}
     <button class="tab" data-tab="b">🔬 KBE</button>
     <button class="tab" data-tab="btb">📋 BTB <span class="tab-badges"><span class="tbg wb" id="tbb-offen"></span></span></button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
-    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span></span></button>
+    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-rq"></span><span class="tbg" id="tbf-auf"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Auswerten</button>
     <button class="tab" data-tab="is">🏢 BTB Innen <span class="tab-badges"><span class="tbg wb" id="tbis-offen"></span></span></button>
     <button class="tab" data-tab="wz">💧 Wasserzähler</button>
@@ -795,6 +802,9 @@ textarea{resize:vertical;min-height:68px;}
           <button class="ft" onclick="setF('f','erledigt',this)">Erledigt</button>
           <button class="ft" onclick="setF('f','rq-offen',this)">Offene Rückfragen <span class="ftbg rd" id="ft-rq-cnt"></span></button>
           <button class="ft" onclick="setF('f','rq-antwort',this)">Antworten <span class="ftbg" id="ft-ant-cnt"></span></button>
+          <!-- 2.51: Auftragsdurchlauf -->
+          <button class="ft" onclick="setF('f','auftrag-ich',this)">📋 Für mich zu bearbeiten <span class="ftbg rd" id="ft-auf-ich-cnt"></span></button>
+          <button class="ft" onclick="setF('f','auftrag-offen',this)">📋 Aufträge laufend <span class="ftbg" id="ft-auf-cnt"></span></button>
         </div>
       </div>
       <div id="ef"><div class="empty" id="ef0">Keine freien Angebote</div></div>
@@ -898,6 +908,11 @@ textarea{resize:vertical;min-height:68px;}
           <select id="new-rolle" style="width:110px;flex-shrink:0">
             <option value="tech">Techniker</option>
             <option value="admin">Admin</option>
+          </select>
+          <select id="new-bereich" style="width:132px;flex-shrink:0" title="Bereich für den Auftragsdurchlauf">
+            <option value="tech">🔧 Techniker</option>
+            <option value="innen">🏢 Innendienst</option>
+            <option value="beides" selected>🔧🏢 Beides</option>
           </select>
         </div>
         <button class="bsend" onclick="createNutzer()" style="margin-top:4px">Nutzer anlegen</button>
@@ -1045,7 +1060,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.50';
+const APP_VERSION = '2.53';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1387,7 +1402,7 @@ async function afterLogin(user, nurCache){
   userId = user.id;
   let profil=null, profilFrisch=false, netzFehler=false;
   if(isOnline() && !nurCache){
-    const {data,error} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv').eq('id',user.id).single();
+    const {data,error} = await _sb.from('nutzer').select('kuerzel,rolle,aktiv,bereich').eq('id',user.id).single();
     // 2.25: Netzfehler (Gerät meldet online, Anfrage scheitert) von "Nutzer existiert nicht"
     // (PGRST116 = keine Zeile) unterscheiden — sonst würde ein wackliges Netz zum Abmelden führen
     if(error && error.code!=='PGRST116') netzFehler=true;
@@ -1429,7 +1444,7 @@ async function afterLogin(user, nurCache){
   // 2.25: Nutzerliste (Zuweisen-Knöpfe) für offline zwischenspeichern
   let alleN=null;
   if(isOnline() && !nurCache){
-    const r=await _sb.from('nutzer').select('kuerzel').eq('aktiv',true).order('kuerzel');
+    const r=await _sb.from('nutzer').select('kuerzel,bereich').eq('aktiv',true).order('kuerzel');
     alleN=r.data;
     if(alleN&&alleN.length) try{localStorage.setItem('rkw_alle_nutzer', JSON.stringify(alleN));}catch(e){}
   }
@@ -1695,7 +1710,7 @@ async function loadAll(){
 
 function mapMeld(r){return {id:r.id,firma:r.firma,text:r.text,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,gelesen_von:r.gelesen_von||{},zugewiesen_an:r.zugewiesen_an||[],verlauf:r.verlauf||[],bearbeitungs_status:r.bearbeitungs_status||null};}
 function mapChem(r){return {id:r.id,firma:r.firma,produkte:r.produkte||[],notiz:r.notiz,kuerzel:r.kuerzel,ts:r.erstellt_am,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,bestellt:r.bestellt||false,bestellt_kommentar:r.bestellt_kommentar||null,bestellt_von:r.bestellt_von||null,bestellt_ts:r.bestellt_ts||null};}
-function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],kommentare:r.kommentare||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null};}
+function mapFrei(r){return {id:r.id,firma:r.firma,text:r.text,mann:r.mann,stunden:r.stunden,nurMat:r.nur_mat,kuerzel:r.kuerzel,ts:r.erstellt_am,bearbeitet_am:r.bearbeitet_am||null,erledigt:r.erledigt,angebotsnr:r.angebotsnr,erledigt_von:r.erledigt_von,erledigt_ts:r.erledigt_ts,rueckfragen:r.rueckfragen||[],kommentare:r.kommentare||[],beauftragt:r.beauftragt||false,beauftragt_kommentar:r.beauftragt_kommentar||null,beauftragt_von:r.beauftragt_von||null,beauftragt_ts:r.beauftragt_ts||null,auftrag:r.auftrag||null};}
 
 // ══════════════════════════════════════════════════════════
 // REALTIME
@@ -1810,6 +1825,398 @@ function btbChemBedarfText(k){
     return no?nm+' ('+no+')':nm;
   }).join(', ');
 }
+// ══════════════════════════════════════════════════════════
+// AUFTRAGS-WORKFLOW FÜR ANGEBOTE (2.51)
+//
+// Vier Fälle, eine Kette. Zwei Weichen beim „Kunde hat bestellt":
+//   montage   = true  → Ausführung durch die Techniker (Montage)
+//               false → Ausführung durch den Innendienst (Versand)
+//   auf_lager = true  → Station Beschaffung entfällt
+//
+//   Fall 1  Montage, auf Lager        →               Montage  → Rechnung
+//   Fall 2  Montage, nicht auf Lager  → Beschaffung → Montage  → Rechnung
+//   Fall 3  Versand, nicht auf Lager  → Beschaffung → Versand  → Rechnung
+//   Fall 4  Versand, auf Lager        →               Versand  → Rechnung
+//
+// Zuweisung: Beschaffung, Versand und Rechnung gehen automatisch an ALLE
+// Innendienstler. Nur die Montage ist auswählbar (einzelne Techniker oder alle).
+// ══════════════════════════════════════════════════════════
+const ST_LABEL={beschaffung:'📦 Beschaffung', montage:'🔧 Montage', versand:'📮 Versand',
+                rechnung:'🧾 Rechnung', fertig:'✅ Abgeschlossen'};
+const ST_WAS={beschaffung:'Ware bestellen', montage:'Einbau beim Kunden', versand:'Verpacken und versenden',
+              rechnung:'Rechnung schreiben und eintragen'};
+
+// Bereich eines Kürzels. Fehlt die Spalte noch (SQL nicht ausgeführt), gilt „beides" —
+// dann fällt niemand aus der Zuweisung und die App bleibt benutzbar.
+function nutzerBereich(kuerzel){
+  const n=(allNutzer||[]).find(x=>x.kuerzel===kuerzel);
+  return (n&&n.bereich)||'beides';
+}
+function istInnendienst(kuerzel){ const b=nutzerBereich(kuerzel); return b==='innen'||b==='beides'; }
+function istTechniker(kuerzel){ const b=nutzerBereich(kuerzel); return b==='tech'||b==='beides'; }
+function alleInnendienst(){ return (allNutzer||[]).map(n=>n.kuerzel).filter(istInnendienst); }
+function alleTechniker(){ return (allNutzer||[]).map(n=>n.kuerzel).filter(istTechniker); }
+
+// Stationen-Kette aus den beiden Weichen
+function auftragKette(a){
+  const kette=[];
+  if(!a.auf_lager) kette.push('beschaffung');
+  kette.push(a.montage?'montage':'versand');
+  kette.push('rechnung');
+  return kette;
+}
+function auftragNaechsteStation(a){
+  const kette=auftragKette(a);
+  const i=kette.indexOf(a.station);
+  return (i<0 || i>=kette.length-1) ? 'fertig' : kette[i+1];
+}
+// Wer ist für eine Station zuständig? null = muss ausgewählt werden (nur Montage)
+function auftragStandardZuweisung(station){
+  if(station==='montage') return null;          // auswählbar
+  return alleInnendienst();                      // Beschaffung, Versand, Rechnung
+}
+// Liegt der Auftrag gerade bei mir?
+function auftragFuerMich(e){
+  const a=e&&e.auftrag;
+  if(!a||a.station==='fertig') return false;
+  return (a.zuw||[]).includes(kz);
+}
+// Nach einer Weichen-Korrektur: erste noch nicht erledigte Station der neuen Kette
+function auftragStationNachKorrektur(a){
+  const erledigt=new Set((a.log||[]).map(x=>x.st));
+  const offen=auftragKette(a).find(st=>!erledigt.has(st));
+  return offen||'fertig';
+}
+
+// Auftragsstand speichern — lokal sofort, Datenbank bzw. Warteschlange danach
+async function auftragSpeichern(id, auftrag){
+  const idx=FR.findIndex(x=>x.id===id);
+  if(idx>-1) FR[idx].auftrag=auftrag;
+  let fehler=null;
+  if(isOnline()){
+    const {error}=await _sb.from('freie_angebote').update({auftrag}).eq('id',id);
+    if(error) fehler=error;
+  }
+  if(!isOnline()||fehler){
+    if(btbIstSchemaFehler(fehler)){
+      btbMeldeSchemaFehler(fehler,'auftrag');
+      return false;   // Spalte fehlt → nicht einreihen, sonst staut es sich
+    }
+    btbEntferneUeberholteQueue('frei_update', x=>x.data.id===id && x.data.patch && x.data.patch.auftrag);
+    addToQueue({type:'frei_update', data:{id, patch:{auftrag}}});
+  }
+  renderF(); updB();
+  return true;
+}
+
+// „Kunde hat bestellt" → Auftrag starten
+async function auftragStarten(id, montage, aufLager, zuwMontage, kommentar, abNr){
+  const e=FR.find(x=>x.id===id); if(!e){toast('⚠️ Angebot nicht gefunden');return;}
+  const a={montage:!!montage, auf_lager:!!aufLager, station:null, zuw:[],
+           ab_nr:(abNr||'').trim()||null, rechnung_nr:null, fertig_am:null, log:[]};
+  a.station=auftragKette(a)[0];
+  a.zuw = auftragStandardZuweisung(a.station) || (zuwMontage&&zuwMontage.length?zuwMontage:alleTechniker());
+  const now=new Date().toISOString();
+
+  // Den bisherigen „Bestellt"-Stand mitschreiben, damit die Anzeige stimmig bleibt
+  const patch={beauftragt:true, beauftragt_kommentar:kommentar||null, beauftragt_von:kz, beauftragt_ts:now};
+  const idx=FR.findIndex(x=>x.id===id);
+  if(idx>-1) Object.assign(FR[idx], patch);
+  let fehler=null;
+  if(isOnline()){
+    const {error}=await _sb.from('freie_angebote').update(Object.assign({},patch,{auftrag:a})).eq('id',id);
+    if(error) fehler=error;
+  }
+  if(!isOnline()||fehler){
+    if(btbIstSchemaFehler(fehler)){ btbMeldeSchemaFehler(fehler,'auftrag'); return; }
+    addToQueue({type:'frei_update', data:{id, patch:Object.assign({},patch,{auftrag:a})}});
+  }
+  if(idx>-1) FR[idx].auftrag=a;
+  renderF(); updB();
+  await auftragMeldung(e, a, kommentar);
+  toast('✅ Kunde hat bestellt — '+ST_LABEL[a.station]+' an '+a.zuw.join(', '), 5000);
+}
+
+// „Bearbeitet" → eine Station abschließen und weiterschieben
+async function auftragWeiter(id, kommentar, rechnungNr, zuwNaechste){
+  const e=FR.find(x=>x.id===id); if(!e||!e.auftrag){toast('⚠️ Kein Auftrag vorhanden');return;}
+  const a=JSON.parse(JSON.stringify(e.auftrag));
+  if(a.station==='rechnung'){
+    const nr=(rechnungNr||'').trim();
+    if(!nr){ toast('⚠️ Bitte zuerst die Rechnungsnummer eintragen'); return; }
+    a.rechnung_nr=nr;
+  }
+  a.log=a.log||[];
+  a.log.push({st:a.station, kz, ts:new Date().toISOString(), kommentar:(kommentar||'').trim()||null, zuw:a.zuw||[]});
+  const naechste=auftragNaechsteStation(a);
+  a.station=naechste;
+  if(naechste==='fertig'){
+    a.zuw=[]; a.fertig_am=new Date().toISOString();
+  } else {
+    a.zuw = auftragStandardZuweisung(naechste) || (zuwNaechste&&zuwNaechste.length?zuwNaechste:alleTechniker());
+  }
+  if(!await auftragSpeichern(id, a)) return;
+  if(naechste==='fertig'){
+    toast('✅ Auftrag abgeschlossen'+(a.rechnung_nr?' · RE '+a.rechnung_nr:''), 5000);
+  } else {
+    await auftragMeldung(e, a, kommentar);
+    toast('✓ Weitergegeben: '+ST_LABEL[naechste]+' an '+a.zuw.join(', '), 5000);
+  }
+}
+
+// Weiche nachträglich korrigieren (Ware doch nicht auf Lager, Kunde will doch Einbau …)
+async function auftragWegAendern(id, montage, aufLager){
+  const e=FR.find(x=>x.id===id); if(!e||!e.auftrag) return;
+  const a=JSON.parse(JSON.stringify(e.auftrag));
+  if(a.station==='fertig'){ toast('ℹ️ Der Auftrag ist abgeschlossen'); return; }
+  a.montage=!!montage; a.auf_lager=!!aufLager;
+  const neu=auftragStationNachKorrektur(a);
+  if(neu!==a.station){
+    a.station=neu;
+    a.zuw = neu==='fertig' ? [] : (auftragStandardZuweisung(neu) || alleTechniker());
+  }
+  if(!await auftragSpeichern(id, a)) return;
+  toast('🔀 Weg geändert — jetzt '+ST_LABEL[a.station]+(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5000);
+}
+
+// 2.52: Der Bearbeitungszustand als prominenter, farbiger Chip im Kopf des Angebots.
+// Ersetzt das kleine „Offen/Erledigt"-Badge und den Schleier — man sieht auf einen Blick,
+// wo der Auftrag steht, ohne den Chip aufklappen zu müssen.
+function angStatus(e){
+  const a=e.auftrag;
+  if(a && a.station==='fertig')   return {txt:'Abgeschlossen', ic:'✅', bg:'#dcfce7', fg:'#15803d',
+                                          zus:a.rechnung_nr?('RE '+a.rechnung_nr):''};
+  if(a && a.station==='beschaffung') return {txt:'Beschaffung', ic:'📦', bg:'#fef3c7', fg:'#92400e', zus:'Ware bestellen'};
+  if(a && a.station==='montage')  return {txt:'Montage', ic:'🔧', bg:'#e0e7ff', fg:'#3730a3',
+                                          zus:(a.zuw||[]).join(', ')};
+  if(a && a.station==='versand')  return {txt:'Versand', ic:'📮', bg:'#cffafe', fg:'#0e7490', zus:'verpacken'};
+  if(a && a.station==='rechnung') return {txt:'Rechnung', ic:'🧾', bg:'#dbeafe', fg:'#1d4ed8', zus:'stellen'};
+  if(e.beauftragt)                return {txt:'Kunde hat bestellt', ic:'🔵', bg:'#dbeafe', fg:'#1d4ed8',
+                                          zus:(a&&a.ab_nr)?('AB '+a.ab_nr):''};
+  if(e.erledigt)                  return {txt:'Angebot erstellt', ic:'✓', bg:'#dcfce7', fg:'#15803d',
+                                          zus:e.angebotsnr?('AN '+e.angebotsnr):''};
+  return {txt:'Anfrage offen', ic:'📝', bg:'#fff7ed', fg:'#c2410c', zus:''};
+}
+function angStatusChip(e){
+  const st=angStatus(e);
+  const meins=auftragFuerMich(e);
+  return '<span class="ang-status" style="background:'+st.bg+';color:'+st.fg+'">'
+    + st.ic+' '+esc(st.txt)
+    + (st.zus?' <small>· '+esc(st.zus)+'</small>':'')
+    + '</span>'
+    + (meins?'<span class="v2-badge" style="background:var(--or);color:#fff;font-weight:800">FÜR DICH</span>':'');
+}
+
+// Auftrags-Box im Angebots-Chip: wo steht der Auftrag, was ist zu tun, Verlauf
+function baueAuftragsBox(e){
+  const a=e.auftrag;
+  const box=document.createElement('div');
+  box.style.cssText='margin-top:7px;border:1.5px solid #c7d2fe;border-radius:9px;overflow:hidden';
+  if(!a){
+    // Bestellt, aber (noch) ohne Auftragsdurchlauf — z.B. vor 2.51 bestellt
+    box.style.borderStyle='dashed';
+    const alt=document.createElement('div');
+    alt.style.cssText='padding:8px 10px;font-size:11px;color:var(--mu);line-height:1.5';
+    alt.textContent='Kein Auftragsdurchlauf hinterlegt (vor der Umstellung bestellt).';
+    const btn=document.createElement('button');
+    btn.className='kz-pill';btn.style.cssText='font-size:11px;padding:5px 9px;margin:0 10px 9px';
+    btn.textContent='▶ Durchlauf jetzt starten';
+    btn.onclick=()=>auftragNachtraeglichStarten(e.id);
+    box.append(alt,btn);
+    return box;
+  }
+  const fertig=a.station==='fertig';
+  const meins=auftragFuerMich(e);
+
+  // Kopf: aktuelle Station
+  const kopf=document.createElement('div');
+  kopf.style.cssText='padding:7px 10px;background:'+(fertig?'#dcfce7':(meins?'#fef3c7':'#eef2ff'))
+    +';display:flex;align-items:center;gap:7px;flex-wrap:wrap';
+  const titel=document.createElement('span');
+  titel.style.cssText='font-family:\'Barlow Condensed\',sans-serif;font-size:13px;font-weight:800;letter-spacing:.03em;color:'
+    +(fertig?'#15803d':'#3730a3');
+  titel.textContent=ST_LABEL[a.station];
+  kopf.appendChild(titel);
+  if(!fertig){
+    const wer=document.createElement('span');
+    wer.style.cssText='font-size:11px;color:#4338ca';
+    wer.textContent='→ '+((a.zuw||[]).join(', ')||'niemand');
+    kopf.appendChild(wer);
+    if(meins){
+      const mark=document.createElement('span');
+      mark.style.cssText='font-size:10px;font-weight:800;background:var(--or);color:#fff;border-radius:5px;padding:2px 7px;white-space:nowrap';
+      mark.textContent='FÜR DICH';
+      kopf.appendChild(mark);
+    }
+  } else if(a.rechnung_nr){
+    const re=document.createElement('span');
+    re.style.cssText='font-size:13px;color:#15803d;font-weight:800';
+    re.textContent='RE '+a.rechnung_nr;
+    kopf.appendChild(re);
+  }
+  // 2.53: AB-Nummer immer sichtbar, sobald sie eingetragen ist
+  if(a.ab_nr){
+    const ab=document.createElement('span');
+    ab.style.cssText='font-size:13px;font-weight:800;background:#fff;border:1.5px solid #c7d2fe;color:#3730a3;border-radius:6px;padding:2px 8px;white-space:nowrap';
+    ab.textContent='AB '+a.ab_nr;
+    kopf.appendChild(ab);
+  }
+  box.appendChild(kopf);
+
+  // Ablauf als Kette mit Häkchen
+  const erledigt=new Set((a.log||[]).map(x=>x.st));
+  const kette=document.createElement('div');
+  kette.style.cssText='padding:6px 10px;font-size:10.5px;color:var(--mu);display:flex;gap:5px;flex-wrap:wrap;align-items:center;border-top:1px solid #e0e7ff';
+  auftragKette(a).forEach((st,i)=>{
+    if(i) { const p=document.createElement('span'); p.textContent='→'; p.style.opacity='.5'; kette.appendChild(p); }
+    const sp=document.createElement('span');
+    const ist=st===a.station;
+    sp.style.cssText='padding:2px 7px;border-radius:5px;white-space:nowrap;'
+      +(erledigt.has(st)?'background:#dcfce7;color:#15803d;font-weight:700'
+        :(ist?'background:#4338ca;color:#fff;font-weight:800':'background:var(--bg);color:var(--mu)'));
+    sp.textContent=(erledigt.has(st)?'✓ ':'')+ST_LABEL[st];
+    kette.appendChild(sp);
+  });
+  box.appendChild(kette);
+
+  // Verlauf der abgeschlossenen Stationen
+  // 2.53: Schrift und Symbole auf die Größe des Angebotstexts (.v2-text, 14px) — in 11px war
+  // die Information kaum erkennbar, doppelt war zu groß.
+  if((a.log||[]).length){
+    const log=document.createElement('div');
+    log.style.cssText='padding:2px 10px 8px';
+    a.log.forEach(l=>{
+      const z=document.createElement('div');
+      z.style.cssText='color:var(--tx);border-left:3px solid #c7d2fe;padding:4px 0 5px 10px;margin-top:6px';
+      z.innerHTML='<div style="font-size:14px;font-weight:800;line-height:1.5;letter-spacing:.01em">'
+          +esc(ST_LABEL[l.st]||l.st)
+          +' <span style="font-weight:700;color:var(--mu)">· '+esc(l.kz||'')+'</span>'
+          +' <span style="font-size:13px;font-weight:600;color:#94a3b8;white-space:nowrap">'+fd(l.ts)+'</span>'
+        +'</div>'
+        +(l.kommentar?'<div style="color:var(--tx);font-size:14px;line-height:1.5;font-weight:500;margin-top:2px;word-break:break-word">💬 '+esc(l.kommentar)+'</div>':'');
+      log.appendChild(z);
+    });
+    box.appendChild(log);
+  }
+
+  if(fertig){
+    const f=document.createElement('div');
+    f.style.cssText='padding:6px 10px;font-size:11px;color:#15803d;font-weight:700;border-top:1px solid #e0e7ff';
+    f.textContent='✅ Abgeschlossen am '+(a.fertig_am?fd(a.fertig_am):'–');
+    box.appendChild(f);
+    return box;
+  }
+
+  // Aktionsbereich: Kommentar, ggf. Rechnungsnummer, Technikerauswahl für die nächste Station
+  const akt=document.createElement('div');
+  akt.style.cssText='padding:8px 10px;border-top:1px solid #e0e7ff;display:flex;flex-direction:column;gap:6px';
+  const was=document.createElement('div');
+  was.style.cssText='font-size:11px;color:var(--mu)';
+  was.textContent='Zu tun: '+ST_WAS[a.station];
+  akt.appendChild(was);
+
+  // 2.53: AB-Nummer nachtragen, falls beim Start vergessen
+  if(!a.ab_nr){
+    const abWrap=document.createElement('div');
+    abWrap.style.cssText='display:flex;gap:5px;align-items:center';
+    const abNach=document.createElement('input');abNach.type='text';abNach.className='ani';
+    abNach.placeholder='AB-Nummer nachtragen';abNach.setAttribute('autocomplete','off');abNach.style.flex='1';
+    const abBtn=document.createElement('button');abBtn.className='kz-pill';
+    abBtn.style.cssText='font-size:12px;padding:7px 11px;white-space:nowrap';abBtn.textContent='✓ AB speichern';
+    abBtn.onclick=async()=>{
+      const v=(abNach.value||'').trim();
+      if(!v){ toast('⚠️ Bitte eine AB-Nummer eintragen'); return; }
+      const neu=JSON.parse(JSON.stringify(a)); neu.ab_nr=v;
+      if(await auftragSpeichern(e.id, neu)) toast('✓ AB '+v+' gespeichert');
+    };
+    abWrap.append(abNach, abBtn);
+    akt.appendChild(abWrap);
+  }
+
+  let reInp=null;
+  if(a.station==='rechnung'){
+    reInp=document.createElement('input');reInp.type='text';reInp.className='ani';
+    reInp.placeholder='Rechnungsnummer';reInp.setAttribute('autocomplete','off');
+    akt.appendChild(reInp);
+  }
+  const ta=document.createElement('textarea');ta.className='gta';
+  ta.placeholder=a.station==='beschaffung'?'z.B. Pumpe bestellt, Lieferung KW 40':'Kommentar (optional)…';
+  ta.style.cssText='font-size:16px;min-height:42px';ta.setAttribute('autocorrect','off');
+  akt.appendChild(ta);
+
+  // Geht es als Nächstes zur Montage, sind die Techniker auswählbar
+  const naechste=auftragNaechsteStation(a);
+  const gewTech=new Set();
+  if(naechste==='montage'){
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)';
+    lbl.textContent='Danach Montage zuweisen an (leer = alle)';
+    const pills=document.createElement('div');pills.className='kz-pills';
+    alleTechniker().sort((x,y)=>kzSortIdx(x)-kzSortIdx(y)).forEach(k2=>{
+      const pb=document.createElement('button');pb.type='button';pb.className='kz-pill';
+      pb.style.cssText='font-size:12px;padding:5px 8px';pb.textContent=k2;
+      pb.onclick=()=>{ if(gewTech.has(k2)){gewTech.delete(k2);pb.classList.remove('sel');} else {gewTech.add(k2);pb.classList.add('sel');} };
+      pills.appendChild(pb);
+    });
+    akt.append(lbl,pills);
+  }
+
+  const btn=document.createElement('button');
+  btn.className='bbeau aktiv';btn.style.cssText='background:#4338ca';
+  btn.textContent=a.station==='rechnung'?'✓ Rechnung eingetragen — Auftrag abschließen'
+    :(a.station==='versand'?'✓ Versendet — weiter zur Rechnung':'✓ Bearbeitet — weitergeben');
+  btn.onclick=async()=>{ btn.disabled=true; await auftragWeiter(e.id, ta.value, reInp?reInp.value:null, [...gewTech]); };
+  akt.appendChild(btn);
+
+  // Weg nachträglich korrigieren
+  const korr=document.createElement('div');
+  korr.style.cssText='display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:2px';
+  const kLbl=document.createElement('span');
+  kLbl.style.cssText='font-size:10px;color:#94a3b8';kLbl.textContent='Weg korrigieren:';
+  korr.appendChild(kLbl);
+  const kBtn=(txt, mont, lag)=>{
+    const b=document.createElement('button');b.type='button';b.className='kz-pill';
+    b.style.cssText='font-size:10.5px;padding:4px 8px';b.textContent=txt;
+    if(a.montage===mont && a.auf_lager===lag) b.classList.add('sel');
+    b.onclick=()=>{ if(confirm('Weg ändern auf:\n\n'+auftragKette({montage:mont,auf_lager:lag}).map(st=>ST_LABEL[st]).join(' → ')+'\n\nOK?')) auftragWegAendern(e.id, mont, lag); };
+    korr.appendChild(b);
+  };
+  kBtn('🔧 Montage, auf Lager', true, true);
+  kBtn('📦🔧 Montage, beschaffen', true, false);
+  kBtn('📮 Versand, auf Lager', false, true);
+  kBtn('📦📮 Versand, beschaffen', false, false);
+  akt.appendChild(korr);
+
+  box.appendChild(akt);
+  return box;
+}
+
+// Für Angebote, die vor der Umstellung bestellt wurden: Durchlauf nachträglich starten
+async function auftragNachtraeglichStarten(id){
+  const e=FR.find(x=>x.id===id); if(!e) return;
+  if(!confirm('Für dieses Angebot den Auftragsdurchlauf starten?\n\n'
+    +'Du legst danach den Weg fest (Montage/Versand, auf Lager ja/nein).')) return;
+  await auftragStarten(id, true, true, [], e.beauftragt_kommentar||'', '');
+}
+
+// Meldung an die neu Zugewiesenen.
+// 2.52: NUR bei der Übergabe an die Techniker (Station Montage). Alles, was zwischen
+// Innendienst-Stationen hin und her geht, läuft ausschließlich im Angebote-Reiter —
+// vorher entstand bei JEDEM Schritt ein neuer Meldungs-Chip, also genau die
+// Zersplitterung, die vermieden werden sollte. Gibt der Techniker danach zur Rechnung
+// weiter, bleibt sein Meldungs-Chip einfach als bearbeitet stehen.
+async function auftragMeldung(e, a, kommentar){
+  if(a.station!=='montage') return;
+  if(!a.zuw||!a.zuw.length) return;
+  const txt='📋 '+ST_LABEL[a.station]+': '+e.firma
+    +(e.text?' – '+e.text.substring(0,70):'')
+    +(e.angebotsnr?' | AN '+e.angebotsnr:'')
+    +(a.ab_nr?' | AB '+a.ab_nr:'')
+    +((kommentar||'').trim()?' | '+kommentar.trim():'')
+    +' | '+ST_WAS[a.station];
+  await meldungAnlegen(e.firma, txt, a.zuw, null);
+}
+
 // 2.49: Eine Meldung anlegen — EIN gemeinsamer Weg für alle Stellen, die das brauchen.
 // Vorher gab es das verstreut: saveMeld() machte es vollständig, die Angebots-Bestellung
 // (setBeauftragt) schrieb nur in die Datenbank, ohne die Liste lokal zu ergänzen und ohne
@@ -3556,6 +3963,9 @@ function renderF(){
   if(fil.f==='erledigt')   d=d.filter(e=>e.erledigt);
   if(fil.f==='rq-offen')   d=d.filter(e=>rqIstFuerMich(e));
   if(fil.f==='rq-antwort') d=d.filter(e=>rqAntwortFuerMich(e));
+  // 2.51: Aufträge im Durchlauf
+  if(fil.f==='auftrag-ich')   d=d.filter(auftragFuerMich);
+  if(fil.f==='auftrag-offen') d=d.filter(e=>e.auftrag && e.auftrag.station!=='fertig');
   G('ef0').style.display=d.length?'none':'';
   d.forEach(e=>{
     const hatRQ=freiHatOffeneRQ(e);
@@ -3609,7 +4019,10 @@ function renderF(){
         '</div>'
       : '';
     const el=document.createElement('div');
-    el.className='v2-chip'+(e.erledigt?' erl':hatRQ?' rueckfrage':'');
+    // 2.52: Der graue Schleier (.erl mit opacity) legte sich über den ganzen Chip, sobald das
+    // Angebot erstellt war — gerade dann, wenn der Auftrag erst richtig losgeht. Jetzt nur
+    // noch der grüne Streifen, der Zustand steht prominent im Kopf.
+    el.className='v2-chip'+(e.erledigt?' ang-fertig':hatRQ?' rueckfrage':'');
     el.innerHTML=
       '<div class="v2-header"><div class="v2-stripe"></div>'+
       '<div class="v2-header-inner">'+
@@ -3619,7 +4032,7 @@ function renderF(){
           (e.nurMat?'<span class="v2-badge b-mat">Material</span>':'')+
           (hatRQ?'<span class="v2-badge b-rq">❓</span>':'')+
           (anzKomm?'<span class="v2-badge" style="background:var(--bp);color:var(--bd)">💬 '+anzKomm+'</span>':'')+
-          '<span class="v2-badge '+(e.erledigt?'b-erl':'b-neu')+'">'+(e.erledigt?'✓ Erledigt':'Offen')+'</span>'+
+          angStatusChip(e)+
         '</div>'+
       '</div></div>'+
       '<div class="v2-body">'+
@@ -3636,7 +4049,7 @@ function renderF(){
       const anrDiv=document.createElement('div');anrDiv.className='anr';
       const anrInp=document.createElement('input');anrInp.className='ani';anrInp.id='anr-f-'+e.id;
       anrInp.placeholder='Angebotsnummer (optional)';anrInp.value=esc(e.angebotsnr||'');
-      const erlB=document.createElement('button');erlB.className='berl';erlB.textContent='✓ Erledigt';erlB.onclick=()=>setErlF(e.id);
+      const erlB=document.createElement('button');erlB.className='berl';erlB.textContent='✓ Angebot erstellt';erlB.onclick=()=>setErlF(e.id);
       const rqB=document.createElement('button');rqB.className='brq';rqB.textContent='❓ Rückfrage';rqB.onclick=()=>showRqBox(e.id);
       anrDiv.append(anrInp,erlB,rqB);body.appendChild(anrDiv);
     }
@@ -3680,27 +4093,78 @@ function renderF(){
 
       if(e.beauftragt){
         const bauDiv=document.createElement('div');bauDiv.className='beau-box';
-        const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Bestellt';bauDiv.appendChild(bauTit);
+        const bauTit=document.createElement('div');bauTit.className='beau-title';bauTit.textContent='🔵 Kunde hat bestellt';bauDiv.appendChild(bauTit);
         const bauMeta=document.createElement('div');bauMeta.style.cssText='font-size:11px;color:#1d4ed8;display:flex;gap:6px;flex-wrap:wrap';
         bauMeta.innerHTML='<span class="v2-kz '+kzClass(e.beauftragt_von||'')+'">'+esc(e.beauftragt_von||'')+'</span><span>'+fd(e.beauftragt_ts)+'</span>';
         bauDiv.appendChild(bauMeta);
         if(e.beauftragt_kommentar){const bauKomm=document.createElement('div');bauKomm.style.cssText='font-size:12px;color:#1e40af;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #93c5fd';bauKomm.textContent='💬 '+e.beauftragt_kommentar;bauDiv.appendChild(bauKomm);}
         body.appendChild(bauDiv);
+        // 2.51: Auftragsdurchlauf
+        body.appendChild(baueAuftragsBox(e));
       } else {
-        // v38: Button heißt jetzt "Bestellt ?" (Funktion unverändert = beauftragt-Workflow)
+        // 2.51: „Kunde hat bestellt" startet den Auftragsdurchlauf — zwei Weichen statt nur Zuweisen
         const bauWrap=document.createElement('div');bauWrap.style.cssText='border-top:1px solid var(--bo);padding-top:7px;margin-top:3px';
-        const bauBtn=document.createElement('button');bauBtn.className='bbeau';bauBtn.textContent='🔴 Bestellt ?';
-        const bauKommDiv=document.createElement('div');bauKommDiv.style.display='none';
-        const bauTa=document.createElement('textarea');bauTa.className='gta';bauTa.placeholder='Kommentar zur Bestellung (optional)…';bauTa.style.cssText='font-size:16px;min-height:46px;margin-top:6px';
-        const bauZuwLbl=document.createElement('div');bauZuwLbl.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:6px;margin-bottom:4px';bauZuwLbl.textContent='Zuweisen an (Techniker):';
-        const bauPills=document.createElement('div');bauPills.className='kz-pills';bauPills.id='bau-pills-'+e.id;
-        [...allNutzer].filter(n=>n.kuerzel!==kz).sort((a,b)=>kzSortIdx(a.kuerzel)-kzSortIdx(b.kuerzel)).forEach(n=>{
-          const pb=document.createElement('button');pb.className='kz-pill';pb.style.cssText='font-size:12px;padding:5px 8px';pb.dataset.kz=n.kuerzel;pb.textContent=n.kuerzel;pb.onclick=()=>pb.classList.toggle('sel');bauPills.appendChild(pb);
+        const bauBtn=document.createElement('button');bauBtn.className='bbeau';bauBtn.textContent='🔴 Kunde hat bestellt';
+        const box=document.createElement('div');box.style.display='none';box.style.flexDirection='column';
+
+        const lbl=t=>{const d=document.createElement('div');d.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-top:7px;margin-bottom:4px';d.textContent=t;return d;};
+        // Weiche 1: Ausführung
+        const wege=document.createElement('div');wege.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+        let montage=true;
+        const wegBtn=(txt,wert)=>{
+          const b=document.createElement('button');b.type='button';b.className='kz-pill';b.textContent=txt;
+          b.style.cssText='font-size:12px;padding:6px 10px';
+          b.onclick=()=>{ montage=wert; wege.querySelectorAll('.kz-pill').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); techBlock.style.display=wert?'block':'none'; };
+          wege.appendChild(b); return b;
+        };
+        const bMont=wegBtn('🔧 Montage durch Techniker', true);
+        wegBtn('📮 Versand durch Innendienst', false);
+        bMont.classList.add('sel');
+        // Weiche 2: Lager
+        const lager=document.createElement('div');lager.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+        let aufLager=true;
+        const lagBtn=(txt,wert)=>{
+          const b=document.createElement('button');b.type='button';b.className='kz-pill';b.textContent=txt;
+          b.style.cssText='font-size:12px;padding:6px 10px';
+          b.onclick=()=>{ aufLager=wert; lager.querySelectorAll('.kz-pill').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); vorschau.textContent=kettenText({montage,auf_lager:aufLager}); };
+          lager.appendChild(b); return b;
+        };
+        const bLag=lagBtn('✅ Ware ist auf Lager', true);
+        lagBtn('📦 Muss beschafft werden', false);
+        bLag.classList.add('sel');
+        // Technikerauswahl (nur bei Montage)
+        const techBlock=document.createElement('div');
+        const techPills=document.createElement('div');techPills.className='kz-pills';
+        const gewTech=new Set();
+        alleTechniker().sort((a,b)=>kzSortIdx(a)-kzSortIdx(b)).forEach(k2=>{
+          const pb=document.createElement('button');pb.type='button';pb.className='kz-pill';pb.style.cssText='font-size:12px;padding:5px 8px';
+          pb.dataset.kz=k2;pb.textContent=k2;
+          pb.onclick=()=>{ if(gewTech.has(k2)){gewTech.delete(k2);pb.classList.remove('sel');} else {gewTech.add(k2);pb.classList.add('sel');} };
+          techPills.appendChild(pb);
         });
-        const bauSendBtn=document.createElement('button');bauSendBtn.className='bbeau aktiv';bauSendBtn.style.cssText='margin-top:8px;background:#1d4ed8';bauSendBtn.textContent='✓ Bestellt speichern';
-        bauSendBtn.onclick=()=>setBeauftragt(e.id,bauTa,bauPills);
-        bauKommDiv.append(bauTa,bauZuwLbl,bauPills,bauSendBtn);bauWrap.appendChild(bauBtn);bauWrap.appendChild(bauKommDiv);
-        bauBtn.onclick=()=>{const open=bauKommDiv.style.display==='flex';bauKommDiv.style.display=open?'none':'flex';bauKommDiv.style.flexDirection='column';bauBtn.textContent=open?'🔴 Bestellt ?':'▾ Bestellt ?';};
+        const techHint=document.createElement('div');techHint.style.cssText='font-size:10px;color:#94a3b8;margin-top:3px';
+        techHint.textContent='Nichts gewählt = alle Techniker';
+        techBlock.append(lbl('Montage zuweisen an'), techPills, techHint);
+        // Vorschau der Kette
+        const vorschau=document.createElement('div');
+        vorschau.style.cssText='font-size:11px;color:var(--bd);font-weight:700;margin-top:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px';
+        const kettenText=a=>'Ablauf: '+auftragKette(a).map(st=>ST_LABEL[st]).join('  →  ')+'  →  ✅ fertig';
+        vorschau.textContent=kettenText({montage:true,auf_lager:true});
+        wege.addEventListener('click',()=>{ vorschau.textContent=kettenText({montage,auf_lager:aufLager}); });
+
+        // 2.53: Auftragsbestätigungsnummer — wie die Rechnungsnummer am Ende, nur hier am Anfang
+        const abInp=document.createElement('input');abInp.type='text';abInp.className='ani';
+        abInp.placeholder='AB-Nummer (Auftragsbestätigung)';abInp.setAttribute('autocomplete','off');
+        abInp.style.marginTop='2px';
+        const ta=document.createElement('textarea');ta.className='gta';ta.placeholder='Was hat der Kunde bestellt? (optional)…';
+        ta.style.cssText='font-size:16px;min-height:46px;margin-top:6px';ta.setAttribute('autocorrect','off');
+        const sendBtn=document.createElement('button');sendBtn.className='bbeau aktiv';sendBtn.style.cssText='margin-top:9px;background:#1d4ed8';
+        sendBtn.textContent='✓ Auftrag starten';
+        sendBtn.onclick=async()=>{ sendBtn.disabled=true; await auftragStarten(e.id, montage, aufLager, [...gewTech], ta.value, abInp.value); };
+
+        box.append(lbl('Ausführung'), wege, lbl('Verfügbarkeit'), lager, techBlock, vorschau, lbl('AB-Nummer'), abInp, ta, sendBtn);
+        bauWrap.append(bauBtn, box);
+        bauBtn.onclick=()=>{const auf=box.style.display==='flex';box.style.display=auf?'none':'flex';bauBtn.textContent=auf?'🔴 Kunde hat bestellt':'▾ Kunde hat bestellt';};
         body.appendChild(bauWrap);
       }
     }
@@ -4191,6 +4655,16 @@ function updB(){
   if(rqOf>0){bRq.textContent=rqOf;bRq.className='tbg v rq';}else bRq.className='tbg';
   const ftRq=G('ft-rq-cnt');if(ftRq)ftRq.textContent=rqOf||'';
   const ftAnt=G('ft-ant-cnt');if(ftAnt)ftAnt.textContent=rqAnt||'';
+  // 2.51: Aufträge — „für mich zu bearbeiten" ist die wichtige Zahl, sie geht auch in den
+  // Reiter-Zähler ein, damit man es nicht übersieht
+  const aufIch=FR.filter(auftragFuerMich).length;
+  const aufOffen=FR.filter(e=>e.auftrag&&e.auftrag.station!=='fertig').length;
+  const ftAufIch=G('ft-auf-ich-cnt');if(ftAufIch)ftAufIch.textContent=aufIch||'';
+  const ftAuf=G('ft-auf-cnt');if(ftAuf)ftAuf.textContent=aufOffen||'';
+  // 2.52: Der Innendienst bekommt für seine Stationen bewusst KEINE Meldung mehr. Damit er
+  // seine Aufgaben trotzdem von jedem Reiter aus sieht, steht die Zahl am Reiter „Angebot".
+  const tbfAuf=G('tbf-auf');
+  if(tbfAuf){ if(aufIch>0){tbfAuf.textContent=aufIch;tbfAuf.className='tbg v zb';}else tbfAuf.className='tbg'; }
   const zbCount=MD.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&e.kuerzel!==kz&&ichHabGelesen(e)&&e.bearbeitungs_status==='in_bearbeitung').length;
   const ftZb=document.getElementById('ft-zb-cnt');if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
   const tbmZb=document.getElementById('tbm-zb');if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
@@ -4199,7 +4673,9 @@ function updB(){
   const tbmWb=document.getElementById('tbm-wb');if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
   const favCount = FAVORITEN.size;
   const ftFav = document.getElementById('ft-fav-cnt');if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
-  const badgeGesamt = ug + fm;
+  // 2.52: Aufträge, die bei mir liegen, zählen im App-Symbol mit — für den Innendienst
+  // ist das der Ersatz für die früheren Meldungs-Chips.
+  const badgeGesamt = ug + fm + aufIch;
   if('setAppBadge' in navigator){if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);else navigator.clearAppBadge();}
   // BTB: Anzahl Kunden mit Status "offen" (FERTIG gedrückt, noch nicht berechnet)
   const btbOffenCount = BTB_KUNDEN.filter(k2=>k2.eintraege.some(e=>e.btb_status==='offen')).length;
@@ -7862,20 +8338,55 @@ async function btbLinkKbe(kunde_id, anlageName, datum, kbeWert){
 // BUG FIX #4: allNutzer + Pills nach Anlegen aktualisieren
 // ══════════════════════════════════════════════════════════
 async function loadNutzerAdmin(){
-  const {data}=await _sb.from('nutzer').select('id,kuerzel,rolle,aktiv').order('kuerzel');
+  const {data}=await _sb.from('nutzer').select('id,kuerzel,rolle,aktiv,bereich').order('kuerzel');
   const liste=G('nutzer-liste');const pwSel=G('pw-reset-kz');
   liste.innerHTML='';pwSel.innerHTML='<option value="">Nutzer wählen…</option>';
   (data||[]).forEach(n=>{
     const item=document.createElement('div');item.className='nutzer-item';
+    // 2.51: Bereich (Techniker / Innendienst / beides) steuert, wer im Auftragsdurchlauf
+    // zugewiesen wird. Die Spalte rolle bleibt daneben für die Admin-Rechte.
+    const ber=n.bereich||'beides';
     item.innerHTML='<div class="nutzer-kz">'+esc(n.kuerzel)+'</div>'+
-      '<div class="nutzer-email" style="color:var(--mu)">'+esc(n.rolle)+'</div>'+
       '<span class="nutzer-rolle '+(n.rolle==='admin'?'rolle-admin':'rolle-tech')+'">'+esc(n.rolle)+'</span>'+
+      '<select class="nutzer-bereich" data-id="'+n.id+'" data-kz="'+esc(n.kuerzel)+'" style="width:132px;font-size:13px;padding:5px 7px">'+
+        '<option value="tech"'+(ber==='tech'?' selected':'')+'>🔧 Techniker</option>'+
+        '<option value="innen"'+(ber==='innen'?' selected':'')+'>🏢 Innendienst</option>'+
+        '<option value="beides"'+(ber==='beides'?' selected':'')+'>🔧🏢 Beides</option>'+
+      '</select>'+
       (n.kuerzel!==kz
         ?'<button class="nutzer-del" onclick="deaktivNutzer(\''+n.id+'\',\''+esc(n.kuerzel)+'\')">Deaktiv.</button>'
         :'<span style="font-size:11px;color:#94a3b8">(Du)</span>');
     liste.appendChild(item);
+    const sel=item.querySelector('.nutzer-bereich');
+    if(sel) sel.addEventListener('change',()=>setzeBereich(sel.dataset.id, sel.dataset.kz, sel.value, data||[]));
     const opt=document.createElement('option');opt.value=n.id;opt.textContent=n.kuerzel;pwSel.appendChild(opt);
   });
+}
+
+// 2.51: Bereich eines Nutzers ändern. Prüft vorher, dass mindestens ein Innendienst
+// übrig bleibt — ohne Innendienst hätte der Auftragsdurchlauf niemanden für Beschaffung
+// und Rechnung, und die Aufträge blieben ohne Zuweisung stehen.
+async function setzeBereich(id, nkz, neu, alle){
+  const bleibtInnen=(alle||[]).filter(n=>n.aktiv!==false).some(n=>{
+    const b=(n.id===id)?neu:(n.bereich||'beides');
+    return b==='innen'||b==='beides';
+  });
+  if(!bleibtInnen){
+    toast('⚠️ Es muss mindestens ein Innendienst bleiben — sonst hat Beschaffung und Rechnung niemanden', 6000, true);
+    loadNutzerAdmin();
+    return;
+  }
+  const {error}=await _sb.from('nutzer').update({bereich:neu}).eq('id',id);
+  if(error){
+    if(btbIstSchemaFehler(error)) btbMeldeSchemaFehler(error,'bereich');
+    else toast('⚠️ Fehler: '+error.message);
+    loadNutzerAdmin();
+    return;
+  }
+  const n=(allNutzer||[]).find(x=>x.kuerzel===nkz); if(n) n.bereich=neu;
+  const lbl={tech:'Techniker', innen:'Innendienst', beides:'beides'}[neu]||neu;
+  toast('✓ '+nkz+' ist jetzt '+lbl);
+  renderF();
 }
 
 // BUG FIX #1: signUp statt admin.createUser (funktioniert mit Anon-Key)
@@ -7884,6 +8395,7 @@ async function createNutzer(){
   const email  = V('new-email');
   const pw     = V('new-pw');
   const rolle  = V('new-rolle');
+  const bereich= V('new-bereich')||'beides';
   if(!newKz || !email || !pw){ alert('Bitte alle Felder ausfüllen.'); return; }
   if(newKz.length > 4){ alert('Kürzel max. 4 Zeichen.'); return; }
 
@@ -7903,6 +8415,7 @@ async function createNutzer(){
     id:      data.user.id,
     kuerzel: newKz,
     rolle:   rolle,
+    bereich: bereich,
     aktiv:   true
   });
   if(profErr){
@@ -7915,7 +8428,7 @@ async function createNutzer(){
   toast('✓ Nutzer ' + newKz + ' angelegt – kann sich jetzt einloggen');
 
   // BUG FIX #4: allNutzer und Pills sofort aktualisieren
-  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv', true).order('kuerzel');
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel,bereich').eq('aktiv', true).order('kuerzel');
   allNutzer = alleN || [];
   buildZuwPills();
 
@@ -7928,7 +8441,7 @@ async function deaktivNutzer(id, nkz){
   toast('✓ '+nkz+' deaktiviert');
 
   // BUG FIX #4: allNutzer und Pills nach Deaktivierung aktualisieren
-  const {data:alleN} = await _sb.from('nutzer').select('kuerzel').eq('aktiv', true).order('kuerzel');
+  const {data:alleN} = await _sb.from('nutzer').select('kuerzel,bereich').eq('aktiv', true).order('kuerzel');
   allNutzer = alleN || [];
   buildZuwPills();
 
