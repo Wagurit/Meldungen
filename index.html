@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.59</title>
+<title>Meldungen &amp; Angebote 2.60</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -545,7 +545,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.59</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.60</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1074,7 +1074,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.59';
+const APP_VERSION = '2.60';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -4889,9 +4889,18 @@ function updB(){
   const tbmWb=document.getElementById('tbm-wb');if(tbmWb){if(wbCount>0){tbmWb.textContent=wbCount;tbmWb.className='tbg v wb';}else tbmWb.className='tbg';}
   const favCount = FAVORITEN.size;
   const ftFav = document.getElementById('ft-fav-cnt');if(ftFav){if(favCount>0){ftFav.textContent=favCount;ftFav.className='tbg fav v';}else ftFav.className='tbg fav';}
-  // 2.52: Aufträge, die bei mir liegen, zählen im App-Symbol mit — für den Innendienst
-  // ist das der Ersatz für die früheren Meldungs-Chips.
-  const badgeGesamt = ug + fm + aufIch;
+  // 2.60: Der Zähler am App-Symbol zeigt NUR noch ungelesene Meldungen.
+  // Vorher stand dort ug + fm + aufIch, und das war aus zwei Gründen falsch:
+  //  1. fm ist eine Teilmenge von ug — istExplizitFuerMich() verlangt !ichHabGelesen()
+  //     und eine Zuweisung an mich, relevanFuerMich() trifft dann ebenfalls zu. Eine
+  //     einzige ungelesene, mir zugewiesene Meldung wurde dadurch DOPPELT gezählt:
+  //     ein Techniker mit einer offenen Meldung sah eine 2.
+  //  2. aufIch (Auftrag an meiner Station) und offene Rückfragen haben gar keinen
+  //     Gelesen-Zustand. Sie blieben stehen, solange die Arbeit lief — eine Zahl, die
+  //     sich nicht wegbekommen ließ, genau wie der rote Rückfragen-Zähler in 2.57.
+  // Die Reiter-Abzeichen bleiben unverändert: „ungelesen" und „für mich" im Reiter
+  // Meldungen, die Aufträge im Reiter Angebot. Dort sind sie weiter zu sehen.
+  const badgeGesamt = ug;
   if('setAppBadge' in navigator){if(badgeGesamt > 0) navigator.setAppBadge(badgeGesamt);else navigator.clearAppBadge();}
   // BTB: Anzahl Kunden mit Status "offen" (FERTIG gedrückt, noch nicht berechnet)
   const btbOffenCount = BTB_KUNDEN.filter(k2=>k2.eintraege.some(e=>e.btb_status==='offen')).length;
