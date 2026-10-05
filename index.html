@@ -5116,7 +5116,6 @@ async function btbExportKundeExcel(k){
       const namenE=btbNamenFuerEintrag(e, pn);
       const row={
         'Datum': e.datumFmt,
-        'Uhrzeit': e.besuch_uhrzeit?String(e.besuch_uhrzeit).slice(0,5):'',   // 2.39: fehlte bisher
         'Kürzel': e.kuerzel||'',
         // 2.47: Rohtext („< 2000") als Text, sonst die Zahl als Zahl (damit Excel rechnen kann)
         '°dH': btbRohWerte(e).dh || (e.dh!=null?e.dh:''),
@@ -5141,7 +5140,7 @@ async function btbExportKundeExcel(k){
 
     const ws=XLSX.utils.json_to_sheet(rows);
     const breiteSpalten=new Set(['Vorgefunden','Aufgefüllt','Neu','Lager']);
-    const schmaleSpalten=new Set(['Kürzel','°dH','KBE-Auswertung','Uhrzeit']); // nur kurze Werte → ca. 1/3 der Standardbreite
+    const schmaleSpalten=new Set(['Kürzel','°dH','KBE-Auswertung']); // nur kurze Werte → ca. 1/3 der Standardbreite
     const spaltenNamen=Object.keys(rows[0]);
     const textSpalten=new Set(['Bemerkung','Dosierung']); // lange Texte: breit + Zeilenumbruch
     ws['!cols']=spaltenNamen.map(h=>({wch:h==='Bemerkung'?40:(h==='Dosierung'?20:(breiteSpalten.has(h)?34:(schmaleSpalten.has(h)?5:14)))}));
@@ -6581,11 +6580,10 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
 
         const eBox=document.createElement('div');eBox.className='btb-eintrag';eBox.dataset.btbEid=e.id;
         let html='<div class="btb-eintrag-header">';
-        // 2.39-FIX: Die Uhrzeit des Besuchs wurde gespeichert, aber nirgends angezeigt —
-        // weder hier noch im Excel-Export. Sie steht jetzt neben dem Datum.
-        html+='<div class="btb-eintrag-datum">'+esc(e.datumFmt)
-          +(e.besuch_uhrzeit?' <span style="font-size:12px;font-weight:700;color:#64748b">'+esc(String(e.besuch_uhrzeit).slice(0,5))+'</span>':'')
-          +'</div>';
+        // 2.59: Die Uhrzeit des Besuchs wird weiterhin gespeichert (sie geht in die
+        // Soll-Berechnung ein und soll später ausgewertet werden), aber NICHT mehr
+        // angezeigt — weder hier, noch im Excel-Export, noch im Nachweis.
+        html+='<div class="btb-eintrag-datum">'+esc(e.datumFmt)+'</div>';
         if(e.kuerzel) html+='<div class="btb-eintrag-kz">'+esc(e.kuerzel)+'</div>';
         html+='</div>';
         // Messwerte
@@ -8240,8 +8238,7 @@ function btbNachweisBlattHtml(k, datum, tagesEintraege){
     const eind=btbEindickung(dZ,dA);
 
     h+='<div class="nw-anlage"><h2 class="nw-anlkopf"><span>'+esc(e.anlage)+'</span>'
-      + '<small>'+(e.besuch_uhrzeit?'Uhrzeit '+esc(e.besuch_uhrzeit):'')
-      + (e.besuch_uhrzeit&&e.kuerzel?' · ':'')+(e.kuerzel?'Techniker '+esc(e.kuerzel):'')+'</small></h2>';
+      + '<small>'+(e.kuerzel?'Techniker '+esc(e.kuerzel):'')+'</small></h2>';
 
     // Messwerte
     let mw='';
