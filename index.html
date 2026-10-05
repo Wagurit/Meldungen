@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.57</title>
+<title>Meldungen &amp; Angebote 2.59</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -284,6 +284,18 @@ textarea{resize:vertical;min-height:68px;}
 .btb-feld{}
 .btb-feld-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin-bottom:3px;}
 .btb-last-hint{font-size:13px;color:var(--gn);margin-top:2px;font-style:italic;white-space:nowrap;}
+.btb-zww-box{border:1.5px solid #bae6fd;border-radius:8px;background:#f0f9ff;overflow:hidden;}
+.btb-zww-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:#0369a1;letter-spacing:.04em;text-transform:uppercase;}
+.btb-zww-datum{font-weight:800;text-transform:none;letter-spacing:0;}
+.btb-zww-arrow{font-size:14px;color:#0369a1;}
+.btb-zww-body{padding:9px;border-top:1px solid #bae6fd;}
+.btb-zww-input{width:100%;box-sizing:border-box;}
+.btb-zww-teilen{margin-top:8px;padding:7px 9px;background:#fff;border:1px dashed #bae6fd;border-radius:7px;}
+.btb-zww-cb-lbl{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--tx);cursor:pointer;padding:3px 0;}
+.btb-zww-cb{width:15px;height:15px;accent-color:#0891b2;flex-shrink:0;}
+.btb-zww-hinweis{font-size:10.5px;color:var(--mu);margin-top:4px;line-height:1.4;}
+.btb-zww-save{width:100%;margin-top:9px;padding:9px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;cursor:pointer;}
+.btb-zww-wer{font-size:10.5px;color:var(--mu);margin-top:5px;font-style:italic;text-align:center;}
 .btb-feld input,.btb-feld select{font-size:16px!important;padding:8px 10px!important;}
 .btb-dipslide-box{background:#fff;border:1.5px solid #bae6fd;border-radius:8px;padding:9px;margin-top:6px;}
 .btb-dipslide-title{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:#0369a1;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
@@ -533,7 +545,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.57</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.59</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1062,7 +1074,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.57';
+const APP_VERSION = '2.59';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1184,6 +1196,14 @@ const APP_VERSION = '2.57';
   -- Format: {"zusatzwasser":[["Halle A","Halle B"]],"abwasser":[]}
   -- Anlagen, die in keiner Gruppe stehen, haben einen eigenen Zähler.
   ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS wasserzaehler_gruppen jsonb DEFAULT '{}';
+
+  -- Zusatzwasserwerte (ab 2.59): die bei der Wartung ermittelten Werte des Speisewassers.
+  -- Gelten je Gruppe von Anlagen, weil ein Kunde mehrere Zusatzwässer haben kann.
+  -- Format: {"gruppen":[{"anlagen":["Halle A","Halle B"],
+  --                      "lf":"1200","dh":"17,2","kh":"8","chlorid":"45",
+  --                      "datum":"2026-10-05","kz":"AG"}]}
+  -- Das Datum ändert sich NUR, wenn sich ein Wert ändert.
+  ALTER TABLE kbe_kunden ADD COLUMN IF NOT EXISTS zusatzwasser_werte jsonb DEFAULT '{}';
 
   -- Produktnamen PRO ANLAGE (löst die alte, kundenweite Spalte produkt_namen ab — die bleibt
   -- als Fallback für Anlagen ohne eigenen Eintrag bestehen). Format:
@@ -1611,6 +1631,7 @@ async function loadAllEigentlich(){
         dosier_info: k2.dosier_info||{},
         btb_letzter_export: k2.btb_letzter_export||null,
         wasserzaehler_gruppen: k2.wasserzaehler_gruppen||{},
+        zusatzwasser_werte: k2.zusatzwasser_werte||{},
         entwuerfe,
         eintraege: btbEintr.filter(e=>e.kunde_id===k2.id).map(e=>({
           id:e.id,
@@ -3039,6 +3060,8 @@ async function btbSpeichereAnlagen(){
     const pna=Object.assign({}, k.produkt_namen_pro_anlage||{});
     const di =Object.assign({}, k.dosier_info||{});
     const wz =JSON.parse(JSON.stringify(k.wasserzaehler_gruppen||{}));
+    // 2.59: Die Zusatzwasserwerte-Gruppen speichern ebenfalls Klarnamen
+    const zww=JSON.parse(JSON.stringify(k.zusatzwasser_werte||{}));
     umbenannt.forEach(({alt,neu})=>{
       const sAlt=btbSlug(alt), sNeu=btbSlug(neu);
       if(sAlt!==sNeu){
@@ -3062,10 +3085,17 @@ async function btbSpeichereAnlagen(){
           if(i>=0) gruppe[i]=neu;
         });
       });
+      // 2.59: dasselbe für die Zusatzwasserwerte — sonst verliert die umbenannte Anlage
+      // ihre Werte und taucht in keiner Gruppe mehr auf
+      (zww.gruppen||[]).forEach(g=>{
+        const i=(g.anlagen||[]).indexOf(alt);
+        if(i>=0) g.anlagen[i]=neu;
+      });
     });
     patch.produkt_namen_pro_anlage=pna;
     patch.dosier_info=di;
     patch.wasserzaehler_gruppen=wz;
+    patch.zusatzwasser_werte=zww;
   }
 
   if(isOnline()){
@@ -3097,6 +3127,7 @@ async function btbSpeichereAnlagen(){
       if(patch.produkt_namen_pro_anlage) obj.produkt_namen_pro_anlage=patch.produkt_namen_pro_anlage;
       if(patch.dosier_info)              obj.dosier_info=patch.dosier_info;
       if(patch.wasserzaehler_gruppen)    obj.wasserzaehler_gruppen=patch.wasserzaehler_gruppen;
+      if(patch.zusatzwasser_werte)       obj.zusatzwasser_werte=patch.zusatzwasser_werte;
     }
     (obj.entwuerfe||[]).forEach(e=>{
       const u=umbenannt.find(x=>x.alt===e.anlage);
@@ -5495,7 +5526,7 @@ function btbIstSchemaFehler(error){
 // Warteschlange weiter füllt.
 const _schemaGemeldet={};
 const SPALTEN_KLARTEXT={produkt_namen_pro_anlage:'Produktbezeichnungen', dosier_info:'Dosierdaten',
-  wasserzaehler_gruppen:'Zähler-Zuordnung', btb_letzter_export:'Export-Vermerk',
+  wasserzaehler_gruppen:'Zähler-Zuordnung', zusatzwasser_werte:'Zusatzwasserwerte', btb_letzter_export:'Export-Vermerk',
   rkws:'Anlagenliste', produkt_namen:'Produktbezeichnungen'};
 function btbMeldeSchemaFehler(error, was){
   if(!btbIstSchemaFehler(error)) return false;
@@ -5644,6 +5675,88 @@ function btbFindGruppenPartner(k, typ, anlageName){
   const gruppe=gruppen.find(g=>g.includes(anlageName));
   return gruppe?gruppe.filter(a=>a!==anlageName):[];
 }
+// ══════════════════════════════════════════════════════════
+// 2.59: ZUSATZWASSERWERTE
+// Bei der Wartung (1x im Quartal) ermittelte Werte des Speisewassers. Sie stehen fest,
+// bis jemand sie ändert — wie die Dosierzeiten — und dienen dem Techniker zum Abgleich,
+// ob seine Umlaufwerte plausibel sind.
+// Sie gelten je GRUPPE von Anlagen, nicht je Anlage: ein Kunde kann mehrere Zusatzwässer
+// haben, mehrere Anlagen aber dasselbe. Darum dieselbe Logik wie beim geteilten Zähler.
+// ══════════════════════════════════════════════════════════
+const ZW_FELDER=[
+  {k:'lf',      lbl:'LF (µS/cm)', ph:'z.B. 620'},
+  {k:'dh',      lbl:'°dH',        ph:'z.B. 14,5'},
+  {k:'kh',      lbl:'°KH',        ph:'z.B. 8'},
+  {k:'chlorid', lbl:'Chlorid (mg/l)', ph:'z.B. 45'}
+];
+// Die Gruppe, zu der diese Anlage gehört — oder null.
+function btbZwGruppe(k, anlageName){
+  const g=((k&&k.zusatzwasser_werte)||{}).gruppen||[];
+  return g.find(x=>(x.anlagen||[]).includes(anlageName))||null;
+}
+// Die Werte dieser Anlage (leeres Objekt, wenn noch nichts erfasst ist).
+function btbZwWerte(k, anlageName){
+  const g=btbZwGruppe(k, anlageName);
+  if(!g) return {};
+  const w={}; ZW_FELDER.forEach(f=>{ w[f.k]=g[f.k]==null?'':String(g[f.k]); });
+  return w;
+}
+// Mit welchen anderen Anlagen teilt sich diese Anlage die Werte?
+function btbZwPartner(k, anlageName){
+  const g=btbZwGruppe(k, anlageName);
+  return g?(g.anlagen||[]).filter(a=>a!==anlageName):[];
+}
+function btbZwDatum(k, anlageName){
+  const g=btbZwGruppe(k, anlageName);
+  return g&&g.datum?g.datum:null;
+}
+// Hat die Gruppe überhaupt einen Wert?
+function btbZwHatWerte(k, anlageName){
+  const w=btbZwWerte(k, anlageName);
+  return ZW_FELDER.some(f=>String(w[f.k]||'').trim()!=='');
+}
+// Werte und Anlagen-Zuordnung setzen. Gibt das neue jsonb zurück — oder null, wenn sich
+// nichts geändert hat. Das Datum wird NUR bei einer echten Wertänderung neu gesetzt;
+// eine reine Umverteilung der Anlagen lässt es stehen.
+function btbZwSetzen(k, anlageName, werte, anlagenAuswahl){
+  const alt=JSON.parse(JSON.stringify((k.zusatzwasser_werte)||{}));
+  let gruppen=(alt.gruppen||[]).map(g=>({...g, anlagen:[...(g.anlagen||[])]}));
+  let meine=gruppen.find(g=>g.anlagen.includes(anlageName));
+  if(!meine){ meine={anlagen:[anlageName]}; gruppen.push(meine); }
+
+  // Werte übernehmen und prüfen, ob sich wirklich etwas geändert hat
+  let geaendert=false;
+  ZW_FELDER.forEach(f=>{
+    const neuW=String((werte&&werte[f.k])!=null?werte[f.k]:'').trim();
+    const altW=String(meine[f.k]!=null?meine[f.k]:'').trim();
+    if(neuW!==altW){ geaendert=true; meine[f.k]=neuW||null; }
+  });
+
+  // Anlagen-Zuordnung: gewählte Partner in meine Gruppe holen, abgewählte herauslösen
+  const sollAnlagen=[anlageName, ...((anlagenAuswahl||[]).filter(a=>a!==anlageName))];
+  const vorherAnlagen=[...meine.anlagen];
+  gruppen.forEach(g=>{
+    if(g===meine) return;
+    sollAnlagen.forEach(a=>{ const i=g.anlagen.indexOf(a); if(i>=0) g.anlagen.splice(i,1); });
+  });
+  meine.anlagen=sollAnlagen;
+  const zuordnungGeaendert=vorherAnlagen.length!==sollAnlagen.length
+    || vorherAnlagen.some(a=>!sollAnlagen.includes(a));
+
+  // Leere Gruppen und Gruppen ganz ohne Werte verwerfen
+  gruppen=gruppen.filter(g=>g.anlagen.length
+    && ZW_FELDER.some(f=>String(g[f.k]||'').trim()!==''));
+
+  if(!geaendert && !zuordnungGeaendert) return null;
+  if(geaendert && gruppen.includes(meine)){
+    meine.datum=new Date().toISOString().split('T')[0];
+    meine.kz=kz;
+  }
+  alt.gruppen=gruppen;
+  k.zusatzwasser_werte=alt;
+  return alt;
+}
+
 function btbSetGruppenMitgliedschaft(k, typ, anlageName, partnerName, geteilt){
   const alle=Object.assign({}, k.wasserzaehler_gruppen||{});
   let gruppen=(alle[typ]||[]).map(g=>[...g]);
@@ -6659,12 +6772,36 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   const isAdmin=(userRolle==='admin'||userRolle==='IS');
   const di=(k.dosier_info||{})[slug]||{};  // Dosierdaten sind PRO ANLAGE gespeichert
   const TAGE=[{k:'mo',l:'Mo'},{k:'di',l:'Di'},{k:'mi',l:'Mi'},{k:'do',l:'Do'},{k:'fr',l:'Fr'},{k:'sa',l:'Sa'},{k:'so',l:'So'}];
+  // 2.59: Zusatzwasserwerte dieser Anlage (bzw. ihrer Gruppe)
+  const zwW       = btbZwWerte(k, anlageName);
+  const zwDatum   = btbZwDatum(k, anlageName);
+  const zwPartnerW= btbZwPartner(k, anlageName);
+  const zwHat     = btbZwHatWerte(k, anlageName);
+
+  // 2.58: Zu jedem Messwertfeld der Wert des letzten Besuchs, der ihn hat — als
+  // „Datum: Wert" unter dem Feld, genau wie es die Zähler schon machen. Jedes Feld wird
+  // einzeln gesucht: fehlt beim letzten Besuch z.B. die Härte, steht trotzdem der letzte
+  // bekannte Härtewert da, mit SEINEM Datum. Rohtext ("< 2000") hat Vorrang vor der Zahl.
+  const btbLetzterMesswert=(spalte, rohKey)=>{
+    const tr=(anlEintraege||[]).find(e=>{
+      const roh=btbRohWerte(e)[rohKey];
+      return (e && e[spalte]!=null) || (roh!=null && String(roh).trim()!=='');
+    });
+    if(!tr) return '';
+    const txt=btbMesswertText(tr[spalte], btbRohWerte(tr)[rohKey]);
+    if(txt==null || String(txt).trim()==='') return '';
+    return '<div class="btb-last-hint">'+btbFmtTagMonat(tr.datum_btb)+': <b>'+esc(String(txt))+'</b></div>';
+  };
+  const letztDh =btbLetzterMesswert('dh','dh');
+  const letztLf =btbLetzterMesswert('lf_messung_ist','lf');
+  const letztLfi=btbLetzterMesswert('lf_geraet_ist','lfi');
+  const letztLfs=btbLetzterMesswert('lf_geraet_soll','lfs');
   const letzterMitWasser=anlEintraege.find(e=>e.zusatzwasser!=null);
   const prevHinweis=letzterMitWasser
-    ?'<div class="btb-last-hint" style="margin-top:4px">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzterMitWasser.zusatzwasser+' m³</b></div>':'';
+    ?'<div class="btb-last-hint" style="margin-top:3px;white-space:normal;line-height:1.3">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzterMitWasser.zusatzwasser+' m³</b></div>':'';
   const letzterMitAbwasser=anlEintraege.find(e=>e.abwasser!=null);
   const abwHinweis=letzterMitAbwasser
-    ?'<div class="btb-last-hint" style="margin-top:4px">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letzterMitAbwasser.abwasser+' m³</b></div>':'';
+    ?'<div class="btb-last-hint" style="margin-top:3px;white-space:normal;line-height:1.3">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letzterMitAbwasser.abwasser+' m³</b></div>':'';
   // Zähler-teilen: andere Anlagen des Kunden + aktuell zugeordnete Partner (separat für Zusatz-/Abwasser)
   const andereAnlagen=(k.rkws||[]).map(r=>r.name).filter(n=>n!==anlageName);
   const zwPartner=btbFindGruppenPartner(k,'zusatzwasser',anlageName);
@@ -6837,15 +6974,43 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     +'<input type="date" id="btb-datum-'+id+'-'+slug+'" class="btb-datum-input" value="'+(dv.datum||today)+'" style="font-size:16px!important;padding:8px 10px!important"></div>'
     +'<input type="hidden" id="btb-uhr-'+id+'-'+slug+'" value="'+(dv.uhr||nowT)+'">'
     +'</div>'
+    // 2.59: Zusatzwasserwerte — eingeklappter Chip über den Messwerten. Der Techniker
+    // klappt ihn nur auf, wenn er seine Umlaufwerte dagegen halten will.
+    +'<div class="btb-zww-box" style="margin-top:7px">'
+    +'<div class="btb-zww-chip">'
+    +'<span>💧 Zusatzwasserwerte<span class="btb-zww-datum">'
+    +(zwDatum?': '+btbFmtDatumDE(zwDatum):(zwHat?'':' – noch nicht erfasst'))+'</span></span>'
+    +'<span class="btb-zww-arrow">⌄</span>'
+    +'</div>'
+    +'<div class="btb-zww-body" style="display:none">'
+    +'<div class="btb-grid">'
+    +ZW_FELDER.map(f=>'<div class="btb-feld"><div class="btb-feld-lbl">'+f.lbl+'</div>'
+      +'<input type="text" inputmode="text" class="btb-zww-input" data-feld="'+f.k+'" '
+      +'placeholder="'+esc(f.ph)+'" value="'+esc(zwW[f.k]||'')+'"></div>').join('')
+    +'</div>'
+    +(andereAnlagen.length
+      ? '<div class="btb-zww-teilen">'
+        +'<div class="btb-feld-lbl" style="color:#0369a1">Gilt auch für</div>'
+        +andereAnlagen.map(name=>'<label class="btb-zww-cb-lbl">'
+            +'<input type="checkbox" class="btb-zww-cb" data-partner="'+esc(name)+'"'
+            +(zwPartnerW.includes(name)?' checked':'')+'> '+esc(name)+'</label>').join('')
+        +'<div class="btb-zww-hinweis">Nur anhaken, wenn dort dasselbe Zusatzwasser läuft.</div>'
+        +'</div>'
+      : '')
+    +'<button type="button" class="btb-zww-save">✓ Zusatzwasserwerte speichern</button>'
+    +'<div class="btb-zww-wer">'+(zwDatum?'Zuletzt geändert '+btbFmtDatumDE(zwDatum)
+        +((btbZwGruppe(k,anlageName)||{}).kz?' von '+esc(btbZwGruppe(k,anlageName).kz):''):'')+'</div>'
+    +'</div>'
+    +'</div>'
     // LF + dH
     +'<div class="btb-grid" style="margin-top:7px">'
     // 2.47: Messwertfelder als Textfelder — „< 2000", „> 1500", „10-20" oder „-" sind jetzt
     // möglich. Die Zahl wird beim Speichern herausgelesen, damit Verlauf und Berechnungen
     // weiterlaufen. class="btb-mess" markiert sie für die Enter-Navigation und das Auslesen.
-    +'<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-dh-'+id+'-'+slug+'" placeholder="z.B. 17,2 oder &lt;20" value="'+esc(dv.dhRoh||dv.dh||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lf-'+id+'-'+slug+'" placeholder="z.B. 999 oder &lt;2000" value="'+esc(dv.lfRoh||dv.lf||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfi-'+id+'-'+slug+'" placeholder="z.B. 991" value="'+esc(dv.lfiRoh||dv.lfi||'')+'"></div>'
-    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfs-'+id+'-'+slug+'" placeholder="z.B. 1000" value="'+esc(dv.lfsRoh||dv.lfs||'')+'"></div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">°dH</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-dh-'+id+'-'+slug+'" placeholder="z.B. 17,2 oder &lt;20" value="'+esc(dv.dhRoh||dv.dh||'')+'">'+letztDh+'</div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF IST (µS/cm)</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lf-'+id+'-'+slug+'" placeholder="z.B. 999 oder &lt;2000" value="'+esc(dv.lfRoh||dv.lf||'')+'">'+letztLf+'</div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät IST</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfi-'+id+'-'+slug+'" placeholder="z.B. 991" value="'+esc(dv.lfiRoh||dv.lfi||'')+'">'+letztLfi+'</div>'
+    +'<div class="btb-feld"><div class="btb-feld-lbl">LF Gerät SOLL</div><input type="text" inputmode="text" class="btb-mess" '+PNAME_ATTR+' id="btb-lfs-'+id+'-'+slug+'" placeholder="z.B. 1000" value="'+esc(dv.lfsRoh||dv.lfs||'')+'">'+letztLfs+'</div>'
     +'</div>'
     // DipSlide
     +'<div class="btb-dipslide-box" style="margin-top:7px">'
@@ -6866,14 +7031,17 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
         +'</div>'
         +'<div class="btb-zw-body" style="display:'+(hatZwDaten?'block':'none')+';margin-top:6px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
-        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Zusatzwasser</div>'
-        +'<input type="number" step="1" id="btb-zw-'+id+'-'+slug+'" class="btb-zw-input" placeholder="Zähler" value="'+(dv.zw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+        // 2.58: Zählerfeld um gut drei Ziffern breiter, damit lange Zählerstände hineinpassen
+        // UND der letzte Stand darunter Platz hat, ohne in den letzten Verbrauch zu rutschen.
+        +'<div class="btb-feld" style="width:112px"><div class="btb-feld-lbl">Zusatzwasser</div>'
+        +'<input type="number" step="1" id="btb-zw-'+id+'-'+slug+'" class="btb-zw-input" placeholder="Zähler" value="'+(dv.zw||'')+'" style="width:100%;box-sizing:border-box">'
+        +prevHinweis
+        +'</div>'
         +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
         +'<input type="text" readonly class="btb-zw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
         +(letztesVerbrauchZW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letztesVerbrauchZW+'</b></div>':'')
         +'</div>'
         +'</div>'
-        +prevHinweis
         +btbShareHtml('zusatzwasser', zwPartner)
         +'</div>';
     })()
@@ -6885,8 +7053,10 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
         +'</div>'
         +'<div class="btb-aw-body" style="display:'+(hatAwDaten?'block':'none')+';margin-top:7px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'
-        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl">Abwasser opt.</div>'
-        +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box"></div>'
+        +'<div class="btb-feld" style="width:112px"><div class="btb-feld-lbl">Abwasser opt.</div>'
+        +'<input type="number" step="1" id="btb-aw-'+id+'-'+slug+'" class="btb-aw-input" placeholder="Zähler" value="'+(dv.aw||'')+'" style="width:100%;box-sizing:border-box">'
+        +abwHinweis
+        +'</div>'
         +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:var(--gn)">Verbrauch</div>'
         +'<input type="text" readonly class="btb-aw-verbrauch" value="–" style="width:100%;box-sizing:border-box;background:#dcfce7;color:#15803d;font-weight:700;text-align:center;cursor:default">'
         +(letztesVerbrauchAW!=null?'<div class="btb-last-hint" style="text-align:center">'+btbFmtTagMonat(letzterMitAbwasser.datum_btb)+': <b>'+letztesVerbrauchAW+'</b></div>':'')
@@ -6896,7 +7066,6 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
         +(letzteEindickung!=null?'<div class="btb-last-hint" style="text-align:center;color:#7c3aed">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzteEindickung+'-fach</b></div>':'')
         +'</div>'
         +'</div>'
-        +abwHinweis
         +btbShareHtml('abwasser', awPartner)
         +'</div>';
     })()
@@ -7045,6 +7214,59 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       if(body) body.style.display=body.style.display==='none'?'block':'none';
     });
   });
+  // 2.59: Zusatzwasserwerte auf-/zuklappen
+  const zwwChip=form.querySelector('.btb-zww-chip');
+  if(zwwChip){
+    zwwChip.addEventListener('click', ()=>{
+      const body=form.querySelector('.btb-zww-body');
+      const pfeil=zwwChip.querySelector('.btb-zww-arrow');
+      if(!body) return;
+      const zu=body.style.display==='none';
+      body.style.display=zu?'block':'none';
+      if(pfeil) pfeil.textContent=zu?'⌃':'⌄';
+    });
+  }
+  // 2.59: Zusatzwasserwerte speichern — bewusst per Knopf, nicht bei jedem Tastendruck:
+  // nur eine echte Änderung darf das Datum am Chip weiterstellen.
+  const zwwSave=form.querySelector('.btb-zww-save');
+  if(zwwSave){
+    zwwSave.addEventListener('click', async()=>{
+      const werte={};
+      form.querySelectorAll('.btb-zww-input').forEach(i=>{ werte[i.dataset.feld]=i.value; });
+      const auswahl=[...form.querySelectorAll('.btb-zww-cb')].filter(c=>c.checked).map(c=>c.dataset.partner);
+      const hatWert=ZW_FELDER.some(f=>String(werte[f.k]||'').trim()!=='');
+      if(!hatWert && !auswahl.length){ toast('⚠️ Bitte mindestens einen Wert eintragen'); return; }
+      const neuJson=btbZwSetzen(k, anlageName, werte, auswahl);
+      if(neuJson===null){ toast('Keine Änderung'); return; }
+      btbSaveSnapshot();
+      zwwSave.disabled=true;
+      let fehler=null;
+      if(isOnline()){
+        const {error}=await _sb.from('kbe_kunden').update({zusatzwasser_werte:neuJson}).eq('id',id);
+        fehler=error;
+        if(btbMeldeSchemaFehler(error,'Zusatzwasserwerte')){ zwwSave.disabled=false; return; }
+      }
+      if(!isOnline()||fehler){
+        btbEntferneUeberholteQueue('kbe_kunden_update',
+          x=>x.data.id===id && x.data.patch && x.data.patch.zusatzwasser_werte);
+        addToQueue({type:'kbe_kunden_update', data:{id, patch:{zusatzwasser_werte:neuJson}}});
+        toast(fehler?'⚠️ Kein Netz — gespeichert, wird automatisch hochgeladen'
+                    :'📥 Offline gespeichert — wird hochgeladen sobald online');
+      } else {
+        toast('✓ Zusatzwasserwerte gespeichert'+(auswahl.length?' · gilt auch für '+auswahl.join(', '):''));
+      }
+      // Auf allen Kopien des Kunden nachziehen, damit andere Anlagen sofort stimmen
+      [BTB_KUNDEN.find(x=>x.id===id), KBE.find(x=>x.id===id)].forEach(o=>{ if(o) o.zusatzwasser_werte=neuJson; });
+      zwwSave.disabled=false;
+      // Chip-Datum und Fußzeile sofort aktualisieren, ohne das Formular neu zu bauen
+      const g=btbZwGruppe(k, anlageName);
+      const dEl=form.querySelector('.btb-zww-datum');
+      if(dEl) dEl.textContent=(g&&g.datum)?': '+btbFmtDatumDE(g.datum):' – noch nicht erfasst';
+      const wEl=form.querySelector('.btb-zww-wer');
+      if(wEl) wEl.textContent=(g&&g.datum)?'Zuletzt geändert '+btbFmtDatumDE(g.datum)+(g.kz?' von '+g.kz:''):'';
+    });
+  }
+
   // Zähler teilen: Checkbox ändert die Gruppenzuordnung, wird sofort (auch offline) gespeichert
   form.querySelectorAll('.btb-share-cb').forEach(cb=>{
     cb.addEventListener('change', async()=>{
