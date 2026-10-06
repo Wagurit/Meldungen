@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.60</title>
+<title>Meldungen &amp; Angebote 2.62</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -545,7 +545,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.60</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.62</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1074,7 +1074,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.60';
+const APP_VERSION = '2.62';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -2071,11 +2071,21 @@ function baueAuftragsBox(e){
     const alt=document.createElement('div');
     alt.style.cssText='padding:8px 10px;font-size:11px;color:var(--mu);line-height:1.5';
     alt.textContent='Kein Auftragsdurchlauf hinterlegt (vor der Umstellung bestellt).';
-    const btn=document.createElement('button');
-    btn.className='kz-pill';btn.style.cssText='font-size:11px;padding:5px 9px;margin:0 10px 9px';
-    btn.textContent='▶ Durchlauf jetzt starten';
-    btn.onclick=()=>auftragNachtraeglichStarten(e.id);
-    box.append(alt,btn);
+    // 2.62: Früher startete der Knopf den Durchlauf IMMER als Montage — alte Aufträge
+    // landeten dadurch zwangsläufig bei den Technikern und erzeugten je einen
+    // Meldungs-Chip. Beim Aufräumen alter Bestellungen ist das genau verkehrt. Jetzt
+    // wird der Weg vorher gewählt; der Innendienst-Weg erzeugt keine Meldung.
+    const wahl=document.createElement('div');
+    wahl.style.cssText='display:flex;gap:5px;flex-wrap:wrap;padding:0 10px 9px';
+    const starten=(montage, txt)=>{
+      const b=document.createElement('button');b.type='button';b.className='kz-pill';
+      b.style.cssText='font-size:11px;padding:5px 9px';b.textContent=txt;
+      b.onclick=()=>auftragNachtraeglichStarten(e.id, montage);
+      wahl.appendChild(b);
+    };
+    starten(true,  '▶ 🔧 An die Techniker');
+    starten(false, '▶ 📮 Im Innendienst');
+    box.append(alt, wahl);
     return box;
   }
   const fertig=a.station==='fertig';
@@ -2281,11 +2291,20 @@ function baueAuftragsBox(e){
 }
 
 // Für Angebote, die vor der Umstellung bestellt wurden: Durchlauf nachträglich starten
-async function auftragNachtraeglichStarten(id){
+// 2.62: montage=true → Montage durch die Techniker (erzeugt wie immer eine Meldung).
+// montage=false → Versand durch den Innendienst, ohne Meldung. „Auf Lager" ist bei
+// nachträglich gestarteten Aufträgen immer true: die Ware ist bei einer alten
+// Bestellung längst da, eine Station Beschaffung wäre nur im Weg. Über „Weg
+// korrigieren" lässt sich das danach jederzeit ändern.
+async function auftragNachtraeglichStarten(id, montage){
   const e=FR.find(x=>x.id===id); if(!e) return;
-  if(!confirm('Für dieses Angebot den Auftragsdurchlauf starten?\n\n'
-    +'Du legst danach den Weg fest (Montage/Versand, auf Lager ja/nein).')) return;
-  await auftragStarten(id, true, true, [], e.beauftragt_kommentar||'', '');
+  const kette=auftragKette({montage:!!montage, auf_lager:true}).map(st=>ST_LABEL[st]).join(' → ');
+  const wer=montage ? 'den Technikern' : 'dem Innendienst';
+  if(!confirm('Auftragsdurchlauf starten und '+wer+' zuweisen?\n\n'+kette+' → '+ST_LABEL.fertig
+    +(montage?'\n\nDie Techniker bekommen dafür einen Meldungs-Chip.'
+             :'\n\nEs wird keine Meldung erzeugt — der Auftrag läuft nur im Angebote-Reiter.')
+    +'\n\nDen Weg kannst du danach noch korrigieren.')) return;
+  await auftragStarten(id, !!montage, true, [], e.beauftragt_kommentar||'', '');
 }
 
 // Meldung an die neu Zugewiesenen.
@@ -2297,8 +2316,12 @@ async function auftragNachtraeglichStarten(id){
 async function auftragMeldung(e, a, kommentar){
   if(a.station!=='montage') return;
   if(!a.zuw||!a.zuw.length) return;
+  // 2.61: Der Angebotstext wird VOLLSTÄNDIG übernommen. Vorher stand hier
+  // substring(0,70) — bei einer längeren Leistungsbeschreibung brach die Meldung
+  // mitten im Satz ab und alles danach (AN, AB, Kommentar) hing an einem Textrumpf.
+  // Der Techniker bekam also genau die Information nicht, wegen der er hinfährt.
   const txt='📋 '+ST_LABEL[a.station]+': '+e.firma
-    +(e.text?' – '+e.text.substring(0,70):'')
+    +(e.text?' – '+e.text:'')
     +(e.angebotsnr?' | AN '+e.angebotsnr:'')
     +(a.ab_nr?' | AB '+a.ab_nr:'')
     +((kommentar||'').trim()?' | '+kommentar.trim():'')
@@ -3737,7 +3760,9 @@ async function setBeauftragt(id, taEl, pillsDiv){
   renderF();
 
   if(neuZuw.length){
-    const meldText='🔵 Bestellt: '+e.firma+(e.text?' – '+e.text.substring(0,80):'')+(kommentar?' | '+kommentar:'');
+    // 2.61: Auch hier kein Abschneiden mehr (vorher 80 Zeichen) — selbe Begründung
+    // wie bei der Montage-Übergabe: der Text ist der Auftrag.
+    const meldText='🔵 Bestellt: '+e.firma+(e.text?' – '+e.text:'')+(kommentar?' | '+kommentar:'');
     await meldungAnlegen(e.firma, meldText, neuZuw, '✅ Bestellt — Meldung an '+neuZuw.join(', ')+' erstellt');
   } else {
     // Ohne Zuweisung entsteht bewusst keine Meldung. Das war vorher stillschweigend so —
