@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.66</title>
+<title>Meldungen &amp; Angebote 2.67</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -546,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.66</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.67</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.66';
+const APP_VERSION = '2.67';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -6046,11 +6046,40 @@ function btbKbeClass(val){
 // ── Tab rendern ──
 // 2.29: Sicherheitsnetz — getippte, noch nicht gespeicherte Feldwerte über einen Neuaufbau
 // des Reiters hinweg retten (der Neuaufbau befüllt die Felder sonst aus dem letzten Entwurf)
+// 2.67: Dieser Schlüssel ordnet beim Neuaufbau des Formulars jeden geretteten Wert
+// wieder seinem Feld zu. Er war NICHT eindeutig:
+//   · die drei Produktbezeichnungen haben weder id noch Klasse → Schlüssel war ""
+//   · die vier Zusatzwasserwerte teilen sich die Klasse btb-zww-input
+//   · die zwei „Zähler teilen"-Haken teilen sich btb-share-cb
+// Beim Sichern gewann jeweils der LETZTE, beim Zurückspielen bekamen alle Felder
+// dessen Wert. Bei den Produktnamen stand danach überall die Bezeichnung von
+// Produkt 3 — auch in der gespeicherten Anlage und in jeder per Haken mitgeänderten.
+// Jetzt: erst ein sprechender Schlüssel (id, name, data-Attribute), dann in
+// btbFeldSchluesselMap() eine laufende Nummer als Absicherung gegen jede Restkollision.
 function btbFeldSchluessel(el){
   if(el.id) return el.id;
+  if(el.name) return 'n:'+el.name;
   const dos=el.getAttribute('data-dosier'); if(dos) return 'dos:'+dos;
+  const pn=el.getAttribute('data-pname');   if(pn)  return 'pname:'+pn;
+  const feld=el.getAttribute('data-feld');  if(feld) return 'feld:'+feld;
+  const pnr=el.getAttribute('data-pnr');
+  const typ=el.getAttribute('data-typ');
+  const partner=el.getAttribute('data-partner')||el.getAttribute('data-anlage');
+  if(typ||partner) return 'teilen:'+el.className+':'+(typ||'')+':'+(partner||'');
   const prod=el.closest('[data-prod]')?.dataset.prod;
-  return (prod?'p'+prod+':':'')+el.className;
+  return (prod?'p'+prod+':':'')+(pnr?'pnr'+pnr+':':'')+el.className;
+}
+// Vergibt für ein Formular eindeutige Schlüssel: Grundschlüssel + laufende Nummer
+// innerhalb der gleichnamigen Felder. Beide Richtungen (sichern und zurückspielen)
+// benutzen dieselbe Funktion, damit die Zuordnung in jedem Fall zusammenpasst.
+function btbFeldSchluesselMap(form){
+  const map=new Map(), zaehler={};
+  form.querySelectorAll('input:not([readonly]), select, textarea').forEach(el=>{
+    const basis=btbFeldSchluessel(el);
+    const n=(zaehler[basis]=(zaehler[basis]||0)+1);
+    map.set(el, basis+'#'+n);
+  });
+  return map;
 }
 function btbSichereOffeneEingaben(container){
   const store={};
@@ -6059,8 +6088,9 @@ function btbSichereOffeneEingaben(container){
     karte.querySelectorAll('.btb-anlage-panel').forEach(panel=>{
       const form=panel.querySelector('.btb-form'); if(!form) return;
       const werte={};
+      const schluessel=btbFeldSchluesselMap(form);
       form.querySelectorAll('input:not([readonly]), select, textarea').forEach(el=>{
-        werte[btbFeldSchluessel(el)]=(el.type==='checkbox')?el.checked:el.value;
+        werte[schluessel.get(el)]=(el.type==='checkbox')?el.checked:el.value;
       });
       store[kid+'\u00a7'+panel.dataset.anlage]=werte;
     });
@@ -6073,8 +6103,9 @@ function btbStelleOffeneEingabenHer(container, store){
     karte.querySelectorAll('.btb-anlage-panel').forEach(panel=>{
       const werte=store[kid+'\u00a7'+panel.dataset.anlage]; if(!werte) return;
       const form=panel.querySelector('.btb-form'); if(!form) return;
+      const schluessel=btbFeldSchluesselMap(form);
       form.querySelectorAll('input:not([readonly]), select, textarea').forEach(el=>{
-        const alt=werte[btbFeldSchluessel(el)];
+        const alt=werte[schluessel.get(el)];
         if(alt===undefined) return;
         if(el.type==='checkbox'){ if(el.checked!==alt) el.checked=alt; return; }
         // Nichts mit Leerem überschreiben — nur tatsächlich Getipptes zurückholen
