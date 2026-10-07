@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.62</title>
+<title>Meldungen &amp; Angebote 2.64</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -77,6 +77,7 @@ html,body{overscroll-behavior-y:none;}
 .tbg.lg{background:var(--log);color:#fff;}
 .tbg.adm{background:#fbbf24;color:#78350f;}
 .tbg.zb{background:#FFF700;color:#1a1a00;}
+.tbg.lauf{background:#4338ca;color:#fff;}
 .tbg.wb{background:#0891b2;color:#fff;}
 
 /* ── CONTENT ── */
@@ -545,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.62</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.64</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -566,7 +567,7 @@ textarea{resize:vertical;min-height:68px;}
     <button class="tab" data-tab="b">🔬 KBE</button>
     <button class="tab" data-tab="btb">📋 BTB <span class="tab-badges"><span class="tbg wb" id="tbb-offen"></span></span></button>
     <button class="tab" data-tab="c">🧪 Chemie <span class="tab-badges"><span class="tbg" id="tbc"></span></span></button>
-    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-auf"></span></span></button>
+    <button class="tab" data-tab="f">📝 Angebot <span class="tab-badges"><span class="tbg" id="tbf-of"></span><span class="tbg" id="tbf-lauf"></span><span class="tbg" id="tbf-ber"></span></span></button>
     <button class="tab" data-tab="k">🔬 KBE Auswerten</button>
     <button class="tab" data-tab="is">🏢 BTB Innen <span class="tab-badges"><span class="tbg wb" id="tbis-offen"></span></span></button>
     <button class="tab" data-tab="wz">💧 Wasserzähler</button>
@@ -804,7 +805,7 @@ textarea{resize:vertical;min-height:68px;}
       <div class="lhdr">
         <div class="ltit">Angebote</div>
         <div class="sin-wrap">
-          <input type="text" class="sin" id="sff" placeholder="🔍 Firma oder Ersteller…" oninput="renderF();btbSyncKundenSuche(this.value,'sff')">
+          <input type="text" class="sin" id="sff" placeholder="🔍 Firma, Text, AN / AB / Rechnungs-Nr.…" oninput="renderF();btbSyncKundenSuche(this.value,'sff')">
           <button class="sin-clear" onclick="btbClearSuche('sff')" tabindex="-1">✕</button>
           <div class="acl" id="acl-sff"></div>
         </div>
@@ -1074,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.62';
+const APP_VERSION = '2.64';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -2867,6 +2868,32 @@ function istExplizitFuerMich(e){
   if(l&&l.neu_zuw&&l.neu_zuw.includes(kz))return true;
   return false;
 }
+// 2.63: Freitextsuche über ALLES, was an einem Angebot steht — vorher fand die Zeile
+// nur Firma und Ersteller. Gesucht wird vor allem nach AB- und Rechnungsnummer, die
+// bis dahin nirgends auffindbar waren.
+// Mehrere Wörter werden mit UND verknüpft: „krampe pumpe" findet nur Angebote, in
+// denen beides vorkommt. Ein einzelner Begriff verhält sich wie bisher.
+function freiSuchtext(e){
+  const a=e.auftrag||{};
+  const teile=[
+    e.firma, e.kuerzel, e.text,
+    e.angebotsnr,                                   // AN
+    a.ab_nr,                                        // AB
+    a.rechnung_nr,                                  // RE
+    e.beauftragt_kommentar, e.beauftragt_von, e.erledigt_von,
+    (e.kommentare||[]).map(k=>(k&&(k.text||k.kommentar)||'')+' '+((k&&k.kuerzel)||'')).join(' '),
+    (e.rueckfragen||[]).map(r=>((r&&r.kommentar)||'')+' '+((r&&r.kuerzel)||'')+' '
+       +((r&&r.antworten)||[]).map(x=>((x&&x.text)||'')+' '+((x&&x.kuerzel)||'')).join(' ')).join(' '),
+    (a.log||[]).map(l=>((l&&l.kommentar)||'')+' '+((l&&l.kz)||'')).join(' ')
+  ];
+  return teile.filter(x=>x!=null&&x!=='').join(' ').toLowerCase();
+}
+function freiPasstZurSuche(e, q){
+  const begriffe=String(q||'').toLowerCase().split(/\s+/).filter(Boolean);
+  if(!begriffe.length) return true;
+  const heu=freiSuchtext(e);
+  return begriffe.every(b=>heu.includes(b));
+}
 function freiHatOffeneRQ(e){return(e.rueckfragen||[]).some(r=>r.offen);}
 // Offene Rückfragen zählen weiter in das Abzeichen „für mich“ am Reiter Meldungen —
 // das ist ein eigener, funktionierender Weg und bleibt unberührt.
@@ -4185,8 +4212,8 @@ function renderC(){
 // ══════════════════════════════════════════════════════════
 function renderF(){
   const c=G('ef');c.querySelectorAll('.v2-chip').forEach(e=>e.remove());
-  const q=V('sff').toLowerCase();
-  let d=FR.filter(e=>!q||(e.firma.toLowerCase().includes(q)||e.kuerzel.toLowerCase().includes(q)));
+  const q=V('sff');
+  let d=FR.filter(e=>freiPasstZurSuche(e, q));
   // 2.54: ein Filter = eine Phase
   if(fil.f!=='alle') d=d.filter(e=>angPhase(e)===fil.f);
   G('ef0').style.display=d.length?'none':'';
@@ -4874,14 +4901,6 @@ function updB(){
   const fmEl=G('fm-cnt');if(fmEl)fmEl.textContent=fm||'';
   const oc=CH.filter(e=>!e.erledigt).length;
   const bc=G('tbc');if(oc>0){bc.textContent=oc;bc.className='tbg v of';}else bc.className='tbg';
-  const of2=FR.filter(e=>!e.erledigt).length;
-  const bOf=G('tbf-of');
-  // 2.56: Der orange Zähler sagt selbst, wofür er steht. Es ist dieselbe Zahl wie der
-  // Chip „Offen", aber von jedem Reiter aus sichtbar — darum bleibt er.
-  if(of2>0){
-    bOf.textContent=of2; bOf.className='tbg v of';
-    bOf.title=of2+' Posten noch ohne Angebot (= Chip „Offen")';
-  } else { bOf.className='tbg'; bOf.title=''; }
   // 2.57: Der rote Rückfragen-Zähler ist weg. Seit die Filter „Offene Rückfragen" und
   // „Antworten" entfernt wurden, führte die Zahl nirgendwo hin. Offene Rückfragen bleiben
   // am rot umrandeten Chip erkennbar (CSS-Klasse „rueckfrage"), beantwortete tragen bis
@@ -4894,18 +4913,26 @@ function updB(){
   const setZ=(id,n)=>{ const el=G(id); if(el) el.textContent=n||''; };
   setZ('ft-f-alle', FR.length);
   ANG_PHASEN.forEach(ph=>setZ('ft-f-'+ph, phZahl[ph]));
-  // Aufträge, die bei mir liegen — am Reiter sichtbar, weil der Innendienst für seine
-  // Stationen bewusst keine Meldung bekommt
-  const aufIch=FR.filter(auftragFuerMich).length;
-  // 2.52: Der Innendienst bekommt für seine Stationen bewusst KEINE Meldung mehr. Damit er
-  // seine Aufgaben trotzdem von jedem Reiter aus sieht, steht die Zahl am Reiter „Angebot".
-  const tbfAuf=G('tbf-auf');
-  if(tbfAuf){
-    if(aufIch>0){
-      tbfAuf.textContent=aufIch; tbfAuf.className='tbg v zb';
-      tbfAuf.title=aufIch+' Auftrag/Aufträge warten auf dich (Beschaffung, Versand, Rechnung oder Montage)';
-    } else { tbfAuf.className='tbg'; tbfAuf.title=''; }
-  }
+  // 2.64: Die drei Zähler am Reiter „Angebot" zeigen jetzt PHASEN, nicht mehr
+  // „Aufträge für mich". Der alte gelbe Zähler hing an der Zuweisung — und solange in
+  // Admin alle Kürzel auf „beides" stehen, ist jeder Auftrag jedem zugewiesen, sodass
+  // bei allen dieselbe, nicht nachvollziehbare Zahl stand. Phasen sind dagegen für
+  // jeden gleich bedeutend und stimmen immer mit den Filter-Chips überein, weil sie
+  // aus derselben Funktion kommen.
+  //   orange  = Offen            (noch kein Angebot erstellt)
+  //   indigo  = Aufträge laufend (in Montage oder Versand)
+  //   gelb    = Zu berechnen     (Rechnung steht aus)
+  const setReiter=(id, n, klasse, titel)=>{
+    const el=G(id); if(!el) return;
+    if(n>0){ el.textContent=n; el.className='tbg v '+klasse; el.title=titel; }
+    else { el.className='tbg'; el.title=''; }
+  };
+  setReiter('tbf-of',   phZahl.offen,    'of',
+            phZahl.offen+' noch ohne Angebot (= Chip „Offen")');
+  setReiter('tbf-lauf', phZahl.laufend,  'lauf',
+            phZahl.laufend+' Auftrag/Aufträge in Arbeit (= Chip „Aufträge laufend")');
+  setReiter('tbf-ber',  phZahl.berechnen,'zb',
+            phZahl.berechnen+' noch zu berechnen (= Chip „Zu berechnen")');
   const zbCount=MD.filter(e=>e.zugewiesen_an&&e.zugewiesen_an.includes(kz)&&e.kuerzel!==kz&&ichHabGelesen(e)&&e.bearbeitungs_status==='in_bearbeitung').length;
   const ftZb=document.getElementById('ft-zb-cnt');if(ftZb){if(zbCount>0){ftZb.textContent=zbCount;ftZb.className='tbg zb v';}else ftZb.className='tbg';}
   const tbmZb=document.getElementById('tbm-zb');if(tbmZb){if(zbCount>0){tbmZb.textContent=zbCount;tbmZb.className='tbg v zb';}else tbmZb.className='tbg';}
