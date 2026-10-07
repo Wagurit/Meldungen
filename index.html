@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.64</title>
+<title>Meldungen &amp; Angebote 2.66</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -546,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.64</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.66</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.64';
+const APP_VERSION = '2.66';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -2357,13 +2357,29 @@ function auftragZuMontageMeldung(meld){
   if(!inMontage.length) return null;
   const perId=inMontage.filter(e=>e.auftrag.meld_id && e.auftrag.meld_id===meld.id);
   if(perId.length===1) return perId[0];
-  // Rückfallweg über die Firma: eine offline angelegte Meldung trägt lokal eine
-  // vorläufige id ("offline_…") und bekommt beim Hochladen eine andere — die im Auftrag
-  // gespeicherte meld_id passt dann nicht mehr. Nur bei genau einem Treffer, damit zwei
-  // gleichzeitige Montage-Aufträge derselben Firma nichts Falsches auslösen.
-  const perFirma=inMontage.filter(e=>e.firma===meld.firma);
+  // 2.65: Der Rückfallweg über die Firma gilt nur noch für Aufträge, deren gemerkte
+  // Meldungs-id gar nicht da oder erkennbar vorläufig ist ("offline_…"). Vorher traf er
+  // JEDEN Auftrag dieser Firma in Montage — also auch einen, zu dem die gedrückte
+  // Meldung gar nicht gehörte. Trägt ein Auftrag eine richtige Meldungs-id und die passt
+  // nicht, gehört die Meldung zu etwas anderem und es wird bewusst nichts verschoben.
+  const perFirma=inMontage.filter(e=>e.firma===meld.firma
+    && (!e.auftrag.meld_id || String(e.auftrag.meld_id).startsWith('offline_')));
   if(perFirma.length===1) return perFirma[0];
   return null;
+}
+
+// 2.65: Aus der vorläufigen id wird nach dem Hochladen die echte. Betrifft die lokale
+// Meldungsliste und die im Auftrag gemerkte Meldungs-id.
+async function meldungIdNachziehen(tmpId, echteId){
+  const m=MD.find(x=>x.id===tmpId); if(m) m.id=echteId;
+  const treffer=(FR||[]).filter(e=>e.auftrag && e.auftrag.meld_id===tmpId);
+  for(const e of treffer){
+    const a=JSON.parse(JSON.stringify(e.auftrag));
+    a.meld_id=echteId;
+    await auftragSpeichern(e.id, a);
+  }
+  if(treffer.length) renderF();
+  renderM();
 }
 
 // Schließt die Montage ab und schiebt den Auftrag zur nächsten Station (Rechnung).
@@ -2377,13 +2393,112 @@ async function auftragMontageFertig(meld, kommentar){
               kommentar:(kommentar||'').trim()||null, zuw:a.zuw||[]});
   const naechste=auftragNaechsteStation(a);
   a.station=naechste;
-  a.meld_id=null;                       // die Montage-Meldung ist abgearbeitet
+  // 2.66: meld_id bleibt stehen. Vorher wurde sie hier geleert — dann war nach dem
+  // Abschluss nicht mehr nachvollziehbar, welche Meldung die Montage beendet hat, und
+  // ein versehentliches „Bearbeitet" ließ sich nicht mehr gezielt zurücknehmen.
+  // Für ein zweites „fertig" ist sie ungefährlich: auftragZuMontageMeldung() sieht nur
+  // Aufträge an, die noch in der Montage stehen.
   if(naechste==='fertig'){ a.zuw=[]; a.fertig_am=new Date().toISOString(); }
   else a.zuw=auftragStandardZuweisung(naechste)||alleInnendienst();
   if(!await auftragSpeichern(e.id, a)) return false;
   toast('✅ Montage erledigt · '+e.firma+' → '+ST_LABEL[a.station]
         +(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5500, true);
   return true;
+}
+
+// ══════════════════════════════════════════════════════════
+// 2.66: „BEARBEITET" ZURÜCKNEHMEN
+// Versehentlich gedrückt passiert — und bei einer Montage-Übergabe zieht ein Druck
+// den ganzen Auftrag eine Station weiter. Deshalb dreht das Zurücknehmen beides:
+// die Meldung steht wieder bei allen Zugewiesenen zur Bearbeitung an, und der
+// Auftrag geht zurück in die Montage.
+// ══════════════════════════════════════════════════════════
+
+// Wer darf zurücknehmen? Wer es gedrückt hat — und IS.
+function darfBearbeitetRueckgaengig(e){
+  if(!e || e.bearbeitungs_status!=='bearbeitet') return false;
+  if(kz===IS_KZ) return true;
+  const letzter=[...(e.verlauf||[])].reverse().find(v=>v && v.typ==='bearbeitet');
+  return !!(letzter && letzter.kuerzel===kz);
+}
+
+// Den Auftrag finden, dessen Montage mit DIESER Meldung abgeschlossen wurde:
+// letzter Verlaufseintrag ist die Montage, und er steht nicht mehr dort.
+function auftragZuMontageMeldungRueck(meld){
+  if(!istMontageMeldung(meld)) return null;
+  const kandidaten=(FR||[]).filter(e=>{
+    const a=e&&e.auftrag; if(!a||a.station==='montage') return false;
+    const log=a.log||[];
+    const letzter=log[log.length-1];
+    return !!(letzter && letzter.st==='montage');
+  });
+  if(!kandidaten.length) return null;
+  const perId=kandidaten.filter(e=>e.auftrag.meld_id && e.auftrag.meld_id===meld.id);
+  if(perId.length===1) return perId[0];
+  const perFirma=kandidaten.filter(e=>e.firma===meld.firma
+    && (!e.auftrag.meld_id || String(e.auftrag.meld_id).startsWith('offline_')));
+  if(perFirma.length===1) return perFirma[0];
+  return null;
+}
+
+// Auftrag zurück in die Montage. Gibt zurück, ob etwas zurückgesetzt wurde.
+async function auftragMontageZurueck(meld){
+  const e=auftragZuMontageMeldungRueck(meld);
+  if(!e) return false;
+  const a=JSON.parse(JSON.stringify(e.auftrag));
+  const log=a.log||[];
+  const montageEintrag=log[log.length-1];
+  log.pop();                                   // den Montage-Abschluss entfernen
+  a.log=log;
+  a.station='montage';
+  a.fertig_am=null;
+  // Wieder an die Techniker, die damals dran waren
+  a.zuw=(montageEintrag && (montageEintrag.zuw||[]).length)
+        ? montageEintrag.zuw.slice() : alleTechniker();
+  if(!await auftragSpeichern(e.id, a)) return false;
+  toast('↩ ' + e.firma + ' steht wieder in der Montage'
+        +(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5500, true);
+  return true;
+}
+
+// Das Gegenstück zu setBearbeitet().
+async function setBearbeitetRueckgaengig(id, btn){
+  const e=MD.find(x=>x.id===id); if(!e) return;
+  if(!darfBearbeitetRueckgaengig(e)){ toast('⚠️ Das kann nur zurücknehmen, wer es gedrückt hat'); return; }
+  // Zweistufige Bestätigung wie beim Zurücknehmen eines Angebots
+  if(btn && btn.dataset.confirm!=='1'){
+    btn.textContent='⚠️ Wirklich zurücknehmen?';
+    btn.dataset.confirm='1';
+    setTimeout(()=>{ if(btn.dataset.confirm==='1'){ btn.textContent='↩ Bearbeitet zurücknehmen'; btn.dataset.confirm=''; } }, 4000);
+    return;
+  }
+  if(btn){ btn.dataset.confirm=''; btn.disabled=true; }
+  // Dieselben Schutzvorkehrungen wie in setBearbeitet (2.65)
+  if(String(id).startsWith('offline_')){
+    toast('⚠️ Diese Meldung ist noch nicht hochgeladen — bitte später erneut versuchen', 7000, true);
+    flushQueue(); if(btn) btn.disabled=false; return;
+  }
+  const neuVerlauf=[...(e.verlauf||[])];
+  for(let i=neuVerlauf.length-1;i>=0;i--){
+    if(neuVerlauf[i] && neuVerlauf[i].typ==='bearbeitet'){ neuVerlauf.splice(i,1); break; }
+  }
+  const {data:aktualisiert,error}=await _sb.from('meldungen')
+    .update({bearbeitungs_status:'in_bearbeitung', verlauf:neuVerlauf})
+    .eq('id',id).select('id');
+  if(btn) btn.disabled=false;
+  if(error){
+    toast('⚠️ Konnte nicht gespeichert werden ('+(error.message||'kein Netz')+')', 7000, true);
+    return;
+  }
+  if(!aktualisiert || !aktualisiert.length){
+    toast('⚠️ Diese Meldung gibt es auf dem Server nicht (mehr) — nichts geändert. Bitte neu laden', 7000, true);
+    return;
+  }
+  const idx=MD.findIndex(x=>x.id===id);
+  if(idx>-1){ MD[idx].bearbeitungs_status='in_bearbeitung'; MD[idx].verlauf=neuVerlauf; }
+  renderM(); updB();
+  const zurueck=await auftragMontageZurueck(e);
+  if(!zurueck) toast('↩ Zurückgenommen — steht wieder zur Bearbeitung an');
 }
 
 // 2.49: Eine Meldung anlegen — EIN gemeinsamer Weg für alle Stellen, die das brauchen.
@@ -3831,10 +3946,31 @@ async function setBearbeitet(id, taEl){
   // markiert", auch wenn gar nichts gespeichert wurde — ohne Netz also eine Erfolgsmeldung
   // für einen Vorgang, der niemand erreichte. Und der Auftrag darf nur weiterlaufen, wenn
   // die Meldung wirklich auf „bearbeitet" steht.
-  const {error}=await _sb.from('meldungen').update({bearbeitungs_status:'bearbeitet',verlauf:newVerlauf,gelesen_von:newGV}).eq('id',id);
+  // 2.65: Eine Meldung, die noch in der Warteschlange hängt, trägt nur eine vorläufige
+  // id ("offline_…"). Ein update darauf traf NIE eine Zeile — und Supabase meldet dabei
+  // KEINEN Fehler. Die App hielt das für erfolgreich, schob den Auftrag weiter und
+  // schrieb den Verlaufseintrag, während die Meldung auf dem Server unverändert blieb.
+  // Nach dem nächsten Laden stand der Auftrag auf Rechnung und die Meldung war offen.
+  if(String(id).startsWith('offline_')){
+    toast('⚠️ Diese Meldung ist noch nicht hochgeladen — sobald sie oben ist, '
+         +'kannst du sie als bearbeitet markieren', 7000, true);
+    flushQueue();
+    return;
+  }
+  // 2.65: .select() zurückverlangen und zählen. Trifft das update keine Zeile (Meldung
+  // inzwischen gelöscht, Rechte, falsche id), kommt ein leeres Ergebnis OHNE Fehler —
+  // genau die stille Lücke von oben. Dann wird weder lokal markiert noch weitergegeben.
+  const {data:aktualisiert,error}=await _sb.from('meldungen')
+    .update({bearbeitungs_status:'bearbeitet',verlauf:newVerlauf,gelesen_von:newGV})
+    .eq('id',id).select('id');
   if(error){
     toast('⚠️ Konnte nicht gespeichert werden ('+(error.message||'kein Netz')
           +') — bitte mit Netz noch einmal auf Bearbeitet drücken', 7000, true);
+    return;
+  }
+  if(!aktualisiert || !aktualisiert.length){
+    toast('⚠️ Diese Meldung gibt es auf dem Server nicht (mehr) — nichts geändert. '
+         +'Bitte die App neu laden', 7000, true);
     return;
   }
   const idx=MD.findIndex(x=>x.id===id);
@@ -4071,6 +4207,27 @@ function buildMeldChip(e){
   else if(typeof meinBlock==='string' && meinBlock) body.insertAdjacentHTML('beforeend',meinBlock);
   if(bearbeitenBtn instanceof Element) body.appendChild(bearbeitenBtn);
   else if(typeof bearbeitenBtn==='string' && bearbeitenBtn) body.insertAdjacentHTML('beforeend',bearbeitenBtn);
+
+  // 2.66: Ist es bereits bearbeitet, bietet die Karte dem, der es gedrückt hat
+  // (und IS), das Zurücknehmen an — zweistufig, damit es nicht aus Versehen passiert.
+  if(darfBearbeitetRueckgaengig(e)){
+    const rBox=document.createElement('div');
+    rBox.style.cssText='border-top:1px solid var(--bo);padding-top:6px;margin-top:4px';
+    const rBtn=document.createElement('button');
+    rBtn.textContent='↩ Bearbeitet zurücknehmen';
+    rBtn.style.cssText='font-size:11px;color:var(--mu);background:none;border:none;'
+      +'cursor:pointer;padding:2px 0;font-family:Barlow,sans-serif';
+    rBtn.onclick=()=>setBearbeitetRueckgaengig(eid, rBtn);
+    rBox.appendChild(rBtn);
+    const hinweis=istMontageMeldung(e)
+      ? 'Setzt auch den Auftrag im Angebote-Reiter zurück in die Montage.'
+      : 'Die Meldung steht danach wieder bei allen Zugewiesenen zur Bearbeitung an.';
+    const rTxt=document.createElement('div');
+    rTxt.style.cssText='font-size:10px;color:#94a3b8;line-height:1.4;margin-top:2px';
+    rTxt.textContent=hinweis;
+    rBox.appendChild(rTxt);
+    body.appendChild(rBox);
+  }
 
   if(kannBearbeiten){
     const bBox=document.createElement('div');bBox.className='bearb-box';
@@ -9164,7 +9321,17 @@ async function flushQueueIntern(){
     // überschreibt ein alter Stand die gerade direkt gespeicherten Werte.
     if(!getQueue().some(x=>x.qid===item.qid)) continue;
     try{
-      if(item.type==='meldung'){const {error}=await _sb.from('meldungen').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
+      if(item.type==='meldung'){
+        // 2.65: Die vergebene id zurückholen und überall nachziehen, wo die vorläufige
+        // noch steht — lokal in MD und als meld_id im Auftragsdurchlauf. Sonst zeigt der
+        // Auftrag dauerhaft auf eine id, die es nie gab, und muss sich beim Abschluss der
+        // Montage auf den Rückfallweg über die Firma verlassen.
+        const {data:neuM,error}=await _sb.from('meldungen').insert(item.data).select().single();
+        if(!error){
+          if(neuM && neuM.id && item.tmpId) await meldungIdNachziehen(item.tmpId, neuM.id);
+          removeFromQueue(item.qid);flushed++;
+        }
+      }
       else if(item.type==='chemie'){const {error}=await _sb.from('chemie').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
       else if(item.type==='frei'){const {error}=await _sb.from('freie_angebote').insert(item.data);if(!error){removeFromQueue(item.qid);flushed++;}}
       else if(item.type==='btb_entwurf_upsert'){
