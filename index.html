@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.67</title>
+<title>Meldungen &amp; Angebote 2.68</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -546,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.67</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.68</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.67';
+const APP_VERSION = '2.68';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -6032,6 +6032,21 @@ function btbEindickung(zDelta,aDelta){
   if(zDelta==null||aDelta==null||aDelta<=0||zDelta<=0)return null;
   return +(zDelta/aDelta).toFixed(1);
 }
+// 2.68: Eindickung eines Umlaufwerts gegen den Zusatzwasserwert derselben Größe —
+// °dH gegen °dH, LF gegen LF. Speisewasser 8 °dH und im Umlauf 24 °dH heißt 3-fach
+// eingedickt. Beide Seiten dürfen Rohtexte sein („< 2000", „14,5", „10-20"), die Zahl
+// wird mit btbMesswertLesen herausgeholt — sonst ergäbe „< 2000" keine Eindickung.
+function btbEindickungGegen(messwert, basis){
+  const m=btbMesswertLesen(messwert).zahl;
+  const b=btbMesswertLesen(basis).zahl;
+  if(m==null||b==null||b<=0||m<=0) return null;
+  return +(m/b).toFixed(1);
+}
+// 2,5 → „2,5-fach" (deutsches Komma, wie überall sonst in der Anzeige)
+function btbFmtFach(x){
+  if(x==null) return '';
+  return String(x).replace('.',',')+'-fach';
+}
 function btbFmtDelta(d){
   if(d==null)return'';
   if(d<0)return' <span style="color:var(--rd);font-weight:700">⚠️ Neuer Zähler</span>';
@@ -7029,20 +7044,35 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
   // „Datum: Wert" unter dem Feld, genau wie es die Zähler schon machen. Jedes Feld wird
   // einzeln gesucht: fehlt beim letzten Besuch z.B. die Härte, steht trotzdem der letzte
   // bekannte Härtewert da, mit SEINEM Datum. Rohtext ("< 2000") hat Vorrang vor der Zahl.
-  const btbLetzterMesswert=(spalte, rohKey)=>{
+  // 2.68: Dahinter die Eindickung. Sind für die Anlage Zusatzwasserwerte erfasst, steht
+  // hinter dem letzten Messwert, wie stark er gegen das Speisewasser eingedickt war, und
+  // dahinter — live, während getippt wird — dieselbe Rechnung für den heutigen Wert:
+  //   „30.09: 16 · 2-fach · jetzt 3-fach"
+  // Grundlage ist der aktuell gespeicherte Zusatzwasserwert (er bleibt stehen, bis ihn
+  // jemand ändert, ist also auch der, der beim letzten Besuch galt). °dH rechnet gegen
+  // °dH, die drei LF-Felder gegen LF.
+  const btbLetzterMesswert=(spalte, rohKey, zwKey)=>{
+    const basis=zwKey?String(zwW[zwKey]||'').trim():'';
+    const jetztSpan=basis!==''
+      ? '<span class="btb-eind-jetzt" data-basis="'+esc(basis)+'"></span>' : '';
+    const huelle=(inhalt)=>inhalt
+      ? '<div class="btb-last-hint" style="white-space:normal;line-height:1.3">'+inhalt+'</div>' : '';
     const tr=(anlEintraege||[]).find(e=>{
       const roh=btbRohWerte(e)[rohKey];
       return (e && e[spalte]!=null) || (roh!=null && String(roh).trim()!=='');
     });
-    if(!tr) return '';
+    if(!tr) return huelle(jetztSpan);
     const txt=btbMesswertText(tr[spalte], btbRohWerte(tr)[rohKey]);
-    if(txt==null || String(txt).trim()==='') return '';
-    return '<div class="btb-last-hint">'+btbFmtTagMonat(tr.datum_btb)+': <b>'+esc(String(txt))+'</b></div>';
+    if(txt==null || String(txt).trim()==='') return huelle(jetztSpan);
+    const eindLetzt=btbEindickungGegen(txt, basis);
+    return huelle(btbFmtTagMonat(tr.datum_btb)+': <b>'+esc(String(txt))+'</b>'
+      +(eindLetzt!=null?' · <b>'+btbFmtFach(eindLetzt)+'</b>':'')
+      +jetztSpan);
   };
-  const letztDh =btbLetzterMesswert('dh','dh');
-  const letztLf =btbLetzterMesswert('lf_messung_ist','lf');
-  const letztLfi=btbLetzterMesswert('lf_geraet_ist','lfi');
-  const letztLfs=btbLetzterMesswert('lf_geraet_soll','lfs');
+  const letztDh =btbLetzterMesswert('dh','dh','dh');
+  const letztLf =btbLetzterMesswert('lf_messung_ist','lf','lf');
+  const letztLfi=btbLetzterMesswert('lf_geraet_ist','lfi','lf');
+  const letztLfs=btbLetzterMesswert('lf_geraet_soll','lfs','lf');
   const letzterMitWasser=anlEintraege.find(e=>e.zusatzwasser!=null);
   const prevHinweis=letzterMitWasser
     ?'<div class="btb-last-hint" style="margin-top:3px;white-space:normal;line-height:1.3">'+btbFmtTagMonat(letzterMitWasser.datum_btb)+': <b>'+letzterMitWasser.zusatzwasser+' m³</b></div>':'';
@@ -7114,6 +7144,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     const hintLG=letzterLG?'<div class="btb-last-hint">'+btbFmtTagMonat(letzterLG.datum_btb)+': <b>'+letzterLG['p'+pn2+'_lager']+'</b></div>':'';
     const dInfo=di['p'+pn2]||{tage:[],menge:'',uhr:'',dauer:'',geaendert_am:null,block2Aktiv:false,tage2:[],menge2:'',uhr2:'',dauer2:'',geaendert_am2:null};
     let dosierHtml='';
+    let sollRow='';           // 2.68: Soll Verbrauch / Soll Vorgef. / Δ Vorgef. — eigene Zeile unter „Nachbestellen"
     let sollVorgefunden=null; // wird unten befüllt, falls hasDosier — für Live-Delta-Berechnung gebraucht
     if(hasDosier){
       const block1Html=btbBuildDosierZeile(pn2,'',dInfo,colorMap,TAGE,anlEintraege,dv,today,nowT);
@@ -7128,17 +7159,23 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       const letztesNeuEintrag=anlEintraege.find(e=>e['p'+pn2+'_neu']!=null);
       const letztesNeu=letztesNeuEintrag?letztesNeuEintrag['p'+pn2+'_neu']:null;
       sollVorgefunden=(letztesNeu!=null && gesamtSoll!=null)?+(letztesNeu-gesamtSoll).toFixed(2):null;
-      const sollVorgefRow='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">'
-        +'<div class="btb-feld" style="width:76px"><div class="btb-feld-lbl" style="color:#7c3aed">Soll Vorgef.</div>'
+      // 2.68: Die drei Rechenfelder stehen jetzt direkt bei den Füllwerten — Soll Verbrauch,
+      // was danach im Behälter stehen müsste, und die Abweichung zum wirklich Vorgefundenen.
+      // Nur so lässt sich das, was der Techniker gerade einträgt, sofort einordnen.
+      // „Soll Verbrauch" rechnet BEIDE Dosierzeiten zusammen (vorher stand je Zeitblock ein
+      // eigenes Teil-Soll unten bei den Dosiertagen).
+      sollRow='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:7px;padding-top:7px;border-top:1px dashed '+colorMap[pn2]+'33">'
+        +'<div class="btb-feld" style="width:112px"><div class="btb-feld-lbl" style="color:#7c3aed;white-space:nowrap">Soll Verbrauch</div>'
+        +'<input type="text" readonly class="btb-soll-verbrauch" data-pnr="'+pn2+'" value="'+(gesamtSoll!=null?gesamtSoll.toFixed(1).replace('.',',')+' L':'–')+'" style="font-size:16px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:7px;cursor:default"></div>'
+        +'<div class="btb-feld" style="width:98px"><div class="btb-feld-lbl" style="color:#7c3aed;white-space:nowrap">Soll Vorgef.</div>'
         +'<input type="text" readonly value="'+(sollVorgefunden!=null?sollVorgefunden:'–')+'" style="font-size:16px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:7px;cursor:default"></div>'
-        +'<div class="btb-feld" style="width:76px"><div class="btb-feld-lbl" style="color:'+colorMap[pn2]+'">Δ Vorgef.</div>'
-        +'<input type="text" readonly class="btb-delta-vorgef" data-pnr="'+pn2+'" data-soll="'+(sollVorgefunden!=null?sollVorgefunden:'')+'" value="–" style="font-size:16px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:'+bgMap[pn2]+';color:'+colorMap[pn2]+';border:1.5px solid '+colorMap[pn2]+'55;border-radius:7px;cursor:default"></div>'
+        +'<div class="btb-feld" style="width:82px"><div class="btb-feld-lbl" style="color:'+colorMap[pn2]+';white-space:nowrap">Δ Vorgef.</div>'
+        +'<input type="text" readonly class="btb-delta-vorgef" data-pnr="'+pn2+'" data-soll="'+(sollVorgefunden!=null?sollVorgefunden:'')+'" value="–" style="font-size:16px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#fff;color:'+colorMap[pn2]+';border:1.5px solid '+colorMap[pn2]+'55;border-radius:7px;cursor:default"></div>'
         +'</div>';
 
       dosierHtml='<div style="margin-top:7px;padding-top:7px;border-top:1px solid '+colorMap[pn2]+'33">'
         +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:800;color:'+colorMap[pn2]+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Dosiertage</div>'
         +block1Html
-        +sollVorgefRow
         +'<label style="display:flex;align-items:center;gap:6px;margin-top:7px;cursor:pointer;font-size:11px;font-weight:700;color:'+colorMap[pn2]+'">'
         +'<input type="checkbox" class="btb-dosier-block2-toggle" data-pnr="'+pn2+'" data-dosier="p'+pn2+'b2" '+(dInfo.block2Aktiv?'checked':'')+' style="width:15px;height:15px;accent-color:'+colorMap[pn2]+'">'
         +'+ 2. Dosierzeit (an anderen Tagen)</label>'
@@ -7183,6 +7220,7 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
           +(bd.an?'<span style="font-size:10px;color:var(--mu);font-weight:700;white-space:nowrap">bei FERTIG</span>':'')
           +'</label>';
       })()
+      +sollRow
       +dosierHtml+(istP3?'</div>':'')+'</div>';
   });
 
@@ -7558,6 +7596,20 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
     });
     if(el.value!=='') el.dispatchEvent(new Event('input')); // initial anzeigen, falls VG schon vorbelegt ist
   });
+  // 2.68: Eindickung „jetzt" — rechnet mit, während der Techniker den Umlaufwert tippt.
+  // Der Zusatzwasserwert steht in data-basis am Span, es wird also nichts nachgeschlagen.
+  // malen() wird direkt aufgerufen (kein künstliches input-Event), damit ein Wert aus dem
+  // Entwurf sofort mit Eindickung dasteht und keine fremden Handler mitlaufen.
+  form.querySelectorAll('.btb-mess').forEach(el=>{
+    const span=el.parentElement&&el.parentElement.querySelector('.btb-eind-jetzt');
+    if(!span) return;
+    const malen=()=>{
+      const e2=btbEindickungGegen(el.value, span.dataset.basis);
+      span.innerHTML = e2!=null ? ' · jetzt <b>'+btbFmtFach(e2)+'</b>' : '';
+    };
+    el.addEventListener('input', malen);
+    malen();
+  });
   // Dosier-Checkboxen via addEventListener (nach innerHTML= sicher registrierbar)
   form.querySelectorAll('[data-dosier]').forEach(el=>{
     el.addEventListener('change',()=>btbSaveDosierFromForm(form,id,k,slug));
@@ -7784,8 +7836,10 @@ function btbBuildDosierZeile(pn2, suffix, dInfoBlock, colorMap, TAGE, anlEintrae
       +' style="width:15px;height:15px;accent-color:'+colorMap[pn2]+';margin:0">'
       +t.l+'</label>';
   }).join('');
-  const dosSoll=btbBerechneSoll(anlEintraege,dInfoBlock,dv.datum||today,dv.uhr||nowT);
-  const dosSollVal=dosSoll!=null?dosSoll.toFixed(1)+'L':'–';
+  // 2.68: Das Soll-Feld steht nicht mehr hier, sondern — als „Soll Verbrauch" und über
+  // beide Dosierzeiten zusammengerechnet — oben bei den Füllwerten, wo es hingehört.
+  // anlEintraege/dv/today/nowT bleiben in der Signatur, damit beide Aufrufstellen
+  // unverändert bleiben; gebraucht werden sie hier nicht mehr.
   const seitTxt=dInfoBlock.geaendert_am?('seit '+btbFmtDatumDE(dInfoBlock.geaendert_am)):'';
   return '<div class="btb-dosier-seit" data-pnr="'+pn2+'" data-block="'+(suffix||'1')+'" style="font-size:9px;color:#94a3b8;font-style:italic;text-align:right;margin-bottom:3px">'+seitTxt+'</div>'
     +'<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'+tageChecks+'</div>'
@@ -7796,8 +7850,6 @@ function btbBuildDosierZeile(pn2, suffix, dInfoBlock, colorMap, TAGE, anlEintrae
     +'<input type="number" step="1" data-dosier="p'+pn2+'dauer'+suffix+'" value="'+(dInfoBlock.dauer||'')+'" placeholder="min" style="font-size:16px!important;padding:5px 4px!important;font-weight:700;text-align:center;width:100%;box-sizing:border-box"></div>'
     +'<div class="btb-feld" style="width:74px"><div class="btb-feld-lbl">pro Dos. (L)</div>'
     +'<input type="number" step="0.01" data-dosier="p'+pn2+'dos'+suffix+'" value="'+(dInfoBlock.menge||'')+'" placeholder="L" style="font-size:16px!important;padding:5px 4px!important;font-weight:700;text-align:center;width:100%;box-sizing:border-box"></div>'
-    +'<div class="btb-feld" style="width:84px"><div class="btb-feld-lbl" style="color:#7c3aed">Soll s.l. BTB</div>'
-    +'<input type="text" readonly value="'+dosSollVal+'" style="font-size:16px!important;padding:5px 4px!important;font-weight:800;text-align:center;width:100%;box-sizing:border-box;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:7px;cursor:default"></div>'
     +'</div>';
 }
 
