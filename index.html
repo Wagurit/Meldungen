@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.70</title>
+<title>Meldungen &amp; Angebote 2.71</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -546,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.70</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.71</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.70';
+const APP_VERSION = '2.71';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1948,8 +1948,10 @@ async function auftragSpeichern(id, auftrag){
   const patch=Object.assign({}, mitnehmen, {auftrag});
   let fehler=null;
   if(isOnline()){
-    const {error}=await _sb.from('freie_angebote').update(patch).eq('id',id);
-    if(error) fehler=error;
+    // 2.71: nur ein bestätigter Treffer zählt (siehe btbAktualisiere)
+    const r=await btbAktualisiere('freie_angebote', patch, id);
+    if(r.error) fehler=r.error;
+    else if(!r.getroffen) fehler={message:'Angebot noch nicht auf dem Server', code:'KEINE_ZEILE'};
     // 2.70: Gelungen → ältere Auftrags-Stände in der Warteschlange sind erledigt (ihre
     // übrigen Felder sind eben mit hochgegangen). Bis 2.69 blieben sie liegen und wurden
     // danach hochgeladen — mit einem ÄLTEREN Auftragsstand. So überschrieb nach einem
@@ -1984,8 +1986,9 @@ async function auftragStarten(id, montage, aufLager, zuwMontage, kommentar, abNr
   if(idx>-1) Object.assign(FR[idx], patch);
   let fehler=null;
   if(isOnline()){
-    const {error}=await _sb.from('freie_angebote').update(Object.assign({},patch,{auftrag:a})).eq('id',id);
-    if(error) fehler=error;
+    const r=await btbAktualisiere('freie_angebote', Object.assign({},patch,{auftrag:a}), id);   // 2.71
+    if(r.error) fehler=r.error;
+    else if(!r.getroffen) fehler={message:'Angebot noch nicht auf dem Server', code:'KEINE_ZEILE'};
   }
   if(!isOnline()||fehler){
     if(btbIstSchemaFehler(fehler)){ btbMeldeSchemaFehler(fehler,'auftrag'); return; }
@@ -3318,8 +3321,16 @@ async function btbSpeichereAnlagen(){
       const e=(k.entwuerfe||[]).find(x=>x.anlage===alt);
       return e?{id:e.id, neu}:null;
     }).filter(Boolean);
+    // 2.71: Als upsert mit allen Feldern — ein offline angelegter, noch nicht hochgeladener
+    // Entwurf wäre mit update({anlage}) nicht getroffen worden und später unter dem ALTEN
+    // Namen hochgeladen worden. Lokal wird der Name gleich mitgezogen.
     for(const {id:eid2, neu} of zuBenennen){
-      await _sb.from('btb_entwurf').update({anlage:neu}).eq('id',eid2);
+      const e=(k.entwuerfe||[]).find(x=>x.id===eid2); if(!e) continue;
+      e.anlage=neu;
+      const d={id:eid2, kunde_id:k.id, anlage:neu, felder:e.felder, kuerzel:e.kuerzel||kz};
+      let fe=null; try{ ({error:fe}=await btbEntwurfHochladen(d)); }catch(x){ fe=x; }
+      btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===eid2);
+      if(fe) addToQueue({type:'btb_entwurf_upsert', data:d});
     }
   } else {
     addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch}});
@@ -6049,15 +6060,20 @@ async function btbPropagateSharedMeter(k, anlageName, typ, wert, datum, uhr){
     const neueFelder=Object.assign({datum,uhr}, pEntwurf?pEntwurf.felder:{}, {[feldName]:wert});
     if(pEntwurf){ pEntwurf.felder=neueFelder; }
     else { k.entwuerfe.push({id:pId, anlage:partnerName, felder:neueFelder, kuerzel:kz}); }
+    const d={id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz};
+    // 2.71: upsert mit Bestätigung. Vorher: update auf einen offline angelegten Partner-
+    // Entwurf traf null Zeilen, und weil das kein Fehler war, wurde auch nichts eingereiht.
+    // Außerdem lieferte Supabase Fehler als Rückgabewert, nicht als Ausnahme — der catch
+    // griff also nie, ein abgelehnter Schreibvorgang verschwand spurlos.
+    let fehler=null;
     if(isOnline()){
-      try{
-        if(pEntwurf) await _sb.from('btb_entwurf').update({felder:neueFelder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',pId);
-        else await _sb.from('btb_entwurf').insert({id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz});
-      }catch(e){
-        addToQueue({type:'btb_entwurf_upsert', data:{id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz}});
-      }
+      try{ ({error:fehler}=await btbEntwurfHochladen(d)); }catch(e){ fehler=e; }
+    }
+    if(!isOnline()||fehler){
+      btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===pId);
+      addToQueue({type:'btb_entwurf_upsert', data:d});
     } else {
-      addToQueue({type:'btb_entwurf_upsert', data:{id:pId,kunde_id:k.id,anlage:partnerName,felder:neueFelder,kuerzel:kz}});
+      btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===pId);
     }
   }
 }
@@ -7572,9 +7588,9 @@ function buildBtbForm(k, anlageName, anlEintraege, entwurf){
       zwwSave.disabled=true;
       let fehler=null;
       if(isOnline()){
-        const {error}=await _sb.from('kbe_kunden').update({zusatzwasser_werte:neuJson}).eq('id',id);
-        fehler=error;
-        if(btbMeldeSchemaFehler(error,'Zusatzwasserwerte')){ zwwSave.disabled=false; return; }
+        const r=await btbAktualisiere('kbe_kunden', {zusatzwasser_werte:neuJson}, id);   // 2.71
+        fehler=r.error || (r.getroffen?null:{message:'Kunde noch nicht auf dem Server', code:'KEINE_ZEILE'});
+        if(btbMeldeSchemaFehler(r.error,'Zusatzwasserwerte')){ zwwSave.disabled=false; return; }
       }
       if(!isOnline()||fehler){
         btbEntferneUeberholteQueue('kbe_kunden_update',
@@ -7958,7 +7974,10 @@ async function btbSpeichereDosierFalls(k, still){
   const alleInfo=k.dosier_info||{};
   delete _dosierOffen[k.id];
   if(isOnline()){
-    const {error}=await _sb.from('kbe_kunden').update({dosier_info:alleInfo}).eq('id',k.id);
+    // 2.71: nur ein bestätigter Treffer zählt — sonst würden unten eingereihte ältere
+    // Dosierdaten verworfen, obwohl auf dem Server nichts angekommen ist
+    const r=await btbAktualisiere('kbe_kunden', {dosier_info:alleInfo}, k.id);
+    const error=r.error || (r.getroffen?null:{message:'Kunde noch nicht auf dem Server', code:'KEINE_ZEILE'});
     if(btbMeldeSchemaFehler(error,'Dosierdaten')) return false;   // 2.41
     if(error){
       addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{dosier_info:alleInfo}}});
@@ -8066,10 +8085,12 @@ async function btbSpeichereProduktnamen(k, anlageName, form, still){
   btbSaveSnapshot();
   let ok=false;
   if(isOnline()){
-    const {error}=await _sb.from('kbe_kunden').update({produkt_namen_pro_anlage:alle}).eq('id',k.id);
+    // 2.71: nur ein bestätigter Treffer zählt
+    const r=await btbAktualisiere('kbe_kunden', {produkt_namen_pro_anlage:alle}, k.id);
+    const error=r.error;
     // 2.41: fehlende Spalte → melden statt endlos einreihen
     if(btbMeldeSchemaFehler(error,'Produktbezeichnungen')) return;
-    ok=!error;
+    ok=!error && r.getroffen;
   }
   if(!ok){
     addToQueue({type:'kbe_kunden_update', data:{id:k.id, patch:{produkt_namen_pro_anlage:alle}}});
@@ -8190,12 +8211,13 @@ async function saveBtbEntwurf(k, anlageName, formEl, scrollNachSpeichern=true){
   const online=isOnline();
   let fehler=null;
   if(online){
+    // 2.71: upsert statt „lokal vorhanden ⇒ update". Ein offline angelegter Entwurf ist
+    // lokal vorhanden, auf dem Server aber noch nicht — das update traf dann null Zeilen,
+    // galt als Erfolg, und unten wurde der noch nicht hochgeladene Eintrag aus der
+    // Warteschlange geworfen. Die Anlage war damit überall weg.
     try{
-      if(vorhanden){
-        ({error:fehler}=await btbMitTimeout(_sb.from('btb_entwurf').update({felder,kuerzel:kz,aktualisiert_am:'now()'}).eq('id',entwurfId), 8000));
-      } else {
-        ({error:fehler}=await btbMitTimeout(_sb.from('btb_entwurf').insert({id:entwurfId,kunde_id:id,anlage:anlageName,felder,kuerzel:kz}), 8000));
-      }
+      ({error:fehler}=await btbMitTimeout(
+        btbEntwurfHochladen({id:entwurfId, kunde_id:id, anlage:anlageName, felder, kuerzel:kz}), 8000));
     }catch(e){ fehler=e; }
   }
   if(!online || fehler){
@@ -8704,6 +8726,45 @@ const BTB_ENTW_DEL_KEY='rkw_btb_entwurf_geloescht';
 function btbVerworfeneEntwuerfe(){
   try{ const a=JSON.parse(localStorage.getItem(BTB_ENTW_DEL_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; }
 }
+// ══════════════════════════════════════════════════════════
+// 2.71: UPDATE, DAS INS LEERE GEHT
+// Ein UPDATE, das keine Zeile trifft, liefert bei Supabase KEINEN Fehler. Für die App heißt
+// „keine Zeile getroffen" aber fast immer: der Datensatz ist noch gar nicht auf dem Server —
+// offline angelegt, die Warteschlange ist noch nicht durch. Bis 2.70 galt das als Erfolg:
+// Erfolgsmeldung, und danach flog der noch nicht hochgeladene Eintrag als „überholt" aus der
+// Warteschlange. So sind beim Techniker am 23.11.2026 ganze Kunden verloren gegangen
+// (Schmidhaus ab Anlage 2, Lebronce komplett). Dieselbe Falle wie 2.65 bei Ernst Apparate.
+// ══════════════════════════════════════════════════════════
+// Gibt {error, getroffen} zurück. getroffen=false ohne error heißt: noch nicht auf dem Server.
+async function btbAktualisiere(tabelle, patch, id){
+  const {data, error}=await _sb.from(tabelle).update(patch).eq('id',id).select('id');
+  if(error) return {error, getroffen:false};
+  return {error:null, getroffen:!!(data&&data.length)};
+}
+// Liegt das ANLEGEN dieses Datensatzes noch in der Warteschlange? Dann ist ein Update, das
+// ins Leere geht, nur zu früh dran und muss liegen bleiben, statt verworfen zu werden.
+function btbAnlegenAusstehend(tabelle, id){
+  return getQueue().some(x=>{
+    const d=x.data||{};
+    if(tabelle==='btb_eintraege')  return x.type==='btb_fertig' && (d.rows||[]).some(r=>r.id===id);
+    if(tabelle==='kbe_kunden')     return x.type==='kbe_kunden_insert' && d.id===id;
+    if(tabelle==='kbe_eintraege')  return x.type==='kbe_eintrag_insert' && d.id===id;
+    if(tabelle==='freie_angebote') return x.type==='frei' && x.tmpId===id;
+    if(tabelle==='btb_entwurf')    return x.type==='btb_entwurf_upsert' && d.id===id;
+    return false;
+  });
+}
+// Entwurf schreiben: IMMER als upsert (anlegen ODER aktualisieren). Ein Entwurf trägt alle
+// seine Felder bei sich, es gibt also keinen Grund, zwischen insert und update zu raten —
+// genau dieses Raten (lokal vorhanden ⇒ update) war der Fehler.
+async function btbEntwurfHochladen(d){
+  const zeile={id:d.id, kunde_id:d.kunde_id, anlage:d.anlage, felder:d.felder, kuerzel:d.kuerzel,
+               aktualisiert_am:new Date().toISOString()};
+  const {data, error}=await _sb.from('btb_entwurf').upsert(zeile).select('id');
+  if(error) return {error};
+  if(!data||!data.length) return {error:{message:'Entwurf wurde vom Server nicht bestätigt', code:'KEINE_ZEILE'}};
+  return {error:null};
+}
 // 2.69: Unterscheidet „die Tabelle gibt es nicht" (harmlos, frische Datenbank) von
 // „die Abfrage ist schiefgegangen" (gefährlich — darf nie als leeres Ergebnis durchgehen).
 function btbTabelleFehlt(err){
@@ -8966,6 +9027,17 @@ async function btbSaveEdit(eid, kid){
       + '.\n\nTrotzdem auf dieses Datum ändern? Dann steht der Besuch doppelt.')) return;
   }
 
+  // 2.71 — ABSTURZ BEHOBEN: Dieser Block stand bis 2.70 HINTER dem Snapshot-Teil, der
+  // rohEdit schon benutzt. Ein mit const angelegter Name ist vor seiner Zeile nicht
+  // ansprechbar — jedes Speichern im Bearbeiten-Fenster brach mit „Cannot access 'rohEdit'
+  // before initialization" ab (mindestens seit 2.55), und die Korrektur ging verloren.
+  // 2.47: Messwerte über den Parser — „< 2000" bleibt als Rohtext erhalten
+  const mLF=btbMesswertLesen(toStr('edit-lf')), mDH=btbMesswertLesen(toStr('edit-dh'));
+  const mLFI=btbMesswertLesen(toStr('edit-lfi')), mLFS=btbMesswertLesen(toStr('edit-lfs'));
+  const rohEdit={};
+  if(mLF.roh) rohEdit.lf=mLF.roh;  if(mDH.roh) rohEdit.dh=mDH.roh;
+  if(mLFI.roh) rohEdit.lfi=mLFI.roh;  if(mLFS.roh) rohEdit.lfs=mLFS.roh;
+
   // 2.40: Bezeichnungen im Eintrags-Snapshot mitschreiben (bestimmen Historie/Nachweis/Excel)
   let snapNeu=null;
   if(G('edit-pn1')||G('edit-pn2')||G('edit-pn3')||G('edit-lf')||G('edit-dh')){
@@ -8989,12 +9061,6 @@ async function btbSaveEdit(eid, kid){
     else delete snapNeu.namen;   // alle leer → wieder die aktuelle Kundenangabe verwenden
   }
 
-  // 2.47: Messwerte über den Parser — „< 2000" bleibt als Rohtext erhalten
-  const mLF=btbMesswertLesen(toStr('edit-lf')), mDH=btbMesswertLesen(toStr('edit-dh'));
-  const mLFI=btbMesswertLesen(toStr('edit-lfi')), mLFS=btbMesswertLesen(toStr('edit-lfs'));
-  const rohEdit={};
-  if(mLF.roh) rohEdit.lf=mLF.roh;  if(mDH.roh) rohEdit.dh=mDH.roh;
-  if(mLFI.roh) rohEdit.lfi=mLFI.roh;  if(mLFS.roh) rohEdit.lfs=mLFS.roh;
 
   const payload={
     datum_btb: neuesDatum,
@@ -9026,7 +9092,11 @@ async function btbSaveEdit(eid, kid){
 
   let ok=false;
   if(isOnline()){
-    const {error}=await _sb.from('btb_eintraege').update(payload).eq('id',eid);
+    // 2.71: Ein Eintrag aus einem offline gedrückten FERTIG ist lokal da, auf dem Server
+    // aber erst nach dem Hochladen. Eine Korrektur davor traf null Zeilen, galt als Erfolg,
+    // und das spätere Hochladen schrieb den UNKORRIGIERTEN Stand. Jetzt wird sie eingereiht.
+    const r=await btbAktualisiere('btb_eintraege', payload, eid);
+    const error=r.error || (r.getroffen?null:{message:'Eintrag noch nicht auf dem Server', code:'KEINE_ZEILE'});
     if(error && !btbIstSchemaFehler(error)){
       // echter Übertragungsfehler → einreihen, nicht verlieren
       addToQueue({type:'btb_eintrag_update', data:{id:eid, kunde_id:kid, patch:payload}});
@@ -9459,6 +9529,17 @@ async function flushQueue(){
   _flushPromise=(async()=>{ try{ await flushQueueIntern(); } finally { _flushPromise=null; } })();
   return _flushPromise;
 }
+// 2.71: Ergebnis eines Updates beim Hochladen auswerten. Traf es keine Zeile:
+//   · wartet das Anlegen des Datensatzes noch in der Warteschlange → liegen lassen,
+//     nächster Durchlauf (vorher wurde es verworfen und die Korrektur ging verloren)
+//   · sonst gibt es den Datensatz nicht (mehr) → erledigt, wie bisher, aber vermerkt
+function btbUpdateErledigt(r, tabelle, id, art){
+  if(r.error) return false;
+  if(r.getroffen) return true;
+  if(btbAnlegenAusstehend(tabelle, id)){ console.log('Warteschlange: '+art+' wartet auf das Anlegen von', id); return false; }
+  console.warn('Warteschlange: '+art+' — Datensatz nicht (mehr) vorhanden, verworfen:', id);
+  return true;
+}
 async function flushQueueIntern(){
   const q=getQueue();if(!q.length)return;let flushed=0;
   for(const item of q){
@@ -9486,7 +9567,8 @@ async function flushQueueIntern(){
         const d=item.data;
         // 2.45: inzwischen verworfen → nicht wieder in die Datenbank schreiben
         if(btbEntwurfVerworfen(d.id)){ removeFromQueue(item.qid); continue; }
-        const {error}=await _sb.from('btb_entwurf').upsert({id:d.id,kunde_id:d.kunde_id,anlage:d.anlage,felder:d.felder,kuerzel:d.kuerzel});
+        // 2.71: mit Bestätigung, dass die Zeile wirklich geschrieben wurde
+        const {error}=await btbEntwurfHochladen(d);
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='btb_fertig'){
@@ -9538,9 +9620,9 @@ async function flushQueueIntern(){
         const d=item.data;
         if(btbIstGeloescht(d.id)){ removeFromQueue(item.qid); }   // Eintrag inzwischen gelöscht
         else {
-          const {error}=await _sb.from('btb_eintraege').update(d.patch).eq('id',d.id);
-          if(btbIstSchemaFehler(error)) btbMeldeSchemaFehler(error, Object.keys(d.patch||{}).join(', '));
-          else if(!error){removeFromQueue(item.qid);flushed++;}
+          const r=await btbAktualisiere('btb_eintraege', d.patch, d.id);
+          if(btbIstSchemaFehler(r.error)) btbMeldeSchemaFehler(r.error, Object.keys(d.patch||{}).join(', '));
+          else if(btbUpdateErledigt(r,'btb_eintraege',d.id,'BTB-Korrektur')){removeFromQueue(item.qid);flushed++;}
         }
       }
       else if(item.type==='btb_eintrag_delete'){
@@ -9578,7 +9660,8 @@ async function flushQueueIntern(){
         }
       }
       else if(item.type==='kbe_kunden_update'){
-        const {error}=await _sb.from('kbe_kunden').update(item.data.patch).eq('id',item.data.id);
+        const r=await btbAktualisiere('kbe_kunden', item.data.patch, item.data.id);   // 2.71
+        const error=r.error;
         // 2.43-FIX: 2.41 hat solche Einträge VERWORFEN. Das war zu scharf: PGRST204
         // („Spalte nicht im Schema-Cache") tritt auch vorübergehend auf — direkt nach einem
         // ALTER TABLE, solange PostgREST das Schema nicht neu geladen hat. In diesem Fenster
@@ -9587,7 +9670,7 @@ async function flushQueueIntern(){
         if(btbIstSchemaFehler(error)){
           btbMeldeSchemaFehler(error, Object.keys(item.data.patch||{}).join(', '));
         }
-        else if(!error){removeFromQueue(item.qid);flushed++;}
+        else if(btbUpdateErledigt(r,'kbe_kunden',item.data.id,'Kundendaten')){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='kbe_eintrag_insert'){
         const d=item.data;
@@ -9596,8 +9679,8 @@ async function flushQueueIntern(){
       }
       else if(item.type==='kbe_eintrag_update'){
         const d=item.data;
-        const {error}=await _sb.from('kbe_eintraege').update({werte:d.werte,kuerzel:d.kuerzel}).eq('id',d.id);
-        if(!error){removeFromQueue(item.qid);flushed++;}
+        const r=await btbAktualisiere('kbe_eintraege', {werte:d.werte,kuerzel:d.kuerzel}, d.id);   // 2.71
+        if(btbUpdateErledigt(r,'kbe_eintraege',d.id,'KBE-Korrektur')){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='kbe_kunden_insert'){
         // Fehlte bisher — offline angelegte Kunden ("+ Neuer Kunde") wurden dadurch nie
@@ -9616,8 +9699,8 @@ async function flushQueueIntern(){
         if(!error){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='frei_update'){
-        const {error}=await _sb.from('freie_angebote').update(item.data.patch).eq('id',item.data.id);
-        if(!error){removeFromQueue(item.qid);flushed++;}
+        const r=await btbAktualisiere('freie_angebote', item.data.patch, item.data.id);   // 2.71
+        if(btbUpdateErledigt(r,'freie_angebote',item.data.id,'Angebots-Änderung')){removeFromQueue(item.qid);flushed++;}
       }
       else if(item.type==='firma_rename'){
         const d=item.data;
