@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.68</title>
+<title>Meldungen &amp; Angebote 2.70</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -546,7 +546,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.68</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.70</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1075,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.68';
+const APP_VERSION = '2.70';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -1587,11 +1587,30 @@ async function loadAllEigentlich(){
     // anschließend den guten Offline-Stand. Jetzt: abbrechen, bisherigen Stand behalten.
     const ladeFehler=[m,c,f,k,ke,l,fav,wm,btb].map(r=>r&&r.error).filter(Boolean);
     if(ladeFehler.length) throw new Error('Daten konnten nicht vollständig geladen werden: '+ladeFehler[0].message);
-    // btb_entwurf separat laden — wenn Tabelle noch nicht existiert nicht abstürzen
-    const btbDraft = await _sb.from('btb_entwurf').select('*').then(r=>r).catch(()=>({data:[]}));
-    // btb_maengel_vorlagen (globale Mängel-Vorlagen) separat laden
-    const btbMaengel = await _sb.from('btb_maengel_vorlagen').select('*').order('text').then(r=>r).catch(()=>({data:[]}));
-    BTB_MAENGEL = btbMaengel.data||[];
+    // 2.69 — DATENVERLUST BEHOBEN. Die Entwürfe sind die noch nicht übertragene Arbeit des
+    // Technikers. Bis 2.68 wurden sie als EINZIGE Tabelle ungeprüft geladen: jeder Fehler
+    // (abgebrochene Anfrage beim Netzwechsel, Zeitüberschreitung im Hotspot, abgelaufenes
+    // Token) wurde durch .catch()/data||[] stillschweigend zu „es gibt keine Entwürfe".
+    // Danach lief btbSaveSnapshot() und hat den guten Offline-Stand mit genau dieser Leere
+    // überschrieben — die Arbeit war auf dem Gerät und auf dem Server nicht mehr auffindbar.
+    // Jetzt gilt für die Entwürfe dieselbe Regel wie für die neun Tabellen oben: im Fehlerfall
+    // abbrechen und den bisherigen Stand behalten. Nur eine wirklich fehlende Tabelle
+    // (frisch aufgesetzte Datenbank) bleibt harmlos.
+    let btbDraft;
+    try{ btbDraft = await _sb.from('btb_entwurf').select('*'); }
+    catch(e){ btbDraft = {data:null, error:{message:e&&e.message||'Anfrage fehlgeschlagen'}}; }
+    if(btbDraft && btbDraft.error && !btbTabelleFehlt(btbDraft.error)){
+      throw new Error('Entwürfe konnten nicht geladen werden: '+btbDraft.error.message);
+    }
+    // btb_maengel_vorlagen (globale Mängel-Vorlagen) separat laden.
+    // 2.69: Bei einer Störung die bisherigen Vorlagen behalten statt sie zu leeren — sonst
+    // steht der Techniker ohne Mängel-Auswahl da. Das blockiert den Ladevorgang aber nicht,
+    // weil es Stammdaten sind und keine Eingaben.
+    let btbMaengel;
+    try{ btbMaengel = await _sb.from('btb_maengel_vorlagen').select('*').order('text'); }
+    catch(e){ btbMaengel = {data:null, error:{message:e&&e.message||'Anfrage fehlgeschlagen'}}; }
+    if(btbMaengel && !btbMaengel.error && btbMaengel.data) BTB_MAENGEL = btbMaengel.data;
+    else if(!Array.isArray(BTB_MAENGEL)) BTB_MAENGEL = [];
     MD = (m.data||[]).map(mapMeld);
     CH = (c.data||[]).map(mapChem);
     FR = (f.data||[]).map(mapFrei);
@@ -1916,18 +1935,35 @@ function auftragStationNachKorrektur(a){
 async function auftragSpeichern(id, auftrag){
   const idx=FR.findIndex(x=>x.id===id);
   if(idx>-1) FR[idx].auftrag=auftrag;
+  // 2.70: Ältere, noch nicht hochgeladene Auftrags-Stände dieses Angebots werden ersetzt —
+  // aber ihre ÜBRIGEN Felder müssen mit. Bis 2.69 flog der ganze ältere Eintrag raus.
+  // Offline „Kunde hat bestellt" mit Einbau ging dadurch so verloren: auftragStarten reiht
+  // {beauftragt, beauftragt_kommentar, beauftragt_von, beauftragt_ts, auftrag} ein, die
+  // Montage-Meldung trägt danach die Meldungs-id nach — und dieser zweite Speichervorgang
+  // hat den ersten samt „bestellt" und Bestell-Kommentar ersetzt. Auf dem Server stand
+  // dann ein Auftrag ohne „bestellt".
+  const ueberholt=x=>x.type==='frei_update' && x.data && x.data.id===id && x.data.patch && x.data.patch.auftrag;
+  const mitnehmen={};
+  getQueue().filter(ueberholt).forEach(x=>{ Object.keys(x.data.patch).forEach(f=>{ if(f!=='auftrag') mitnehmen[f]=x.data.patch[f]; }); });
+  const patch=Object.assign({}, mitnehmen, {auftrag});
   let fehler=null;
   if(isOnline()){
-    const {error}=await _sb.from('freie_angebote').update({auftrag}).eq('id',id);
+    const {error}=await _sb.from('freie_angebote').update(patch).eq('id',id);
     if(error) fehler=error;
+    // 2.70: Gelungen → ältere Auftrags-Stände in der Warteschlange sind erledigt (ihre
+    // übrigen Felder sind eben mit hochgegangen). Bis 2.69 blieben sie liegen und wurden
+    // danach hochgeladen — mit einem ÄLTEREN Auftragsstand. So überschrieb nach einem
+    // Offline-Start die vorläufige Meldungs-id („offline_…") die gerade nachgezogene
+    // echte, und die Montage ließ sich nur noch über den Firmen-Rückfallweg zuordnen.
+    else btbEntferneUeberholteQueue('frei_update', ueberholt);
   }
   if(!isOnline()||fehler){
     if(btbIstSchemaFehler(fehler)){
       btbMeldeSchemaFehler(fehler,'auftrag');
       return false;   // Spalte fehlt → nicht einreihen, sonst staut es sich
     }
-    btbEntferneUeberholteQueue('frei_update', x=>x.data.id===id && x.data.patch && x.data.patch.auftrag);
-    addToQueue({type:'frei_update', data:{id, patch:{auftrag}}});
+    btbEntferneUeberholteQueue('frei_update', ueberholt);
+    addToQueue({type:'frei_update', data:{id, patch}});
   }
   renderF(); updB();
   return true;
@@ -2002,11 +2038,20 @@ async function auftragWegAendern(id, montage, aufLager){
   if(a.station==='fertig'){ toast('ℹ️ Der Auftrag ist abgeschlossen'); return; }
   a.montage=!!montage; a.auf_lager=!!aufLager;
   const neu=auftragStationNachKorrektur(a);
-  if(neu!==a.station){
+  const wechsel=neu!==a.station;
+  if(wechsel){
     a.station=neu;
     a.zuw = neu==='fertig' ? [] : (auftragStandardZuweisung(neu) || alleTechniker());
   }
   if(!await auftragSpeichern(id, a)) return;
+  // 2.70: Führt die Korrektur IN die Montage, brauchen die Techniker ihre Meldung — genau
+  // wie bei auftragWeiter. Bis 2.69 stand der Auftrag dann bei allen Technikern in der
+  // Montage, ohne dass einer davon erfuhr, und abschließen lässt sich eine Montage nur über
+  // diese Meldung (2.55). Es blieb nur der Notausgang „Montage von Hand abschließen".
+  if(wechsel && a.station==='montage'){
+    const mid=await auftragMeldung(e, a, '');
+    if(mid){ a.meld_id=mid; await auftragSpeichern(id, a); }
+  }
   toast('🔀 Weg geändert — jetzt '+ST_LABEL[a.station]+(a.zuw.length?' ('+a.zuw.join(', ')+')':''), 5000);
 }
 
@@ -8332,6 +8377,16 @@ async function btbFertigZumBerechnen(kid){
     });
   });
   k.entwuerfe=k.entwuerfe.filter(e=>!entwurfIds.includes(e.id));
+  // 2.69: Noch nicht hochgeladene Zwischenspeicherungen GENAU DIESER Entwürfe aus der
+  // Warteschlange nehmen und sperren. Bis 2.68 blieben sie liegen: flushQueue() hat sie
+  // nach dem Abschicken wieder in btb_entwurf geschrieben und btbReconcileQueue() sie nach
+  // jedem Laden lokal wieder angehängt. Der Kunde stand danach erneut als Entwurf da — mit
+  // der Anlage gefüllt, die zufällig noch in der Warteschlange lag, und den übrigen leer.
+  // Die Besuche sind mit FERTIG übertragen, der Entwurf ist damit erledigt.
+  entwurfIds.forEach(eid=>{
+    btbEntferneUeberholteQueue('btb_entwurf_upsert', x=>x.data.id===eid);
+    btbMerkeEntwurfVerworfen(eid);
+  });
   btbSaveSnapshot();
 
   const online=isOnline();
@@ -8648,6 +8703,14 @@ function btbIstGeloescht(eid){ return btbGeloeschteIds().includes(eid); }
 const BTB_ENTW_DEL_KEY='rkw_btb_entwurf_geloescht';
 function btbVerworfeneEntwuerfe(){
   try{ const a=JSON.parse(localStorage.getItem(BTB_ENTW_DEL_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; }
+}
+// 2.69: Unterscheidet „die Tabelle gibt es nicht" (harmlos, frische Datenbank) von
+// „die Abfrage ist schiefgegangen" (gefährlich — darf nie als leeres Ergebnis durchgehen).
+function btbTabelleFehlt(err){
+  const code=String((err&&err.code)||'');
+  const text=String((err&&err.message)||'').toLowerCase();
+  return code==='42P01' || code==='PGRST205' || code==='PGRST106'
+      || /does not exist|could not find the table|unknown relation/.test(text);
 }
 function btbMerkeEntwurfVerworfen(id){
   try{ const a=btbVerworfeneEntwuerfe(); if(!a.includes(id)) a.push(id);
