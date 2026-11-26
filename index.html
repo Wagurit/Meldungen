@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0369a1">
-<title>Meldungen &amp; Angebote 2.71</title>
+<title>Meldungen &amp; Angebote 2.73</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -420,6 +420,8 @@ textarea{resize:vertical;min-height:68px;}
 #nachweis-blatt .nw-txt b{letter-spacing:.02em;}
 #nachweis-blatt .nw-fuss{margin-top:24px;padding-top:9px;border-top:1px solid #b9c3cf;font-size:10.5px;color:#555;line-height:1.55;}
 #nachweis-blatt .nw-anlage{page-break-inside:avoid;break-inside:avoid;margin-bottom:6px;}
+/* 2.72: jede Anlage eine eigene Seite — am Bildschirm als gestrichelte Trennlinie */
+#nachweis-blatt .nw-umbruch{border-top:2px dashed #cbd5e1;margin:30px -30px 26px;}
 /* 2.43-FIX: Diese Regeln galten unbedingt. Da #nachweis-modal direktes body-Kind ist und
    display:block!important das inline gesetzte display:none schlägt, druckte JEDER Druckversuch
    irgendwo in der App das Nachweis-Blatt — und war es leer, eine weiße Seite. Jetzt nur noch,
@@ -431,6 +433,9 @@ textarea{resize:vertical;min-height:68px;}
   body.drucke-nachweis #nachweis-scroll{overflow:visible!important;padding:0!important;flex:none!important;}
   body.drucke-nachweis #nachweis-blatt{box-shadow:none!important;max-width:none!important;margin:0!important;padding:0!important;font-size:11.5pt;}
   @page{size:A4;margin:14mm 13mm;}
+  /* 2.72: beim Drucken/PDF beginnt jede Anlage auf einer neuen Seite */
+  body.drucke-nachweis #nachweis-blatt .nw-umbruch{border:none!important;margin:0!important;height:0;break-after:page;page-break-after:always;}
+  body.drucke-nachweis #nachweis-blatt .nw-umbruch+.nw-seite{break-before:page;page-break-before:always;}
 }
 .sync-dot{cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -546,7 +551,7 @@ textarea{resize:vertical;min-height:68px;}
 <!-- APP -->
 <div id="ap">
   <div class="hdr">
-    <div class="logo">Meldungen <span>&amp; Angebote 2.71</span></div>
+    <div class="logo">Meldungen <span>&amp; Angebote 2.73</span></div>
     <div class="hadmin" id="hadmin">ADMIN</div>
     <div class="sync-dot" id="sync-dot" title="Sync-Status"></div>
     <div class="hkz" id="hkz">–</div>
@@ -1075,7 +1080,7 @@ textarea{resize:vertical;min-height:68px;}
 // MUSS auch APP_VERSION hier mitgezogen werden, sonst wirkt dieser
 // Mechanismus nicht.
 // ══════════════════════════════════════════════════════════
-const APP_VERSION = '2.71';
+const APP_VERSION = '2.73';
 
 (function selfHealOnVersionMismatch(){
   try {
@@ -7029,7 +7034,7 @@ function buildBtbKarte(k, aktiveAnlageName, ohneEingabe){
         html+='<button class="btb-edit-btn" data-kid="'+k.id+'" data-anlage="'+esc(r.name)+'" data-eid="'+e.id+'">✏️ Bearbeiten</button>';
         html+='<button class="btb-del-btn" data-eid="'+e.id+'" data-kid="'+k.id+'">🗑 Löschen</button>';
         // 2.37: Nachweis für DIESEN Besuchstag — enthält alle Anlagen, die an dem Tag gemacht wurden
-        html+='<button class="btb-nw-btn" data-datum="'+esc(e.datum_btb)+'" data-kid="'+k.id+'" title="Nachweis für '+esc(e.datumFmt)+' — alle Anlagen dieses Tages">📄 Nachweis</button>';
+        html+='<button class="btb-nw-btn" data-datum="'+esc(e.datum_btb)+'" data-kid="'+k.id+'" title="Nachweis für '+esc(e.datumFmt)+' — je Anlage eine Seite mit aktuellem und vorherigem Protokoll">📄 Nachweis</button>';
         html+='</div>';
         eBox.innerHTML=html;
         // Event-Listener nach innerHTML= registrieren (zuverlässiger als inline onclick)
@@ -8548,7 +8553,10 @@ function btbNachweisDrucken(){ window.print(); }
 function btbNachweisWord(){
   const k=_nachweisKunde, datum=_nachweisDatum;
   if(!k){ toast('⚠️ Kein Nachweis geöffnet'); return; }
-  const inhalt=G('nachweis-blatt').innerHTML;
+  // 2.72: Word kennt den Druck-Seitenumbruch der App nicht — hier ein echter Word-Umbruch
+  const inhalt=G('nachweis-blatt').innerHTML
+    .split('<div class="nw-umbruch"></div>')
+    .join('<br clear="all" style="mso-special-character:line-break;page-break-before:always">');
   const stil='body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#111}'
     +'h1{font-size:16pt;margin:0 0 2pt}h2{font-size:12pt;margin:14pt 0 4pt;color:#0e7490;border-bottom:1.5pt solid #0891b2;padding-bottom:2pt}'
     +'table{width:100%;border-collapse:collapse;margin:4pt 0;font-size:9.5pt}'
@@ -8560,11 +8568,11 @@ function btbNachweisWord(){
     +'.nw-anlkopf small{font-size:8.5pt;color:#555}'
     +'.nw-fuss{margin-top:16pt;padding-top:5pt;border-top:0.75pt solid #b9c3cf;font-size:8pt;color:#555}';
   const doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">'
-    +'<head><meta charset="utf-8"><title>BTB-Nachweis '+esc(k.firma)+'</title>'
+    +'<head><meta charset="utf-8"><title>Eigenkontrolle-Nachweis '+esc(k.firma)+'</title>'
     +'<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->'
     +'<style>@page{size:A4;margin:1.5cm}'+stil+'</style></head><body>'+inhalt+'</body></html>';
   const blob=new Blob(['﻿'+doc], {type:'application/msword'});
-  btbDateiDownload(blob, 'BTB_Nachweis_'+btbDateiName(k.firma)+'_'+datum+'.doc');
+  btbDateiDownload(blob, 'Eigenkontrolle_Nachweis_'+btbDateiName(k.firma)+'_'+datum+'.doc');
   toast('📄 Word-Datei gespeichert');
 }
 function btbDateiName(t){ return String(t||'Kunde').replace(/[^A-Za-z0-9äöüÄÖÜß _-]/g,'').replace(/\s+/g,'_').slice(0,50); }
@@ -8583,28 +8591,9 @@ function nwZeile(label, wert, einheit){
   return '<tr><td class="nw-lbl">'+esc(label)+'</td><td class="z">'+esc(String(wert))+(einheit?' '+esc(einheit):'')+'</td></tr>';
 }
 
-function btbNachweisBlattHtml(k, datum, tagesEintraege){
-  const datumDE=btbFmtDatumDE(datum);
-  // Reihenfolge wie in der Anlagenliste des Kunden, Unbekannte hinten
-  const reihen=(k.rkws||[]).map(r=>r.name);
-  const sortiert=tagesEintraege.slice().sort((a,b)=>{
-    const ia=reihen.indexOf(a.anlage), ib=reihen.indexOf(b.anlage);
-    return (ia<0?999:ia)-(ib<0?999:ib);
-  });
-  const kuerzelAlle=[...new Set(sortiert.map(e=>e.kuerzel).filter(Boolean))].join(', ');
-
-  let h='<div class="nw-kopf"><div><h1>Betriebstagebuch – Nachweis</h1>'
-    + '<div style="font-size:12px;color:#555;letter-spacing:.04em">Wasseraufbereitung · Serviceeinsatz</div></div>'
-    + '<div class="nw-firma">'+esc(NACHWEIS_ABSENDER)+'</div></div>';
-
-  h+='<div class="nw-meta">'
-    + '<div><b>Kunde:</b> '+esc(k.firma)+'</div>'
-    + '<div><b>Datum:</b> '+esc(datumDE)+'</div>'
-    + '<div><b>Anlagen:</b> '+sortiert.length+'</div>'
-    + (kuerzelAlle?'<div><b>Servicetechniker:</b> '+esc(kuerzelAlle)+'</div>':'')
-    + '</div>';
-
-  sortiert.forEach(e=>{
+// 2.72: Ein Protokoll (ein Besuch einer Anlage) — Inhalt unverändert aus dem bisherigen Nachweis
+function btbNachweisProtokollHtml(k, e, titel){
+  let h='';
     const pnAktuell=btbGetProduktNamen(k, e.anlage);
     const namen=btbNamenFuerEintrag(e, pnAktuell);
     // Verbrauch seit dem letzten Besuch dieser Anlage (gleiche Berechnung wie in der Historie)
@@ -8615,7 +8604,7 @@ function btbNachweisBlattHtml(k, datum, tagesEintraege){
     const dZ=btbDelta(e.zusatzwasser,zPrev), dA=btbDelta(e.abwasser,aPrev);
     const eind=btbEindickung(dZ,dA);
 
-    h+='<div class="nw-anlage"><h2 class="nw-anlkopf"><span>'+esc(e.anlage)+'</span>'
+    h+='<div class="nw-anlage"><h2 class="nw-anlkopf"><span>'+esc(titel)+'</span>'
       + '<small>'+(e.kuerzel?'Techniker '+esc(e.kuerzel):'')+'</small></h2>';
 
     // Messwerte
@@ -8662,14 +8651,62 @@ function btbNachweisBlattHtml(k, datum, tagesEintraege){
     if(dos) h+='<div class="nw-txt"><b>Dosiereinstellung:</b> '+esc(dos)+'</div>';
     if(e.bemerkung) h+='<div class="nw-txt"><b>Bemerkung:</b> '+esc(e.bemerkung)+'</div>';
     h+='</div>';
-  });
-
-  h+='<div class="nw-fuss">Dieser Nachweis wurde am '
-    + new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})
-    + ' aus dem elektronischen Betriebstagebuch erzeugt'+(kz?' (Ausdruck: '+esc(kz)+')':'')+'.<br>'
-    + 'Die aufgeführten Werte wurden am '+esc(datumDE)+' vor Ort erfasst. „Vorgefunden" ist der Füllstand bei Ankunft, '
-    + '„Neu" der Füllstand nach dem Auffüllen.</div>';
   return h;
+}
+
+// 2.72: Vorheriges Protokoll derselben Anlage — der jüngste Besuch VOR diesem Datum
+function btbNachweisVorher(k, anlage, datum){
+  return (k.eintraege||[]).filter(x=>x.anlage===anlage && x.datum_btb<datum)
+    .sort((a,b)=>a.datum_btb<b.datum_btb?1:a.datum_btb>b.datum_btb?-1:0)[0]||null;
+}
+
+// 2.72: „14-tägige Eigenkontrolle – Nachweis". Jede Anlage, die an diesem Tag gemacht wurde,
+// bekommt eine EIGENE Seite — so lässt sich der Ausdruck jeder Anlage einzeln zuordnen. Auf
+// der Seite stehen das aktuelle Protokoll (oben) und darunter das vorherige dieser Anlage
+// (2.73, auf Wunsch so herum), also bei 14-tägigem Rhythmus rund ein Monat. Vorher: alle Anlagen des Tages
+// hintereinander auf einer bis zwei Seiten, nur das aktuelle Protokoll.
+function btbNachweisBlattHtml(k, datum, tagesEintraege){
+  const datumDE=btbFmtDatumDE(datum);
+  // Reihenfolge wie in der Anlagenliste des Kunden, Unbekannte hinten
+  const reihen=(k.rkws||[]).map(r=>r.name);
+  const anlagen=[...new Set(tagesEintraege.map(e=>e.anlage))].sort((a,b)=>{
+    const ia=reihen.indexOf(a), ib=reihen.indexOf(b);
+    return (ia<0?999:ia)-(ib<0?999:ib);
+  });
+  const heute=new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const seiten=anlagen.map(anlage=>{
+    const aktuelle=tagesEintraege.filter(e=>e.anlage===anlage);
+    const vorher=btbNachweisVorher(k, anlage, datum);
+    const protokolle=aktuelle.concat(vorher?[vorher]:[]);          // 2.73: aktuelles oben, vorheriges darunter
+    const kuerzel=[...new Set(protokolle.map(e=>e.kuerzel).filter(Boolean))].join(', ');
+    const zeitraum=vorher ? btbFmtDatumDE(vorher.datum_btb)+' – '+datumDE : datumDE;
+
+    let h='<div class="nw-seite">';
+    h+='<div class="nw-kopf"><div><h1>14-tägige Eigenkontrolle – Nachweis</h1>'
+      + '<div style="font-size:12px;color:#555;letter-spacing:.04em">Wasseraufbereitung · Serviceeinsatz</div></div>'
+      + '<div class="nw-firma">'+esc(NACHWEIS_ABSENDER)+'</div></div>';
+    h+='<div class="nw-meta">'
+      + '<div><b>Kunde:</b> '+esc(k.firma)+'</div>'
+      + '<div><b>Anlage:</b> '+esc(anlage)+'</div>'
+      + '<div><b>Zeitraum:</b> '+esc(zeitraum)+'</div>'
+      + (kuerzel?'<div><b>Servicetechniker:</b> '+esc(kuerzel)+'</div>':'')
+      + '</div>';
+
+    aktuelle.forEach(e=>{ h+=btbNachweisProtokollHtml(k, e, 'Aktuelles Protokoll vom '+datumDE); });
+    if(vorher) h+=btbNachweisProtokollHtml(k, vorher, 'Vorheriges Protokoll vom '+btbFmtDatumDE(vorher.datum_btb));
+    if(!vorher) h+='<div class="nw-txt" style="color:#555">Für diese Anlage liegt kein früheres Protokoll vor.</div>';
+
+    h+='<div class="nw-fuss">Dieser Nachweis wurde am '+heute
+      + ' aus dem elektronischen Betriebstagebuch erzeugt'+(kz?' (Ausdruck: '+esc(kz)+')':'')+'.<br>'
+      + 'Die aufgeführten Werte wurden an den genannten Tagen vor Ort erfasst. „Vorgefunden" ist der Füllstand bei Ankunft, '
+      + '„Neu" der Füllstand nach dem Auffüllen.</div>';
+    h+='</div>';
+    return h;
+  });
+  // Zwischen den Seiten eine Trennmarke: am Bildschirm eine Linie, beim Drucken ein
+  // Seitenumbruch, in der Word-Datei ein echter Word-Seitenumbruch
+  return seiten.join('<div class="nw-umbruch"></div>');
 }
 
 // Dosiertext für den Kunden — wie btbDosierLogText, aber ohne die internen Soll-Liter
